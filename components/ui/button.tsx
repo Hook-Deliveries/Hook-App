@@ -1,6 +1,6 @@
 import { Pressable, Text, type PressableProps } from 'react-native';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'hitArea' | 'blurredPill';
+type ButtonVariant = 'primary' | 'secondary' | 'surface' | 'ghost' | 'hitArea' | 'blurredPill';
 type ButtonSize = 'default' | 'icon' | 'wide' | 'auto';
 
 type ButtonProps = PressableProps & {
@@ -16,6 +16,7 @@ const baseButton = 'items-center justify-center';
 const buttonVariantClasses: Record<ButtonVariant, string> = {
   primary: 'bg-hook',
   secondary: 'bg-white',
+  surface: 'bg-hook-surface',
   ghost: 'bg-transparent',
   hitArea: 'bg-transparent',
   blurredPill: 'overflow-hidden rounded-full border border-white/70 bg-white/10',
@@ -31,6 +32,7 @@ const buttonSizeClasses: Record<ButtonSize, string> = {
 const labelVariantClasses: Record<ButtonVariant, string> = {
   primary: 'text-black',
   secondary: 'text-hook-text',
+  surface: 'text-black',
   ghost: 'text-hook-text',
   hitArea: 'text-transparent',
   blurredPill: 'text-black',

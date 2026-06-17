@@ -14,6 +14,10 @@ export function AuthStart() {
   const [signUpMode, setSignUpMode] = useState<SignUpMode>('phone');
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('whatsapp');
 
+  function continueWithDelivery(mode: DeliveryMode) {
+    setDeliveryMode(mode);
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -24,24 +28,25 @@ export function AuthStart() {
           contentFit="cover"
           style={{ width: '100%', height: 319 }}
         />
+        <Pressable
+          accessibilityRole="button"
+          className="absolute right-[18px] top-11 h-[30px] items-center justify-center rounded-full border border-white px-4">
+          <Text className="text-sm text-black">Skip</Text>
+        </Pressable>
       </View>
 
       <View className="flex-1 -mt-3 overflow-hidden rounded-t-[20px] bg-hook-surface">
         <ScrollView
           bounces={false}
-          contentContainerClassName="grow px-[15px] pb-10 pt-11"
+          contentContainerClassName="grow px-[18px] pb-10 pt-12"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <View className="gap-1.5">
-            <Text className="text-[28px] font-bold leading-9 text-black">Get started</Text>
-            <Text className="text-base text-hook-text">
-              {signUpMode === 'phone'
-                ? 'It takes less than 1 min to complete'
-                : 'It takes less than 3 min to complete'}
-            </Text>
+          <View className="gap-2">
+            <Text className="text-[28px] font-bold leading-9 text-black">Log in to your account</Text>
+            <Text className="text-base text-hook-text">All your data are safe</Text>
           </View>
 
-          <View className="mt-9 rounded-[20px] bg-white p-3.5">
+          <View className="mt-9 rounded-[20px] bg-white p-4">
             <View className="flex-row items-center justify-between">
               <Text className="text-sm font-medium text-hook-text">Sign up with</Text>
               <View className="flex-row gap-3">
@@ -65,21 +70,14 @@ export function AuthStart() {
                   <PillChoice
                     active={deliveryMode === 'sms'}
                     label="SMS"
-                    onPress={() => setDeliveryMode('sms')}
+                    onPress={() => continueWithDelivery('sms')}
                   />
                   <PillChoice
                     active={deliveryMode === 'whatsapp'}
                     label="WhatsApp"
-                    onPress={() => setDeliveryMode('whatsapp')}
+                    onPress={() => continueWithDelivery('whatsapp')}
                   />
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  className="mt-5 h-[52px] items-center justify-center rounded-full bg-hook">
-                  <Text className="text-base text-black">
-                    Continue with {deliveryMode === 'sms' ? 'SMS' : 'WhatsApp'}
-                  </Text>
-                </Pressable>
               </>
             ) : (
               <>
@@ -194,10 +192,11 @@ function PillChoice({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       hitSlop={6}
-      className={`h-[52px] flex-1 rounded-full ${active ? 'bg-hook' : 'bg-hook-surface'}`}
+      className="h-[58px] flex-1 rounded-full"
       labelClassName="text-base text-black"
+      size="auto"
       title={label}
-      variant="ghost"
+      variant={active ? 'primary' : 'surface'}
       onPress={onPress}
     />
   );
