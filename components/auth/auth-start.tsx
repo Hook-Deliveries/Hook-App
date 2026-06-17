@@ -2,7 +2,7 @@ import { AntDesign, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import authStartGif from '@/assets/images/onboarding/auth-start.gif';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,9 @@ export function AuthStart() {
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('whatsapp');
 
   return (
-    <View className="flex-1 bg-hook">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-hook">
       <View className="h-[319px] w-full overflow-hidden">
         <Image
           source={authStartGif}
@@ -24,9 +26,12 @@ export function AuthStart() {
         />
       </View>
 
-      <View className="flex-1 -mt-3 rounded-t-[20px] bg-hook-surface overflow-hidden">
-        <View className="flex-1 px-[15px] pt-11">
-          {/* Heading */}
+      <View className="flex-1 -mt-3 overflow-hidden rounded-t-[20px] bg-hook-surface">
+        <ScrollView
+          bounces={false}
+          contentContainerClassName="grow px-[15px] pb-10 pt-11"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
           <View className="gap-1.5">
             <Text className="text-[28px] font-bold leading-9 text-black">Get started</Text>
             <Text className="text-base text-hook-text">
@@ -68,6 +73,13 @@ export function AuthStart() {
                     onPress={() => setDeliveryMode('whatsapp')}
                   />
                 </View>
+                <Pressable
+                  accessibilityRole="button"
+                  className="mt-5 h-[52px] items-center justify-center rounded-full bg-hook">
+                  <Text className="text-base text-black">
+                    Continue with {deliveryMode === 'sms' ? 'SMS' : 'WhatsApp'}
+                  </Text>
+                </Pressable>
               </>
             ) : (
               <>
@@ -98,9 +110,9 @@ export function AuthStart() {
               <FontAwesome5 name="facebook" size={23} color="#1877f2" />
             </SocialButton>
           </View>
-        </View>
+        </ScrollView>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -117,6 +129,7 @@ function SegmentButton({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
+      hitSlop={6}
       className={`h-[33px] w-[92px] items-center justify-center rounded-full ${
         active ? 'bg-hook' : 'bg-hook-surface'
       }`}
@@ -180,6 +193,7 @@ function PillChoice({
     <Button
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
+      hitSlop={6}
       className={`h-[52px] flex-1 rounded-full ${active ? 'bg-hook' : 'bg-hook-surface'}`}
       labelClassName="text-base text-black"
       title={label}
