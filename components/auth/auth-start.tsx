@@ -1,219 +1,155 @@
-import { AntDesign, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { AntDesign, Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import authStartGif from '@/assets/images/onboarding/auth-start.gif';
-import { Button } from '@/components/ui/button';
+import { toast } from '@/components/shared/toast';
 
-type SignUpMode = 'phone' | 'email';
-type DeliveryMode = 'sms' | 'whatsapp';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AuthStart() {
-  const [signUpMode, setSignUpMode] = useState<SignUpMode>('phone');
-  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('whatsapp');
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
 
-  function continueWithDelivery(mode: DeliveryMode) {
-    setDeliveryMode(mode);
+  function handleFocus() {
+    setTimeout(() => scrollRef.current?.scrollTo({ y: 180, animated: true }), 100);
+  }
+
+  function handleSocialPress() {
+    toast.info('Coming soon', '👀 Stay tuned');
+  }
+
+  function handleContinue() {
+    const trimmed = email.trim();
+    if (!EMAIL_REGEX.test(trimmed)) {
+      setEmailError(true);
+      return;
+    }
+    setEmailError(false);
+    router.push({ pathname: '/auth/create-password', params: { email: trimmed } });
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      className="flex-1 bg-hook">
-      <View className="h-[319px] w-full overflow-hidden">
-        <Image
-          source={authStartGif}
-          contentFit="cover"
-          style={{ width: '100%', height: 319 }}
-        />
-        <Pressable
-          accessibilityRole="button"
-          className="absolute right-[18px] top-11 h-[30px] items-center justify-center rounded-full border border-white px-4">
-          <Text className="text-sm text-black">Skip</Text>
-        </Pressable>
-      </View>
-
-      <View className="flex-1 -mt-3 overflow-hidden rounded-t-[20px] bg-hook-surface">
+    <View className="flex-1 bg-hook-surface">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1">
         <ScrollView
+          ref={scrollRef}
           bounces={false}
-          contentContainerClassName="grow px-[18px] pb-10 pt-12"
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <View className="gap-2">
-            <Text className="text-[28px] font-bold leading-9 text-black">Log in to your account</Text>
-            <Text className="text-base text-hook-text">All your data are safe</Text>
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1 }}>
+          {/* GIF hero on yellow bg */}
+          <View className="h-[319px] w-full overflow-hidden bg-hook">
+            <Image
+              source={authStartGif}
+              contentFit="cover"
+              style={{ width: '100%', height: 319 }}
+            />
           </View>
 
-          <View className="mt-9 rounded-[20px] bg-white p-4">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-medium text-hook-text">Sign up with</Text>
-              <View className="flex-row gap-3">
-                <SegmentButton
-                  active={signUpMode === 'phone'}
-                  label="Phone No"
-                  onPress={() => setSignUpMode('phone')}
-                />
-                <SegmentButton
-                  active={signUpMode === 'email'}
-                  label="E-mail"
-                  onPress={() => setSignUpMode('email')}
-                />
-              </View>
+          {/* Sheet */}
+          <View className="-mt-3 rounded-t-[20px] bg-hook-surface px-[18px] pb-10 pt-11">
+            {/* Heading */}
+            <View className="gap-1.5">
+              <Text className="text-[28px] font-bold leading-9 text-black">Get started</Text>
+              <Text className="text-base text-hook-text">It takes less than 1 min to complete</Text>
             </View>
 
-            {signUpMode === 'phone' ? (
-              <>
-                <PhoneField />
-                <View className="mt-5 flex-row gap-3">
-                  <PillChoice
-                    active={deliveryMode === 'sms'}
-                    label="SMS"
-                    onPress={() => continueWithDelivery('sms')}
-                  />
-                  <PillChoice
-                    active={deliveryMode === 'whatsapp'}
-                    label="WhatsApp"
-                    onPress={() => continueWithDelivery('whatsapp')}
-                  />
+            {/* Input card */}
+            <View className="mt-9 rounded-[20px] bg-white p-3.5">
+              {/* E-mail pill label */}
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm font-medium text-hook-text">Sign up with</Text>
+                <View className="h-[33px] w-[92px] items-center justify-center rounded-full bg-hook">
+                  <Text className="text-sm text-black">E-mail</Text>
                 </View>
-              </>
-            ) : (
-              <>
-                <EmailField />
-                <Pressable
-                  accessibilityRole="button"
-                  className="mt-5 h-[52px] items-center justify-center rounded-full bg-hook">
-                  <Text className="text-base text-black">Continue</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
+              </View>
 
-          <View className="mt-9 flex-row items-center gap-5">
-            <View className="h-px flex-1 bg-black/20" />
-            <Text className="text-sm text-hook-text">Or with</Text>
-            <View className="h-px flex-1 bg-black/20" />
-          </View>
+              {/* Email input */}
+              <TextInput
+                ref={inputRef}
+                autoCapitalize="none"
+                autoCorrect={true}
+                className={`mt-5 h-[52px] rounded-full bg-hook-surface px-5 text-sm text-black border-[1.5px] ${
+                  emailError ? 'border-[#ef4444]' : 'border-transparent'
+                }`}
+                keyboardType="email-address"
+                placeholder="hook@gmail.com"
+                placeholderTextColor="rgba(0,0,0,0.51)"
+                returnKeyType="done"
+                value={email}
+                onChangeText={(v) => { setEmail(v); setEmailError(false); }}
+                onFocus={handleFocus}
+                onSubmitEditing={handleContinue}
+              />
+              {emailError && (
+                <Text className="ml-4 mt-1.5 text-sm text-[#ef4444]">
+                  Please enter a valid email address
+                </Text>
+              )}
 
-          <View className="mt-9 flex-row justify-center gap-3.5">
-            <SocialButton accessibilityLabel="Continue with Google">
-              <AntDesign name="google" size={21}  />
-            </SocialButton>
-            <SocialButton accessibilityLabel="Continue with Apple">
-              <Ionicons name="logo-apple" size={24} color="#000" />
-            </SocialButton>
-            <SocialButton accessibilityLabel="Continue with Facebook">
-              <FontAwesome5 name="facebook" size={23} color="#1877f2" />
-            </SocialButton>
+              {/* Continue */}
+              <Pressable
+                accessibilityRole="button"
+                className="mt-5 h-[52px] items-center justify-center rounded-full bg-hook"
+                onPress={handleContinue}>
+                <Text className="text-base font-medium text-black">Continue</Text>
+              </Pressable>
+            </View>
+
+            {/* Divider */}
+            <View className="mt-9 flex-row items-center gap-5">
+              <View className="h-px flex-1 bg-black/20" />
+              <Text className="text-sm text-hook-text">Or with</Text>
+              <View className="h-px flex-1 bg-black/20" />
+            </View>
+
+            {/* Social buttons */}
+            <View className="mt-9 flex-row justify-center gap-3.5">
+              <SocialButton accessibilityLabel="Continue with Google" onPress={handleSocialPress}>
+                <AntDesign name="google" size={21} color="#4285f4" />
+              </SocialButton>
+              <SocialButton accessibilityLabel="Continue with Apple" onPress={handleSocialPress}>
+                <Ionicons name="logo-apple" size={24} color="#000" />
+              </SocialButton>
+            </View>
           </View>
         </ScrollView>
-      </View>
-    </KeyboardAvoidingView>
-  );
-}
-
-function SegmentButton({
-  active,
-  label,
-  onPress,
-}: {
-  active: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      hitSlop={6}
-      className={`h-[33px] w-[92px] items-center justify-center rounded-full ${
-        active ? 'bg-hook' : 'bg-hook-surface'
-      }`}
-      onPress={onPress}>
-      <Text className="text-sm text-black">{label}</Text>
-    </Pressable>
-  );
-}
-
-function NigeriaFlag() {
-  // Nigeria flag: green | white | green
-  return (
-    <View className="h-[30px] w-[30px] overflow-hidden rounded-full flex-row">
-      <View style={{ flex: 1, backgroundColor: '#008751' }} />
-      <View style={{ flex: 1, backgroundColor: '#fff' }} />
-      <View style={{ flex: 1, backgroundColor: '#008751' }} />
+      </KeyboardAvoidingView>
     </View>
-  );
-}
-
-function PhoneField() {
-  return (
-    <View className="mt-5 h-[52px] flex-row overflow-hidden rounded-full bg-hook-surface">
-      {/* Country code pill */}
-      <View className="h-[52px] w-[91px] flex-row items-center gap-1.5 rounded-full border border-white px-1.5">
-        <NigeriaFlag />
-        <Text className="text-sm font-medium text-black">+234</Text>
-      </View>
-      <TextInput
-        className="h-[52px] flex-1 px-3 text-sm text-black"
-        keyboardType="phone-pad"
-        placeholder="Phone number"
-        placeholderTextColor="rgba(0,0,0,0.51)"
-      />
-    </View>
-  );
-}
-
-function EmailField() {
-  return (
-    <TextInput
-      autoCapitalize="none"
-      className="mt-5 h-[52px] rounded-full bg-hook-surface px-5 text-sm text-black"
-      keyboardType="email-address"
-      placeholder="hook@gmail.com"
-      placeholderTextColor="rgba(0,0,0,0.51)"
-    />
-  );
-}
-
-function PillChoice({
-  active,
-  label,
-  onPress,
-}: {
-  active: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Button
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      hitSlop={6}
-      className="h-[58px] flex-1 rounded-full"
-      labelClassName="text-base text-black"
-      size="auto"
-      title={label}
-      variant={active ? 'primary' : 'surface'}
-      onPress={onPress}
-    />
   );
 }
 
 function SocialButton({
   accessibilityLabel,
   children,
+  onPress,
 }: {
   accessibilityLabel: string;
   children: ReactNode;
+  onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      className="h-10 w-10 items-center justify-center rounded-full bg-white">
+      className="h-10 w-10 items-center justify-center rounded-full bg-white"
+      onPress={onPress}>
       {children}
     </Pressable>
   );

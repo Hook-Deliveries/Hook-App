@@ -11,7 +11,7 @@ import frame96 from '@/assets/images/onboarding/step-2/frame96.jpg';
 import onboardingDelivery from '@/assets/images/onboarding/step-3/delivery.gif';
 
 import { DESIGN_WIDTH } from './data';
-import { SharedOnboardingBackground } from './backgrounds';
+import { GlowBackground } from '@/components/shared/glow-background';
 
 export function OnboardingVisual({
   activeIndex,
@@ -34,7 +34,7 @@ export function OnboardingVisual({
 function MarketVisual({ scale }: { scale: number }) {
   return (
     <>
-      <SharedOnboardingBackground />
+      <GlowBackground />
       <Image
         source={onboardingMarket}
         resizeMode="contain"
@@ -168,7 +168,7 @@ function MessageBubble({
 function PriceVisual({ scale }: { scale: number }) {
   return (
     <>
-      <SharedOnboardingBackground />
+      <GlowBackground />
       <View style={{ height: 430 * scale, left: 0, position: 'absolute', top: 86 * scale, width: DESIGN_WIDTH * scale }}>
         <AvatarImage source={frame93} scale={scale} size={22} x={42} y={76} />
         <AvatarImage source={frame96} scale={scale} size={33} x={59} y={132} />
@@ -203,7 +203,7 @@ function DeliveryVisual({ scale }: { scale: number }) {
           width: DESIGN_WIDTH * scale,
         }}
       />
-      <SharedOnboardingBackground />
+      <GlowBackground />
     </>
   );
 }
