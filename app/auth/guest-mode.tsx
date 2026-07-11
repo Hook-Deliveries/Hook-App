@@ -1,8 +1,8 @@
+import { useHeaderHeight } from '@react-navigation/elements';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import passwordIcon from '@/assets/images/auth/password.png';
 import { AuthGlowBackground } from '@/components/shared/glow-background';
@@ -11,7 +11,7 @@ import { registerPushToken } from '@/lib/push';
 import { ensureGuestId } from '@/lib/session';
 
 export default function GuestModeScreen() {
-  const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
 
   async function continueAsGuest() {
     await ensureGuestId();
@@ -25,28 +25,34 @@ export default function GuestModeScreen() {
       <StatusBar style="dark" />
       <AuthGlowBackground />
 
+      {/* Native modal header — glow shows through via headerTransparent, close button since gestures are disabled */}
+      <Stack.Screen
+        options={{
+          headerLeft: () => (
+            <Pressable
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
+              hitSlop={8}
+              className="h-[38px] w-[38px] items-center justify-center rounded-full"
+              style={{
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.12,
+                shadowRadius: 8,
+              }}
+              onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={20} color="#000" />
+            </Pressable>
+          ),
+        }}
+      />
+
       <ScrollView
         bounces={false}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1 }}>
-        <View className="px-4" style={{ paddingTop: insets.top }}>
-          <Pressable
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            className="h-[49px] w-[49px] items-center justify-center rounded-[24.5px] border border-white/35 bg-white/[0.18]"
-            style={{
-              elevation: 4,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.12,
-              shadowRadius: 8,
-            }}
-            onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={22} color="#000" />
-          </Pressable>
-        </View>
-
-        <View className="flex-1 px-4 pb-4 pt-[45px]">
+        {/* Native transparent header reserves the top inset — content starts right below it */}
+        <View className="flex-1 px-4 pb-4" style={{ paddingTop: headerHeight + 24 }}>
           <Image source={passwordIcon} resizeMode="contain" style={{ height: 49, width: 49 }} />
 
           <View className="mt-[34px] gap-1.5">

@@ -82,7 +82,7 @@ export function CreateNewPassword() {
                 : `Must contain at least ${MIN_LENGTH} characters and match`}
         </Text>
         <View className="pt-1">
-          <AuthPrimaryButton disabled={!isValid || loading} label={loading ? 'Resetting...' : 'Reset Password'} onPress={handleContinue} />
+          <AuthPrimaryButton disabled={!isValid || loading} loading={loading} label="Reset Password" onPress={handleContinue} />
         </View>
       </View>
     </AuthScreenShell>

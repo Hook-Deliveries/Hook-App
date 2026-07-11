@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import chatIcon from '@/assets/images/auth/chat-icon.png';
 import { AuthGlowBackground } from '@/components/shared/glow-background';
+import { HookLoader } from '@/components/shared/HookLoader';
 import { toast } from '@/components/shared/toast';
 import { ApiError } from '@/lib/api';
 import { useResendSignupCodeMutation, useVerifySignupMutation } from '@/lib/auth-api';
@@ -252,13 +253,15 @@ export function VerifyEmail({ email }: { email: string }) {
           )}
 
           <Pressable onPress={handleResend} disabled={seconds > 0 || resendSignupCode.isPending}>
-            <Text className={`text-sm ${seconds > 0 || resendSignupCode.isPending ? 'text-hook-text' : 'text-black font-medium'}`}>
-              {resendSignupCode.isPending
-                ? 'Resending code...'
-                : seconds > 0
+            {resendSignupCode.isPending ? (
+              <HookLoader size="button" variant="yellow" />
+            ) : (
+              <Text className={`text-sm ${seconds > 0 ? 'text-hook-text' : 'text-black font-medium'}`}>
+                {seconds > 0
                 ? `Resend code in 00:${String(seconds).padStart(2, '0')}`
                 : 'Resend code'}
-            </Text>
+              </Text>
+            )}
           </Pressable>
         </View>
       </View>

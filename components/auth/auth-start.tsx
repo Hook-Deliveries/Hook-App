@@ -14,8 +14,10 @@ import {
 } from 'react-native';
 
 import authStartGif from '@/assets/images/onboarding/auth-start.gif';
+import { HookLoader } from '@/components/shared/HookLoader';
 import { toast } from '@/components/shared/toast';
 import { useLookupEmailMutation } from '@/lib/auth-api';
+import { useHookGoogleAuth } from '@/lib/google-auth';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -23,6 +25,7 @@ export function AuthStart() {
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState(false);
   const lookupEmail = useLookupEmailMutation();
+  const { isGoogleLoading, isGoogleReady, signInWithGoogle } = useHookGoogleAuth();
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
   const loading = lookupEmail.isPending;
@@ -31,7 +34,7 @@ export function AuthStart() {
     setTimeout(() => scrollRef.current?.scrollTo({ y: 180, animated: true }), 100);
   }
 
-  function handleSocialPress() {
+  function handleApplePress() {
     toast.info('Coming soon', '👀 Stay tuned');
   }
 
@@ -134,10 +137,10 @@ export function AuthStart() {
               {/* Continue */}
               <Pressable
                 accessibilityRole="button"
-                className={`mt-5 h-[52px] items-center justify-center rounded-full ${loading ? 'bg-hook/60' : 'bg-hook'}`}
+                className="mt-5 h-[52px] items-center justify-center rounded-full bg-hook"
                 disabled={loading}
                 onPress={handleContinue}>
-                <Text className="text-base font-medium text-black">{loading ? 'Checking...' : 'Continue'}</Text>
+                {loading ? <HookLoader size="button" variant="dark" /> : <Text className="text-base font-medium text-black">Continue</Text>}
               </Pressable>
             </View>
 
@@ -157,10 +160,13 @@ export function AuthStart() {
 
             {/* Social buttons */}
             <View className="mt-9 flex-row justify-center gap-3.5">
-              <SocialButton accessibilityLabel="Continue with Google" onPress={handleSocialPress}>
-                <AntDesign name="google" size={21} color="#4285f4" />
+              <SocialButton
+                accessibilityLabel="Continue with Google"
+                disabled={!isGoogleReady || isGoogleLoading}
+                onPress={signInWithGoogle}>
+                {isGoogleLoading ? <HookLoader size="button" variant="yellow" /> : <AntDesign name="google" size={21} color="#4285f4" />}
               </SocialButton>
-              <SocialButton accessibilityLabel="Continue with Apple" onPress={handleSocialPress}>
+              <SocialButton accessibilityLabel="Continue with Apple" onPress={handleApplePress}>
                 <Ionicons name="logo-apple" size={24} color="#000" />
               </SocialButton>
             </View>
@@ -174,17 +180,20 @@ export function AuthStart() {
 function SocialButton({
   accessibilityLabel,
   children,
+  disabled,
   onPress,
 }: {
   accessibilityLabel: string;
   children: ReactNode;
+  disabled?: boolean;
   onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      className="h-10 w-10 items-center justify-center rounded-full bg-white"
+      className={`h-10 w-10 items-center justify-center rounded-full bg-white ${disabled ? 'opacity-60' : ''}`}
+      disabled={disabled}
       onPress={onPress}>
       {children}
     </Pressable>

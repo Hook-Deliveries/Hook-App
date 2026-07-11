@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import chatIcon from '@/assets/images/auth/chat-icon.png';
 import { AuthGlowBackground } from '@/components/shared/glow-background';
+import { HookLoader } from '@/components/shared/HookLoader';
 import { toast } from '@/components/shared/toast';
 import { useForgotPasswordMutation, useVerifyPasswordResetMutation } from '@/lib/auth-api';
 
@@ -163,13 +164,15 @@ export function ResetCode() {
           <Pressable
             disabled={seconds > 0 || forgotPassword.isPending}
             onPress={handleResend}>
-            <Text className={`text-sm font-medium ${seconds > 0 || forgotPassword.isPending ? 'text-hook-text' : 'text-hook'}`}>
-              {forgotPassword.isPending
-                ? 'Resending...'
-                : seconds > 0
+            {forgotPassword.isPending ? (
+              <HookLoader size="button" variant="yellow" />
+            ) : (
+              <Text className={`text-sm font-medium ${seconds > 0 ? 'text-hook-text' : 'text-hook'}`}>
+                {seconds > 0
                   ? `Resend in 00:${String(seconds).padStart(2, '0')}`
                   : 'Resend'}
-            </Text>
+              </Text>
+            )}
           </Pressable>
         </View>
 

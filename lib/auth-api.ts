@@ -79,6 +79,14 @@ export function login(input: { email: string; password: string; guestId?: string
   });
 }
 
+export function googleLogin(input: { idToken: string; guestId?: string | null }) {
+  return apiRequest<AuthSession>('/auth/google', {
+    auth: false,
+    method: 'POST',
+    body: JSON.stringify(compactBody(input)),
+  });
+}
+
 export function forgotPassword(email: string) {
   return apiRequest('/auth/password/forgot', {
     auth: false,
@@ -137,6 +145,10 @@ export function useCompleteSignupMutation() {
 
 export function useLoginMutation() {
   return useMutation({ mutationFn: login });
+}
+
+export function useGoogleLoginMutation() {
+  return useMutation({ mutationFn: googleLogin });
 }
 
 export function useForgotPasswordMutation() {

@@ -83,7 +83,7 @@ export function PasswordLogin() {
         </Pressable>
 
         <View className="pt-1">
-          <AuthPrimaryButton disabled={!isValid || loading} label={loading ? 'signing in...' : 'continue'} onPress={handleContinue} />
+          <AuthPrimaryButton disabled={!isValid || loading} loading={loading} label="continue" onPress={handleContinue} />
         </View>
       </View>
     </AuthScreenShell>

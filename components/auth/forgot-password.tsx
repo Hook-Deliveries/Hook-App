@@ -59,7 +59,8 @@ export function ForgotPassword() {
 
         <AuthPrimaryButton
           disabled={!isValid || loading}
-          label={loading ? 'Sending code...' : 'Send verification code'}
+          loading={loading}
+          label="Send verification code"
           onPress={handleContinue}
         />
       </View>

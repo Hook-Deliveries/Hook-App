@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import chatIcon from '@/assets/images/auth/chat-icon.png';
 import { AuthGlowBackground } from '@/components/shared/glow-background';
+import { HookLoader } from '@/components/shared/HookLoader';
 import { toast } from '@/components/shared/toast';
 import { useCompleteSignupMutation } from '@/lib/auth-api';
 import { registerPushToken } from '@/lib/push';
@@ -140,18 +141,20 @@ export function EnterName({ email }: { email: string }) {
             <View style={{ marginTop: 18 }}>
               <Pressable
                 accessibilityRole="button"
-                disabled={loading}
+                disabled={!isValid || loading}
                 style={{
                   alignItems: 'center',
-                  backgroundColor: isValid && !loading ? '#FFC809' : 'rgba(20,19,15,0.5)',
+                  backgroundColor: isValid || loading ? '#FFC809' : 'rgba(20,19,15,0.5)',
                   borderRadius: 50,
                   height: 52,
                   justifyContent: 'center',
                 }}
                 onPress={handleContinue}>
-                <Text style={{ color: isValid && !loading ? '#000' : '#fff', fontSize: 14, fontWeight: '500' }}>
-                  {loading ? 'creating account...' : 'continue'}
-                </Text>
+                {loading ? (
+                  <HookLoader size="button" variant="dark" />
+                ) : (
+                  <Text style={{ color: isValid ? '#000' : '#fff', fontSize: 14, fontWeight: '500' }}>continue</Text>
+                )}
               </Pressable>
             </View>
           </View>

@@ -11,6 +11,7 @@ import {
   clearSession,
 } from '@/lib/session';
 import { toast } from '@/components/shared/toast';
+import { HookLoader } from '@/components/shared/HookLoader';
 
 export default function ProfileScreen() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -76,7 +77,7 @@ export default function ProfileScreen() {
         className="mt-3 h-[52px] items-center justify-center rounded-full bg-black"
         disabled={busy}
         onPress={() => setShowLogoutConfirm(true)}>
-        <Text className="text-sm font-medium text-white">{busy ? 'Logging out...' : 'Logout'}</Text>
+        {busy ? <HookLoader size="button" variant="yellow" /> : <Text className="text-sm font-medium text-white">Logout</Text>}
       </Pressable>
 
       <Modal
@@ -108,9 +109,7 @@ export default function ProfileScreen() {
                 className={`h-[52px] items-center justify-center rounded-full ${busy ? 'bg-black/60' : 'bg-black'}`}
                 disabled={busy}
                 onPress={handleLogout}>
-                <Text className="text-sm font-semibold text-white">
-                  {busy ? 'Logging out...' : 'Yes, log out'}
-                </Text>
+                {busy ? <HookLoader size="button" variant="yellow" /> : <Text className="text-sm font-semibold text-white">Yes, log out</Text>}
               </Pressable>
 
               <Pressable

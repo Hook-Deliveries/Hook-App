@@ -48,6 +48,7 @@ export const mobileQueryKeys = {
   negotiation: (id: string) => ['mobile', 'negotiations', id] as const,
   paymentStatus: (orderId: string) => ['mobile', 'payments', orderId, 'status'] as const,
   notifications: () => ['mobile', 'notifications'] as const,
+  notification: (id: string) => ['mobile', 'notifications', id] as const,
 };
 
 export function useHomeFeedQuery() {
@@ -296,10 +297,29 @@ export function useNotificationsQuery() {
   });
 }
 
+export function useNotificationQuery(id?: string) {
+  return useQuery({
+    enabled: Boolean(id),
+    queryKey: mobileQueryKeys.notification(id || ''),
+    queryFn: () => apiRequest(`/notifications/${id}`),
+  });
+}
+
 export function useMarkNotificationReadMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (notificationId: string) => patch(`/notifications/${notificationId}/read`),
+    onSuccess: (_data, notificationId) => {
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notifications() });
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notification(notificationId) });
+    },
+  });
+}
+
+export function useMarkAllNotificationsReadMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => patch('/notifications/read-all'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notifications() }),
   });
 }
@@ -308,6 +328,20 @@ export function useDeleteNotificationMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (notificationId: string) => remove(`/notifications/${notificationId}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notifications() }),
+    onSuccess: (_data, notificationId) => {
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notifications() });
+      queryClient.removeQueries({ queryKey: mobileQueryKeys.notification(notificationId) });
+    },
+  });
+}
+
+export function useClearNotificationsMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => remove('/notifications/clear'),
+    onSuccess: () => {
+      queryClient.setQueryData(mobileQueryKeys.notifications(), { data: [], unread: 0, total: 0 });
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notifications() });
+    },
   });
 }

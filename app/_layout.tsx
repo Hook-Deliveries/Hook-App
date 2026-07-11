@@ -19,14 +19,32 @@ export default function RootLayout() {
     <AppQueryProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="splash" options={{ headerShown: false }} />
-          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="notifications" options={{ headerShown: false }} />
-          <Stack.Screen name="auth/index" options={{ headerShown: false }} />
+          <Stack.Screen name="index" options={{ gestureEnabled: false, headerShown: false }} />
+          <Stack.Screen name="splash" options={{ gestureEnabled: false, headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ fullScreenGestureEnabled: false, gestureEnabled: false, headerShown: false }} />
+          <Stack.Screen name="(app)/notifications/index" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="(app)/notifications/[id]"
+            options={{
+              presentation: 'modal',
+              title: 'Notification',
+              headerStyle: { backgroundColor: '#f1f1f3' },
+              headerShadowVisible: false,
+              headerTintColor: '#111',
+              headerTitleStyle: { color: '#000', fontSize: 18, fontWeight: '700' },
+            }}
+          />
+          <Stack.Screen name="auth/index" options={{ fullScreenGestureEnabled: false, gestureEnabled: false, headerShown: false }} />
           <Stack.Screen
             name="auth/guest-mode"
-            options={{ gestureEnabled: false, headerShown: false, presentation: 'modal' }}
+            options={{
+              gestureEnabled: false,
+              presentation: 'modal',
+              title: '',
+              headerTransparent: true,
+              headerShadowVisible: false,
+              headerTintColor: '#000',
+            }}
           />
           <Stack.Screen name="auth/password" options={{ headerShown: false }} />
           <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />

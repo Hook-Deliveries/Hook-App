@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import chatIcon from "@/assets/images/auth/chat-icon.png";
 import { AuthGlowBackground } from "@/components/shared/glow-background";
+import { HookLoader } from "@/components/shared/HookLoader";
 import { toast } from "@/components/shared/toast";
 import { useStartSignupMutation } from "@/lib/auth-api";
 import { ensureGuestId, savePendingSignup } from "@/lib/session";
@@ -178,16 +179,16 @@ export function CreatePassword({ email }: { email: string }) {
               <Pressable
                 accessibilityRole="button"
                 className={`h-[52px] items-center justify-center rounded-full ${
-                  isValid && !loading ? "bg-hook" : "bg-[rgba(20,19,15,0.5)]"
+                  isValid || loading ? "bg-hook" : "bg-[rgba(20,19,15,0.5)]"
                 }`}
-                disabled={loading}
+                disabled={!isValid || loading}
                 onPress={handleContinue}
               >
-                <Text
-                  className={`text-sm font-medium ${isValid && !loading ? "text-black" : "text-white"}`}
-                >
-                  {loading ? 'sending code...' : 'continue'}
-                </Text>
+                {loading ? (
+                  <HookLoader size="button" variant="dark" />
+                ) : (
+                  <Text className={`text-sm font-medium ${isValid ? "text-black" : "text-white"}`}>continue</Text>
+                )}
               </Pressable>
             </View>
           </View>
