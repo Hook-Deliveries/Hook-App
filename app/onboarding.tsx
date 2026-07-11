@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton, NextButton, PaginationDots, SkipButton } from '@/components/features/onboarding/controls';
 import { DESIGN_WIDTH, ONBOARDING_SLIDES } from '@/components/features/onboarding/data';
 import { OnboardingVisual } from '@/components/features/onboarding/visuals';
+import { setOnboardingComplete } from '@/lib/session';
 
 export default function OnboardingScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -16,9 +17,14 @@ export default function OnboardingScreen() {
   const activeSlide = ONBOARDING_SLIDES[activeIndex];
   const topY = Math.max(insets.top + 8, 44 * scale);
 
+  const finishOnboarding = async () => {
+    await setOnboardingComplete(true);
+    router.replace('/auth');
+  };
+
   const goNext = () => {
     if (activeIndex === ONBOARDING_SLIDES.length - 1) {
-      router.replace('/auth');
+      finishOnboarding();
       return;
     }
 
@@ -31,7 +37,7 @@ export default function OnboardingScreen() {
 
       <OnboardingVisual activeIndex={activeIndex} scale={scale} />
 
-      <SkipButton scale={scale} top={topY} onPress={() => router.replace('/auth')} />
+      <SkipButton scale={scale} top={topY} onPress={finishOnboarding} />
       {activeIndex > 0 && (
         <BackButton
           scale={scale}

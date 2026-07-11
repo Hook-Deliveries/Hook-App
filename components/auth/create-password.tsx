@@ -15,24 +15,50 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import chatIcon from "@/assets/images/auth/chat-icon.png";
 import { AuthGlowBackground } from "@/components/shared/glow-background";
+import { toast } from "@/components/shared/toast";
+import { useStartSignupMutation } from "@/lib/auth-api";
+import { ensureGuestId, savePendingSignup } from "@/lib/session";
 
 const MIN_LENGTH = 9;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function CreatePassword({ email }: { email: string }) {
   const insets = useSafeAreaInsets();
+  const normalizedEmail = email.trim().toLowerCase();
   const [password, setPassword] = useState("");
   const [visible, setVisible] = useState(false);
   const [touched, setTouched] = useState(false);
+  const startSignup = useStartSignupMutation();
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
   const hasError = touched && password.length < MIN_LENGTH;
   const isValid = password.length >= MIN_LENGTH;
+  const loading = startSignup.isPending;
 
-  function handleContinue() {
+  async function handleContinue() {
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      toast.error("Email required", "Start with your email before creating a password.");
+      router.replace("/auth");
+      return;
+    }
     setTouched(true);
     if (!isValid) return;
-    router.push({ pathname: '/auth/verify-email', params: { email } });
+    try {
+      const guestId = await ensureGuestId();
+      const result = await startSignup.mutateAsync({ email: normalizedEmail, password, guestId });
+      await savePendingSignup({ email: normalizedEmail, signupSessionToken: result.signupSessionToken, step: 'verify_email' });
+      toast.success('Code sent', 'Check your email for the verification code.');
+      router.push({ pathname: '/auth/verify-email', params: { email: normalizedEmail } });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      if (message.toLowerCase().includes('already exists')) {
+        toast.info('Account found', 'Sign in with your password to continue.');
+        router.replace({ pathname: '/auth/password', params: { email: normalizedEmail } });
+        return;
+      }
+      toast.error('Could not start signup', error instanceof Error ? error.message : 'Please try again.');
+    }
   }
 
   function handleFocus() {
@@ -87,7 +113,7 @@ export function CreatePassword({ email }: { email: string }) {
               </Text>
               <Text className="text-base leading-[22px] text-hook-text">
                 Add a way to protect your account{" "}
-                <Text className="font-medium text-[#121212]">{email}</Text>
+                <Text className="font-medium text-[#121212]">{normalizedEmail}</Text>
               </Text>
             </View>
 
@@ -147,23 +173,23 @@ export function CreatePassword({ email }: { email: string }) {
                     : `Must contain at least ${MIN_LENGTH} characters`}
               </Text>
             </View>
-          </View>
 
-          {/* Continue — pinned at bottom */}
-          <View className="px-4" style={{ paddingBottom: insets.bottom + 20 }}>
-            <Pressable
-              accessibilityRole="button"
-              className={`h-[52px] items-center justify-center rounded-full ${
-                isValid ? "bg-hook" : "bg-[rgba(20,19,15,0.5)]"
-              }`}
-              onPress={handleContinue}
-            >
-              <Text
-                className={`text-sm font-medium ${isValid ? "text-black" : "text-white"}`}
+            <View className="mt-5">
+              <Pressable
+                accessibilityRole="button"
+                className={`h-[52px] items-center justify-center rounded-full ${
+                  isValid && !loading ? "bg-hook" : "bg-[rgba(20,19,15,0.5)]"
+                }`}
+                disabled={loading}
+                onPress={handleContinue}
               >
-                continue
-              </Text>
-            </Pressable>
+                <Text
+                  className={`text-sm font-medium ${isValid && !loading ? "text-black" : "text-white"}`}
+                >
+                  {loading ? 'sending code...' : 'continue'}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

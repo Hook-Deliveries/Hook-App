@@ -11,8 +11,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import chatIcon from '@/assets/images/auth/chat-icon.png';
+import { AuthGlowBackground } from '@/components/shared/glow-background';
+import { toast } from '@/components/shared/toast';
+import { ApiError } from '@/lib/api';
+import { useResendSignupCodeMutation, useVerifySignupMutation } from '@/lib/auth-api';
+import { clearPendingSignup, getPendingSignup, savePendingSignup } from '@/lib/session';
 
-const CORRECT_CODE = '1234';
 const RESEND_SECONDS = 28;
 
 function maskEmail(email: string) {
@@ -26,6 +30,8 @@ export function VerifyEmail({ email }: { email: string }) {
   const [digits, setDigits] = useState(['', '', '', '']);
   const [status, setStatus] = useState<'idle' | 'error' | 'success'>('idle');
   const [seconds, setSeconds] = useState(RESEND_SECONDS);
+  const verifySignup = useVerifySignupMutation();
+  const resendSignupCode = useResendSignupCodeMutation();
   const refs = [
     useRef<TextInput>(null),
     useRef<TextInput>(null),
@@ -41,7 +47,29 @@ export function VerifyEmail({ email }: { email: string }) {
   }, [seconds]);
 
   function handleDigit(index: number, value: string) {
-    const char = value.replace(/[^0-9]/g, '').slice(-1);
+    const clean = value.replace(/[^0-9]/g, '');
+    if (clean.length > 1) {
+      const next = clean.length >= 4
+        ? clean.slice(0, 4).split('')
+        : [...digits];
+      if (clean.length < 4) {
+        clean.slice(0, 4 - index).split('').forEach((char, offset) => {
+          next[index + offset] = char;
+        });
+      }
+      setDigits(next);
+      setStatus('idle');
+      const nextEmptyIndex = next.findIndex((digit) => !digit);
+      if (nextEmptyIndex >= 0) {
+        refs[nextEmptyIndex].current?.focus();
+      } else {
+        refs[3].current?.blur();
+        setTimeout(() => verify(next.join(''), next), 0);
+      }
+      return;
+    }
+
+    const char = clean.slice(-1);
     const next = [...digits];
     next[index] = char;
     setDigits(next);
@@ -67,21 +95,75 @@ export function VerifyEmail({ email }: { email: string }) {
     }
   }
 
-  function verify(code: string, currentDigits: string[]) {
-    if (code === CORRECT_CODE) {
+  function resetCodeInputs() {
+    setDigits(['', '', '', '']);
+    requestAnimationFrame(() => refs[0].current?.focus());
+  }
+
+  async function recoverToAuthStart(title: string, message: string) {
+    await clearPendingSignup();
+    toast.error(title, message);
+    router.replace('/auth');
+  }
+
+  async function verify(code: string, currentDigits: string[]) {
+    const normalizedCode = code.replace(/[^0-9]/g, '').slice(0, 4);
+    if (normalizedCode.length !== 4) return;
+    if (verifySignup.isPending) return;
+    const pending = await getPendingSignup();
+    if (!pending?.signupSessionToken) {
+      await recoverToAuthStart('Signup session expired', 'Please start again.');
+      return;
+    }
+    try {
+      await verifySignup.mutateAsync({ signupSessionToken: pending.signupSessionToken, code: normalizedCode });
       setStatus('success');
+      await savePendingSignup({ ...pending, step: 'complete_profile' });
       router.push({ pathname: '/auth/enter-name', params: { email } });
-    } else if (currentDigits.every((d) => d !== '')) {
+    } catch (error) {
       setStatus('error');
+      resetCodeInputs();
+      if (error instanceof ApiError && error.status === 0) {
+        await recoverToAuthStart('Server unavailable', 'Please check your connection and start again.');
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      if (message.toLowerCase().includes('signup session expired')) {
+        await recoverToAuthStart('Signup session expired', 'Please start again.');
+        return;
+      }
+      if (currentDigits.every((d) => d !== '')) {
+        toast.error('Invalid code', message);
+      }
     }
   }
 
-  function handleResend() {
-    if (seconds > 0) return;
-    setDigits(['', '', '', '']);
-    setStatus('idle');
-    setSeconds(RESEND_SECONDS);
-    refs[0].current?.focus();
+  async function handleResend() {
+    if (seconds > 0 || resendSignupCode.isPending) return;
+    const pending = await getPendingSignup();
+    if (!pending?.signupSessionToken) {
+      await recoverToAuthStart('Signup session expired', 'Please start again.');
+      return;
+    }
+    try {
+      await resendSignupCode.mutateAsync(pending.signupSessionToken);
+      setDigits(['', '', '', '']);
+      setStatus('idle');
+      setSeconds(RESEND_SECONDS);
+      refs[0].current?.focus();
+      toast.success('Code resent', 'Check your email for the new code.');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 0) {
+        await recoverToAuthStart('Server unavailable', 'Please check your connection and start again.');
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      if (message.toLowerCase().includes('signup session expired')) {
+        await recoverToAuthStart('Signup session expired', 'Please start again.');
+        return;
+      }
+      toast.error('Could not resend code', error instanceof Error ? error.message : 'Please try again.');
+    }
   }
 
   const dotColor =
@@ -94,7 +176,8 @@ export function VerifyEmail({ email }: { email: string }) {
   const borderColor = status === 'error' ? '#ef4444' : '#373737';
 
   return (
-    <View className="flex-1 bg-hook-surface">
+    <View className="flex-1 bg-white">
+      <AuthGlowBackground />
       {/* Back button */}
       <View className="px-4" style={{ paddingTop: insets.top + 8 }}>
         <Pressable
@@ -150,10 +233,12 @@ export function VerifyEmail({ email }: { email: string }) {
               <TextInput
                 key={i}
                 ref={refs[i]}
+                autoComplete="sms-otp"
                 className="h-[50px] w-[50px] rounded-[6.6px] text-center text-base font-medium text-black"
                 style={{ borderWidth: 1.3, borderColor }}
                 keyboardType="number-pad"
-                maxLength={1}
+                maxLength={4}
+                textContentType="oneTimeCode"
                 value={digit}
                 onChangeText={(v) => handleDigit(i, v)}
                 onKeyPress={({ nativeEvent }) => handleKeyPress(i, nativeEvent.key)}
@@ -166,9 +251,11 @@ export function VerifyEmail({ email }: { email: string }) {
             <Text className="text-sm text-[#ef4444]">Invalid code. Please try again.</Text>
           )}
 
-          <Pressable onPress={handleResend} disabled={seconds > 0}>
-            <Text className={`text-sm ${seconds > 0 ? 'text-hook-text' : 'text-black font-medium'}`}>
-              {seconds > 0
+          <Pressable onPress={handleResend} disabled={seconds > 0 || resendSignupCode.isPending}>
+            <Text className={`text-sm ${seconds > 0 || resendSignupCode.isPending ? 'text-hook-text' : 'text-black font-medium'}`}>
+              {resendSignupCode.isPending
+                ? 'Resending code...'
+                : seconds > 0
                 ? `Resend code in 00:${String(seconds).padStart(2, '0')}`
                 : 'Resend code'}
             </Text>

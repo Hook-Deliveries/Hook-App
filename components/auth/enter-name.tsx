@@ -14,26 +14,55 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import chatIcon from '@/assets/images/auth/chat-icon.png';
+import { AuthGlowBackground } from '@/components/shared/glow-background';
+import { toast } from '@/components/shared/toast';
+import { useCompleteSignupMutation } from '@/lib/auth-api';
+import { registerPushToken } from '@/lib/push';
+import { clearPendingSignup, getGuestId, getPendingSignup, saveSession } from '@/lib/session';
 
 export function EnterName({ email }: { email: string }) {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
+  const completeSignup = useCompleteSignupMutation();
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
   const isValid = name.trim().length >= 2;
+  const loading = completeSignup.isPending;
 
   function handleFocus() {
     setTimeout(() => scrollRef.current?.scrollTo({ y: 200, animated: true }), 100);
   }
 
-  function handleContinue() {
+  async function handleContinue() {
     if (!isValid) return;
-    router.replace('/auth/congratulations');
+    const pending = await getPendingSignup();
+    if (!pending?.signupSessionToken) {
+      toast.error('Signup session expired', 'Please start again.');
+      router.replace('/auth');
+      return;
+    }
+    try {
+      const [firstName, ...rest] = name.trim().split(/\s+/);
+      const guestId = await getGuestId();
+      const session = await completeSignup.mutateAsync({
+        signupSessionToken: pending.signupSessionToken,
+        firstName,
+        lastName: rest.join(' ') || firstName,
+        guestId,
+      });
+      await saveSession(session);
+      await clearPendingSignup();
+      await registerPushToken({ sendWelcome: true });
+      router.replace('/auth/congratulations');
+    } catch (error) {
+      toast.error('Could not create account', error instanceof Error ? error.message : 'Please try again.');
+    }
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f1f1f3' }}>
+    <View style={{ flex: 1, backgroundColor: '#fff' }}>
+      <AuthGlowBackground />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}>
@@ -107,24 +136,24 @@ export function EnterName({ email }: { email: string }) {
                 returnKeyType="done"
               />
             </View>
-          </View>
 
-          {/* Continue */}
-          <View style={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 20 }}>
-            <Pressable
-              accessibilityRole="button"
-              style={{
-                alignItems: 'center',
-                backgroundColor: isValid ? '#FFC809' : 'rgba(20,19,15,0.5)',
-                borderRadius: 50,
-                height: 52,
-                justifyContent: 'center',
-              }}
-              onPress={handleContinue}>
-              <Text style={{ color: isValid ? '#000' : '#fff', fontSize: 14, fontWeight: '500' }}>
-                continue
-              </Text>
-            </Pressable>
+            <View style={{ marginTop: 18 }}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={loading}
+                style={{
+                  alignItems: 'center',
+                  backgroundColor: isValid && !loading ? '#FFC809' : 'rgba(20,19,15,0.5)',
+                  borderRadius: 50,
+                  height: 52,
+                  justifyContent: 'center',
+                }}
+                onPress={handleContinue}>
+                <Text style={{ color: isValid && !loading ? '#000' : '#fff', fontSize: 14, fontWeight: '500' }}>
+                  {loading ? 'creating account...' : 'continue'}
+                </Text>
+              </Pressable>
+            </View>
           </View>
 
         </ScrollView>

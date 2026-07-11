@@ -5,7 +5,7 @@ export const DESIGN_WIDTH = 402;
 export const ONBOARDING_SLIDES: OnboardingSlide[] = [
   {
     title: 'Market to\nMobile',
-    description: 'Discover trusted fashion in one\nplace.',
+    description: 'Navigate Nigerians biggest\nfashion market from your device.',
   },
   {
     title: 'Your Last Price\nStarts Here',
