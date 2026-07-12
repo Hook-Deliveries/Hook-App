@@ -46,7 +46,7 @@ export default function SplashScreen() {
       <StatusBar style="light" />
       <View className="h-full w-full items-center justify-center">
         <Text className="text-[55px] font-bold leading-[66px] text-black">
-          Hook
+          hook
           <Text className="text-[55px] font-bold leading-[66px] text-white">
             .
           </Text>

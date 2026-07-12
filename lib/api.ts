@@ -17,7 +17,52 @@ type ApiOptions = RequestInit & {
   guest?: boolean;
 };
 
+const SENSITIVE_KEYS = /^(accessToken|refreshToken|authorization|password|token|idToken|otp|code|signupSessionToken)$/i;
+
+function redactForLog(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactForLog);
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      SENSITIVE_KEYS.test(key) ? '[REDACTED]' : redactForLog(entry),
+    ]),
+  );
+}
+
+function requestBodyForLog(body: BodyInit | null | undefined): unknown {
+  if (!body) return undefined;
+  if (typeof body !== 'string') return `[${body.constructor?.name ?? 'Request body'}]`;
+
+  try {
+    return redactForLog(JSON.parse(body));
+  } catch {
+    return body.length > 500 ? `${body.slice(0, 500)}...` : body;
+  }
+}
+
+function logRequest(method: string, path: string, body: BodyInit | null | undefined) {
+  if (!__DEV__) return;
+  console.log(`\n[API REQUEST] ${method} ${path}`);
+  const payload = requestBodyForLog(body);
+  if (payload !== undefined) console.log('[PAYLOAD]', JSON.stringify(payload, null, 2));
+}
+
+function logResponse(method: string, path: string, status: number, payload: unknown) {
+  if (!__DEV__) return;
+  console.log(`\n[API RESPONSE] ${method} ${path} | Status: ${status}`);
+  console.log('[RESPONSE DATA]', JSON.stringify(redactForLog(payload), null, 2));
+}
+
+function logNetworkError(method: string, path: string, error: unknown) {
+  if (!__DEV__) return;
+  console.log(`\n[API ERROR] ${method} ${path} | Server unreachable`);
+  console.log('[ERROR]', error instanceof Error ? error.message : 'Unknown network error');
+}
+
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
   if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
@@ -32,12 +77,14 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
   }
 
   let response: Response;
+  logRequest(method, path, options.body);
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       headers,
     });
   } catch (error) {
+    logNetworkError(method, path, error);
     throw new ApiError(
       error instanceof Error ? error.message : 'Unable to reach Hook server',
       0,
@@ -45,6 +92,7 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
     );
   }
   const payload = await response.json().catch(() => null);
+  logResponse(method, path, response.status, payload);
   if (!response.ok || payload?.success === false) {
     throw new ApiError(payload?.message || 'Request failed', response.status, payload);
   }

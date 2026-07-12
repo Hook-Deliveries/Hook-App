@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -164,7 +165,11 @@ export function AuthStart() {
                 accessibilityLabel="Continue with Google"
                 disabled={!isGoogleReady || isGoogleLoading}
                 onPress={signInWithGoogle}>
-                {isGoogleLoading ? <HookLoader size="button" variant="yellow" /> : <AntDesign name="google" size={21} color="#4285f4" />}
+                {isGoogleLoading ? (
+                  <ActivityIndicator color="#FFC809" size="small" />
+                ) : (
+                  <AntDesign name="google" size={21} color="#4285f4" />
+                )}
               </SocialButton>
               <SocialButton accessibilityLabel="Continue with Apple" onPress={handleApplePress}>
                 <Ionicons name="logo-apple" size={24} color="#000" />

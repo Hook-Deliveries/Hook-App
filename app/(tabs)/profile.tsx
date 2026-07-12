@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { useLocalSessionQuery, useLogoutMutation } from '@/lib/auth-api';
 import { unregisterPushToken } from '@/lib/push';
@@ -12,6 +12,7 @@ import {
 } from '@/lib/session';
 import { toast } from '@/components/shared/toast';
 import { HookLoader } from '@/components/shared/HookLoader';
+import { BottomSheetModal } from '@/components/shared/BottomSheetModal';
 
 export default function ProfileScreen() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -80,49 +81,40 @@ export default function ProfileScreen() {
         {busy ? <HookLoader size="button" variant="yellow" /> : <Text className="text-sm font-medium text-white">Logout</Text>}
       </Pressable>
 
-      <Modal
-        animationType="fade"
-        transparent
+      <BottomSheetModal
+        accessibilityLabel="Logout confirmation"
+        dismissible={!busy}
+        onClose={() => setShowLogoutConfirm(false)}
+        title="Log out?"
         visible={showLogoutConfirm}
-        onRequestClose={() => {
-          if (!busy) setShowLogoutConfirm(false);
-        }}>
-        <Pressable
-          className="flex-1 items-center justify-center bg-black/45 px-5"
-          disabled={busy}
-          onPress={() => setShowLogoutConfirm(false)}>
+      >
+        <View className="items-center">
+          <View className="h-12 w-12 items-center justify-center rounded-full bg-hook/20">
+            <Ionicons name="log-out-outline" size={24} color="#111111" />
+          </View>
+          <Text className="mt-4 max-w-[320px] text-center text-[15px] leading-6 text-hook-text">
+            Are you sure you want to log out of Hook? You can sign back in anytime.
+          </Text>
+        </View>
+
+        <View className="mt-6 gap-3">
           <Pressable
-            className="w-full max-w-[360px] rounded-[28px] bg-white p-5"
-            onPress={(event) => event.stopPropagation()}>
-            <View className="h-12 w-12 items-center justify-center rounded-full bg-hook/20">
-              <Ionicons name="log-out-outline" size={24} color="#111111" />
-            </View>
-
-            <Text className="mt-5 text-[22px] font-bold text-black">Log out?</Text>
-            <Text className="mt-2 text-[15px] leading-6 text-hook-text">
-              Are you sure you want to log out of Hook? You can sign back in anytime.
-            </Text>
-
-            <View className="mt-6 gap-3">
-              <Pressable
-                accessibilityRole="button"
-                className={`h-[52px] items-center justify-center rounded-full ${busy ? 'bg-black/60' : 'bg-black'}`}
-                disabled={busy}
-                onPress={handleLogout}>
-                {busy ? <HookLoader size="button" variant="yellow" /> : <Text className="text-sm font-semibold text-white">Yes, log out</Text>}
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                className="h-[52px] items-center justify-center rounded-full bg-hook-surface"
-                disabled={busy}
-                onPress={() => setShowLogoutConfirm(false)}>
-                <Text className="text-sm font-semibold text-black">Stay signed in</Text>
-              </Pressable>
-            </View>
+            accessibilityRole="button"
+            className={`h-[52px] items-center justify-center rounded-full ${busy ? 'bg-black/60' : 'bg-black'}`}
+            disabled={busy}
+            onPress={handleLogout}>
+            {busy ? <HookLoader size="button" variant="yellow" /> : <Text className="text-sm font-semibold text-white">Yes, log out</Text>}
           </Pressable>
-        </Pressable>
-      </Modal>
+
+          <Pressable
+            accessibilityRole="button"
+            className="h-[52px] items-center justify-center rounded-full bg-hook-surface"
+            disabled={busy}
+            onPress={() => setShowLogoutConfirm(false)}>
+            <Text className="text-sm font-semibold text-black">Stay signed in</Text>
+          </Pressable>
+        </View>
+      </BottomSheetModal>
     </View>
   );
 }
