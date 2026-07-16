@@ -62,14 +62,17 @@ export default function NotificationDetailScreen() {
   const markRead = useMarkNotificationReadMutation();
   const remove = useDeleteNotificationMutation();
   const item = notification.data as HookNotification | undefined;
+  const itemId = item?.id;
+  const itemIsRead = item?.isRead;
+  const markReadMutation = markRead.mutate;
   const autoReadIdRef = useRef<string | null>(null);
 
   // Opening the notification marks it as read immediately — no manual action needed
   useEffect(() => {
-    if (!id || !item || item.isRead || autoReadIdRef.current === id) return;
+    if (!id || !itemId || itemIsRead || autoReadIdRef.current === id) return;
     autoReadIdRef.current = id;
-    markRead.mutate(id);
-  }, [id, item?.id, item?.isRead, markRead.mutate]);
+    markReadMutation(id);
+  }, [id, itemId, itemIsRead, markReadMutation]);
 
   async function handleDelete() {
     if (!id || remove.isPending) return;

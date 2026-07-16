@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiRequest } from '@/lib/api';
+import { clearBoothSession, getBoothSession, saveBoothSession } from '@/lib/booth-session';
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
@@ -49,6 +50,8 @@ export const mobileQueryKeys = {
   paymentStatus: (orderId: string) => ['mobile', 'payments', orderId, 'status'] as const,
   notifications: () => ['mobile', 'notifications'] as const,
   notification: (id: string) => ['mobile', 'notifications', id] as const,
+  booth: (id: string) => ['mobile', 'booth', id] as const,
+  boothProduct: (boothId: string, productId: string) => ['mobile', 'booth', boothId, 'product', productId] as const,
 };
 
 export function useHomeFeedQuery() {
@@ -87,6 +90,13 @@ export function useProductQuery(id?: string) {
   });
 }
 
+export function useOperatingStatesQuery() {
+  return useQuery({
+    queryKey: ['mobile', 'operating-states'],
+    queryFn: () => apiRequest('/operating-states', { auth: false }),
+  });
+}
+
 export function useCategoriesQuery() {
   return useQuery({
     queryKey: mobileQueryKeys.categories(),
@@ -119,19 +129,24 @@ export function useVendorQuery(id?: string) {
 export function useCartQuery() {
   return useQuery({
     queryKey: mobileQueryKeys.cart(),
-    queryFn: () => apiRequest('/cart'),
+    queryFn: async () => {
+      const booth = await getBoothSession();
+      return apiRequest('/cart', { headers: booth?.boothSessionToken ? { 'X-Booth-Session': booth.boothSessionToken } : undefined });
+    },
   });
 }
 
 export function useAddCartItemMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: {
+    mutationFn: async (input: {
       productId: string;
       quantity: number;
       selectedVariants?: { color?: string; size?: string };
-    }) =>
-      post('/cart/items', input),
+    }) => {
+      const booth = await getBoothSession();
+      return post('/cart/items', { ...input, boothSessionToken: booth?.boothSessionToken });
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
   });
 }
@@ -157,14 +172,17 @@ export function useClearCartMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => remove('/cart'),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
+    onSuccess: async () => {
+      await clearBoothSession();
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() });
+    },
   });
 }
 
 export function useCheckoutMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: {
+    mutationFn: async (input: {
       guestEmail?: string;
       guestName?: string;
       deliveryAddress: {
@@ -177,8 +195,15 @@ export function useCheckoutMutation() {
       };
       deliveryNotes?: string;
       scheduledDeliveryAt?: string;
-    }) => post('/checkout', input),
+      paymentMode?: 'pay_now' | 'pay_on_delivery';
+      orderType?: 'standard' | 'gift';
+      giftRecipient?: { name: string; email: string; phone: string; address: { street: string; city: string; state: string; landmark?: string; phone: string }; message?: string };
+    }) => {
+      const booth = await getBoothSession();
+      return post('/checkout', { ...input, boothSessionToken: booth?.boothSessionToken });
+    },
     onSuccess: () => {
+      void clearBoothSession();
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() });
       queryClient.invalidateQueries({ queryKey: ['mobile', 'orders'] });
     },
@@ -267,10 +292,58 @@ export function useInitializePaymentMutation() {
   return useMutation({
     mutationFn: (input: {
       orderId: string;
-      gateway?: 'paystack' | 'nomba';
+      gateway?: 'opay';
       paymentMethod?: 'card' | 'bank_transfer' | 'ussd';
     }) =>
       post('/payments/initialize', input),
+  });
+}
+
+export type BoothResolution = {
+  booth: { id: string; name: string; description?: string; previewImageUrl?: string; location?: { address?: string; stateName?: string }; operatingHours?: unknown };
+  products: any[];
+  categories: Array<{ id: string; name: string; slug?: string; iconUrl?: string; productCount: number }>;
+  total: number;
+  boothSessionToken: string;
+  expiresInSeconds: number;
+};
+
+export function useResolveBoothMutation() {
+  return useMutation({
+    mutationFn: async (input: { code?: string; publicId?: string; token?: string }) => {
+      const data = input.code
+        ? await post<BoothResolution, { code: string }>('/booths/resolve', { code: input.code })
+        : await apiRequest<BoothResolution>(`/booths/scan/${input.publicId}?token=${encodeURIComponent(input.token || '')}`, { auth: false });
+      await saveBoothSession(data);
+      return data;
+    },
+  });
+}
+
+export function useBoothCatalogQuery(id?: string) {
+  return useQuery({
+    enabled: Boolean(id), queryKey: mobileQueryKeys.booth(id || ''),
+    queryFn: async () => {
+      const session = await getBoothSession();
+      if (!session || session.booth.id !== id) throw new Error('Booth session expired');
+      const data = await apiRequest<BoothResolution>(`/booths/scan-session`, { method: 'POST', body: JSON.stringify({ boothSessionToken: session.boothSessionToken }), auth: false });
+      await saveBoothSession(data);
+      return data;
+    },
+  });
+}
+
+export function useBoothProductQuery(boothId?: string, productId?: string) {
+  return useQuery({
+    enabled: Boolean(boothId && productId),
+    queryKey: mobileQueryKeys.boothProduct(boothId || '', productId || ''),
+    queryFn: async () => {
+      const session = await getBoothSession();
+      if (!session || session.booth.id !== boothId) throw new Error('Booth session expired');
+      const data = await post<any, { boothSessionToken: string }>(`/booths/scan-session/products/${productId}`, { boothSessionToken: session.boothSessionToken });
+      await saveBoothSession({ booth: data.booth, boothSessionToken: data.boothSessionToken, expiresInSeconds: data.expiresInSeconds });
+      return data;
+    },
   });
 }
 

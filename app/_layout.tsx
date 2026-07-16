@@ -34,6 +34,11 @@ export default function RootLayout() {
               headerTitleStyle: { color: '#000', fontSize: 18, fontWeight: '700' },
             }}
           />
+          <Stack.Screen name="(app)/vendor/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="(app)/booths/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="(app)/booths/[id]/products/[productId]" options={{ headerShown: false }} />
+          <Stack.Screen name="(app)/checkout" options={{ headerShown: false }} />
+          <Stack.Screen name="(app)/cart/index" options={{ headerShown: false }} />
           <Stack.Screen name="auth/index" options={{ fullScreenGestureEnabled: false, gestureEnabled: false, headerShown: false }} />
           <Stack.Screen
             name="auth/guest-mode"
