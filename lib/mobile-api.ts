@@ -4,6 +4,48 @@ import { apiRequest } from '@/lib/api';
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
+export interface PublicCatalogMedia {
+  type: 'image';
+  url: string;
+  width: number;
+  height: number;
+  alt: string;
+}
+
+export interface PublicCatalogProduct {
+  publicId: string;
+  title: string;
+  slug: string;
+  description?: string;
+  media: PublicCatalogMedia[];
+  sourceState: { publicId: string; name: string; code: string } | null;
+  market: { publicId: string; name: string } | null;
+  category: { publicId: string; name: string; slug: string; iconUrl?: string } | null;
+  variants: Array<{ publicId: string; size?: string; colour?: string; attributes: Record<string, string> }>;
+  currency: string;
+  sellingPriceMinor: number;
+  effectivePriceMinor: number;
+  discountMinor: number;
+  negotiationAvailable: boolean;
+  availabilityStatus: string;
+  availabilityNote?: string;
+  publishedAt: string;
+}
+
+export interface PublicCategory {
+  publicId: string;
+  name: string;
+  slug: string;
+  iconUrl?: string;
+  description?: string;
+}
+
+export interface PublicProductPage {
+  data: PublicCatalogProduct[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 function toQueryString(params?: QueryParams) {
   if (!params) return '';
   const search = new URLSearchParams();
@@ -52,28 +94,21 @@ export const mobileQueryKeys = {
 export function useHomeFeedQuery() {
   return useQuery({
     queryKey: mobileQueryKeys.feed(),
-    queryFn: () => apiRequest('/feed', { auth: false }),
+    queryFn: () => apiRequest('/public/home', { auth: false }),
   });
 }
 
 export function useSearchQuery(params?: QueryParams) {
   return useQuery({
     queryKey: mobileQueryKeys.search(params),
-    queryFn: () => apiRequest(`/search${toQueryString(params)}`, { auth: false }),
-  });
-}
-
-export function useSearchSuggestionsQuery(params?: QueryParams) {
-  return useQuery({
-    queryKey: ['mobile', 'search-suggestions', params ?? {}],
-    queryFn: () => apiRequest(`/search/suggestions${toQueryString(params)}`, { auth: false }),
+    queryFn: () => apiRequest<PublicProductPage>(`/public/search${toQueryString(params)}`, { auth: false }),
   });
 }
 
 export function useProductsQuery(params?: QueryParams) {
   return useQuery({
     queryKey: mobileQueryKeys.products(params),
-    queryFn: () => apiRequest(`/products${toQueryString(params)}`, { auth: false }),
+    queryFn: () => apiRequest<PublicProductPage>(`/public/products${toQueryString(params)}`, { auth: false }),
   });
 }
 
@@ -81,7 +116,7 @@ export function useProductQuery(id?: string) {
   return useQuery({
     enabled: Boolean(id),
     queryKey: mobileQueryKeys.product(id || ''),
-    queryFn: () => apiRequest(`/products/${id}`, { auth: false }),
+    queryFn: () => apiRequest<PublicCatalogProduct>(`/public/products/${id}`, { auth: false }),
   });
 }
 
@@ -119,14 +154,7 @@ export function useMarketsQuery(stateId?: string, cityId?: string) {
 export function useCategoriesQuery() {
   return useQuery({
     queryKey: mobileQueryKeys.categories(),
-    queryFn: () => apiRequest('/categories', { auth: false }),
-  });
-}
-
-export function useCategoryTreeQuery() {
-  return useQuery({
-    queryKey: ['mobile', 'categories', 'tree'],
-    queryFn: () => apiRequest('/categories/tree', { auth: false }),
+    queryFn: () => apiRequest<PublicCategory[]>('/public/categories', { auth: false }),
   });
 }
 
