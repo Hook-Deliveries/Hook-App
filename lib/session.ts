@@ -8,6 +8,9 @@ export type HookUser = {
   avatarUrl?: string;
   role?: string;
   isEmailVerified?: boolean;
+  publicId?: string;
+  accountType?: 'customer' | 'staff' | 'runner' | 'partner';
+  accountStatus?: string;
 };
 
 export type AuthSession = {
@@ -24,14 +27,15 @@ export type PendingSignup = {
 
 const KEYS = {
   session: 'hook.auth.session',
-  guestId: 'hook.guest.id',
+  guestSession: 'hook.guest.session',
   onboarding: 'hook.onboarding.complete',
   pendingSignup: 'hook.signup.pending',
 };
 
-function randomId(prefix: string) {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
-}
+export type StoredGuestSession = {
+  token: string;
+  guest: { publicId: string; expiresAt: string };
+};
 
 async function getJson<T>(key: string): Promise<T | null> {
   const raw = await SecureStore.getItemAsync(key);
@@ -60,19 +64,36 @@ export async function clearSession() {
 }
 
 export async function getGuestId() {
-  return SecureStore.getItemAsync(KEYS.guestId);
+  return (await getJson<StoredGuestSession>(KEYS.guestSession))?.guest.publicId || null;
 }
 
 export async function ensureGuestId() {
-  const existing = await getGuestId();
-  if (existing) return existing;
-  const guestId = randomId('guest');
-  await SecureStore.setItemAsync(KEYS.guestId, guestId);
-  return guestId;
+  const existing = await getGuestSession();
+  if (existing && new Date(existing.guest.expiresAt) > new Date()) return existing.guest.publicId;
+  const apiBase = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  const response = await fetch(`${apiBase}/guest-sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ platform: 'unknown' }),
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload?.success || !payload?.data?.token) {
+    throw new Error(payload?.error?.message || 'Unable to start guest session');
+  }
+  await saveGuestSession(payload.data);
+  return payload.data.guest.publicId as string;
+}
+
+export function getGuestSession() {
+  return getJson<StoredGuestSession>(KEYS.guestSession);
+}
+
+export async function saveGuestSession(session: StoredGuestSession) {
+  await setJson(KEYS.guestSession, session);
 }
 
 export async function clearGuestId() {
-  await SecureStore.deleteItemAsync(KEYS.guestId);
+  await SecureStore.deleteItemAsync(KEYS.guestSession);
 }
 
 export async function getPendingSignup() {

@@ -1,4 +1,4 @@
-import { getGuestId, getSession, saveSession, type AuthSession } from '@/lib/session';
+import { getGuestSession, getSession, saveSession, type AuthSession } from '@/lib/session';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -7,6 +7,8 @@ export class ApiError extends Error {
     message: string,
     public readonly status?: number,
     public readonly data?: unknown,
+    public readonly code?: string,
+    public readonly requestId?: string,
   ) {
     super(message);
   }
@@ -72,8 +74,8 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
     if (session?.accessToken) headers.set('Authorization', `Bearer ${session.accessToken}`);
   }
   if (options.guest !== false) {
-    const guestId = await getGuestId();
-    if (guestId) headers.set('X-Guest-Id', guestId);
+    const guestSession = await getGuestSession();
+    if (guestSession?.token) headers.set('X-Guest-Session', guestSession.token);
   }
 
   let response: Response;
@@ -94,7 +96,13 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
   const payload = await response.json().catch(() => null);
   logResponse(method, path, response.status, payload);
   if (!response.ok || payload?.success === false) {
-    throw new ApiError(payload?.message || 'Request failed', response.status, payload);
+    throw new ApiError(
+      payload?.error?.message || 'Request failed',
+      response.status,
+      payload?.error?.details,
+      payload?.error?.code,
+      payload?.meta?.requestId,
+    );
   }
   return payload?.data as T;
 }

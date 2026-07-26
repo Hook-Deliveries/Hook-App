@@ -88,7 +88,31 @@ export function useProductQuery(id?: string) {
 export function useOperatingStatesQuery() {
   return useQuery({
     queryKey: ['mobile', 'operating-states'],
-    queryFn: () => apiRequest('/operating-states', { auth: false }),
+    queryFn: () => apiRequest('/public/states', { auth: false }),
+  });
+}
+
+export function useOperationCitiesQuery(stateId?: string) {
+  return useQuery({
+    enabled: Boolean(stateId),
+    queryKey: ['mobile', 'public', 'cities', stateId],
+    queryFn: () => apiRequest(`/public/cities${toQueryString({ stateId })}`, { auth: false }),
+  });
+}
+
+export function useServiceZonesQuery(stateId?: string, cityId?: string) {
+  return useQuery({
+    enabled: Boolean(stateId),
+    queryKey: ['mobile', 'public', 'zones', stateId, cityId],
+    queryFn: () => apiRequest(`/public/zones${toQueryString({ stateId, cityId })}`, { auth: false }),
+  });
+}
+
+export function useMarketsQuery(stateId?: string, cityId?: string) {
+  return useQuery({
+    enabled: Boolean(stateId),
+    queryKey: ['mobile', 'public', 'markets', stateId, cityId],
+    queryFn: () => apiRequest(`/public/markets${toQueryString({ stateId, cityId })}`, { auth: false }),
   });
 }
 
