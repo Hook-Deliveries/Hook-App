@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiRequest } from '@/lib/api';
-import { clearBoothSession, getBoothSession, saveBoothSession } from '@/lib/booth-session';
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
@@ -40,8 +39,6 @@ export const mobileQueryKeys = {
   products: (params?: QueryParams) => ['mobile', 'products', params ?? {}] as const,
   product: (id: string) => ['mobile', 'products', id] as const,
   categories: () => ['mobile', 'categories'] as const,
-  vendors: (params?: QueryParams) => ['mobile', 'vendors', params ?? {}] as const,
-  vendor: (id: string) => ['mobile', 'vendors', id] as const,
   cart: () => ['mobile', 'cart'] as const,
   orders: (params?: QueryParams) => ['mobile', 'orders', params ?? {}] as const,
   order: (id: string) => ['mobile', 'orders', id] as const,
@@ -50,8 +47,6 @@ export const mobileQueryKeys = {
   paymentStatus: (orderId: string) => ['mobile', 'payments', orderId, 'status'] as const,
   notifications: () => ['mobile', 'notifications'] as const,
   notification: (id: string) => ['mobile', 'notifications', id] as const,
-  booth: (id: string) => ['mobile', 'booth', id] as const,
-  boothProduct: (boothId: string, productId: string) => ['mobile', 'booth', boothId, 'product', productId] as const,
 };
 
 export function useHomeFeedQuery() {
@@ -111,28 +106,10 @@ export function useCategoryTreeQuery() {
   });
 }
 
-export function useVendorsQuery(params?: QueryParams) {
-  return useQuery({
-    queryKey: mobileQueryKeys.vendors(params),
-    queryFn: () => apiRequest(`/vendors${toQueryString(params)}`, { auth: false }),
-  });
-}
-
-export function useVendorQuery(id?: string) {
-  return useQuery({
-    enabled: Boolean(id),
-    queryKey: mobileQueryKeys.vendor(id || ''),
-    queryFn: () => apiRequest(`/vendors/${id}`, { auth: false }),
-  });
-}
-
 export function useCartQuery() {
   return useQuery({
     queryKey: mobileQueryKeys.cart(),
-    queryFn: async () => {
-      const booth = await getBoothSession();
-      return apiRequest('/cart', { headers: booth?.boothSessionToken ? { 'X-Booth-Session': booth.boothSessionToken } : undefined });
-    },
+    queryFn: () => apiRequest('/cart'),
   });
 }
 
@@ -143,10 +120,7 @@ export function useAddCartItemMutation() {
       productId: string;
       quantity: number;
       selectedVariants?: { color?: string; size?: string };
-    }) => {
-      const booth = await getBoothSession();
-      return post('/cart/items', { ...input, boothSessionToken: booth?.boothSessionToken });
-    },
+    }) => post('/cart/items', input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
   });
 }
@@ -172,10 +146,7 @@ export function useClearCartMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => remove('/cart'),
-    onSuccess: async () => {
-      await clearBoothSession();
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
   });
 }
 
@@ -198,12 +169,8 @@ export function useCheckoutMutation() {
       paymentMode?: 'pay_now' | 'pay_on_delivery';
       orderType?: 'standard' | 'gift';
       giftRecipient?: { name: string; email: string; phone: string; address: { street: string; city: string; state: string; landmark?: string; phone: string }; message?: string };
-    }) => {
-      const booth = await getBoothSession();
-      return post('/checkout', { ...input, boothSessionToken: booth?.boothSessionToken });
-    },
+    }) => post('/checkout', input),
     onSuccess: () => {
-      void clearBoothSession();
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() });
       queryClient.invalidateQueries({ queryKey: ['mobile', 'orders'] });
     },
@@ -296,54 +263,6 @@ export function useInitializePaymentMutation() {
       paymentMethod?: 'card' | 'bank_transfer' | 'ussd';
     }) =>
       post('/payments/initialize', input),
-  });
-}
-
-export type BoothResolution = {
-  booth: { id: string; name: string; description?: string; previewImageUrl?: string; location?: { address?: string; stateName?: string }; operatingHours?: unknown };
-  products: any[];
-  categories: Array<{ id: string; name: string; slug?: string; iconUrl?: string; productCount: number }>;
-  total: number;
-  boothSessionToken: string;
-  expiresInSeconds: number;
-};
-
-export function useResolveBoothMutation() {
-  return useMutation({
-    mutationFn: async (input: { code?: string; publicId?: string; token?: string }) => {
-      const data = input.code
-        ? await post<BoothResolution, { code: string }>('/booths/resolve', { code: input.code })
-        : await apiRequest<BoothResolution>(`/booths/scan/${input.publicId}?token=${encodeURIComponent(input.token || '')}`, { auth: false });
-      await saveBoothSession(data);
-      return data;
-    },
-  });
-}
-
-export function useBoothCatalogQuery(id?: string) {
-  return useQuery({
-    enabled: Boolean(id), queryKey: mobileQueryKeys.booth(id || ''),
-    queryFn: async () => {
-      const session = await getBoothSession();
-      if (!session || session.booth.id !== id) throw new Error('Booth session expired');
-      const data = await apiRequest<BoothResolution>(`/booths/scan-session`, { method: 'POST', body: JSON.stringify({ boothSessionToken: session.boothSessionToken }), auth: false });
-      await saveBoothSession(data);
-      return data;
-    },
-  });
-}
-
-export function useBoothProductQuery(boothId?: string, productId?: string) {
-  return useQuery({
-    enabled: Boolean(boothId && productId),
-    queryKey: mobileQueryKeys.boothProduct(boothId || '', productId || ''),
-    queryFn: async () => {
-      const session = await getBoothSession();
-      if (!session || session.booth.id !== boothId) throw new Error('Booth session expired');
-      const data = await post<any, { boothSessionToken: string }>(`/booths/scan-session/products/${productId}`, { boothSessionToken: session.boothSessionToken });
-      await saveBoothSession({ booth: data.booth, boothSessionToken: data.boothSessionToken, expiresInSeconds: data.expiresInSeconds });
-      return data;
-    },
   });
 }
 

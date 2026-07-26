@@ -11,7 +11,7 @@ import { HookLoader } from '@/components/shared/HookLoader';
 import { RemoteImage } from '@/components/shared/RemoteImage';
 import { SearchField } from '@/components/shared/SearchField';
 import { useLocalSessionQuery } from '@/lib/auth-api';
-import { useCategoriesQuery, useNotificationsQuery, useVendorsQuery } from '@/lib/mobile-api';
+import { useCategoriesQuery, useNotificationsQuery, useProductsQuery } from '@/lib/mobile-api';
 
 const STATE_KEY = 'hook.home.selectedState';
 
@@ -21,16 +21,16 @@ export default function HomeScreen() {
   const [stateOpen, setStateOpen] = useState(false);
   const [selectedState, setSelectedState] = useState<OperatingState>(ALL_STATES);
   const categoriesQuery = useCategoriesQuery();
-  const vendorsQuery = useVendorsQuery(selectedState.code === ALL_STATES.code ? undefined : { stateCode: selectedState.code });
+  const productsQuery = useProductsQuery(selectedState.code === ALL_STATES.code ? { limit: 12 } : { stateCode: selectedState.code, limit: 12 });
   const notifications = useNotificationsQuery();
   const categories = useMemo(() => (categoriesQuery.data as any[]) || [], [categoriesQuery.data]);
-  const vendors = useMemo(() => ((vendorsQuery.data as any)?.data as any[]) || [], [vendorsQuery.data]);
+  const products = useMemo(() => ((productsQuery.data as any)?.data as any[]) || [], [productsQuery.data]);
   const firstName = session.data?.session?.user.firstName;
   const unread = Number((notifications.data as any)?.unread || 0);
-  const refreshing = categoriesQuery.isRefetching || vendorsQuery.isRefetching;
+  const refreshing = categoriesQuery.isRefetching || productsQuery.isRefetching;
 
   useEffect(() => { AsyncStorage.getItem(STATE_KEY).then((value) => { if (value) setSelectedState(JSON.parse(value)); }).catch(() => {}); }, []);
-  const refresh = useCallback(() => { void categoriesQuery.refetch(); void vendorsQuery.refetch(); void notifications.refetch(); }, [categoriesQuery, notifications, vendorsQuery]);
+  const refresh = useCallback(() => { void categoriesQuery.refetch(); void productsQuery.refetch(); void notifications.refetch(); }, [categoriesQuery, notifications, productsQuery]);
   function chooseState(value: OperatingState) { setSelectedState(value); void AsyncStorage.setItem(STATE_KEY, JSON.stringify(value)); }
 
   return <View className="flex-1 bg-[#f4f4f5]" style={{ paddingTop: insets.top }}>
@@ -42,13 +42,11 @@ export default function HomeScreen() {
       </View>
 
       <SectionTitle title="Shop by category" action="See all" onPress={() => router.push('/(tabs)/location')} />
-      {categoriesQuery.isLoading ? <View className="h-28 items-center justify-center"><HookLoader size="inline" /></View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}><Pressable onPress={() => router.push('/(tabs)/scan')} className="w-[82px] items-center"><View className="h-[72px] w-[72px] items-center justify-center rounded-[22px] bg-hook"><Ionicons name="scan" size={27} /></View><Text numberOfLines={1} className="mt-2 text-xs font-bold">Scan booth</Text></Pressable>{categories.map((category) => <Pressable key={category.id} onPress={() => router.push({ pathname: '/(tabs)/location', params: { categoryId: category.id } } as never)} className="w-[82px] items-center"><View className="relative h-[72px] w-[72px] overflow-hidden rounded-[22px] bg-white"><RemoteImage uri={category.iconUrl} fallbackIcon="pricetag-outline" /></View><Text numberOfLines={1} className="mt-2 text-xs font-semibold text-[#444]">{category.name}</Text></Pressable>)}</ScrollView>}
+      {categoriesQuery.isLoading ? <View className="h-28 items-center justify-center"><HookLoader size="inline" /></View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>{categories.map((category) => <Pressable key={category.id} onPress={() => router.push({ pathname: '/(tabs)/location', params: { categoryId: category.id } } as never)} className="w-[82px] items-center"><View className="relative h-[72px] w-[72px] overflow-hidden rounded-[22px] bg-white"><RemoteImage uri={category.iconUrl} fallbackIcon="pricetag-outline" /></View><Text numberOfLines={1} className="mt-2 text-xs font-semibold text-[#444]">{category.name}</Text></Pressable>)}</ScrollView>}
 
-      <View className="mt-8"><SectionTitle title="Markets for you" subtitle={selectedState.code === ALL_STATES.code ? 'Across Hook' : selectedState.name} />
-        {vendorsQuery.isLoading ? <View className="h-52 items-center justify-center"><HookLoader label="Finding markets" /></View> : vendors.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 14 }}>{vendors.map((vendor) => <Pressable key={vendor.id} onPress={() => router.push(`/(app)/vendor/${vendor.id}`)} className="w-[274px] overflow-hidden rounded-[24px] bg-white"><View className="relative h-40 bg-[#e8e8ea]"><RemoteImage uri={vendor.imageUrl} fallbackIcon="storefront-outline" /><View className="absolute bottom-3 left-3 rounded-full bg-black/70 px-3 py-1.5"><Text className="text-[11px] font-bold text-white">{vendor.productCount || 0} products</Text></View></View><View className="p-4"><Text numberOfLines={1} className="text-base font-black">{vendor.businessName}</Text><Text numberOfLines={2} className="mt-1 min-h-9 text-xs leading-4 text-[#777]">{vendor.description || 'Browse approved products from this Hook market.'}</Text><View className="mt-3 flex-row items-center"><Ionicons name="bicycle-outline" size={15} /><Text className="ml-1.5 text-xs font-bold">Delivery available</Text></View></View></Pressable>)}</ScrollView> : <View className="mx-5 items-center rounded-[22px] bg-white p-8"><Ionicons name="storefront-outline" size={30} color="#999" /><Text className="mt-3 font-bold">No markets available</Text><Text className="mt-1 text-center text-xs text-[#777]">Try another operating state.</Text></View>}
+      <View className="mt-8"><SectionTitle title="Products for you" subtitle={selectedState.code === ALL_STATES.code ? 'Across Hook' : selectedState.name} action="Discover" onPress={() => router.push('/(tabs)/location')} />
+        {productsQuery.isLoading ? <View className="h-52 items-center justify-center"><HookLoader label="Loading products" /></View> : products.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 14 }}>{products.map((product) => <View key={product.id} className="w-[180px] overflow-hidden rounded-[20px] bg-white p-2.5"><View className="relative aspect-square overflow-hidden rounded-[15px] bg-[#e8e8ea]"><RemoteImage uri={product.images?.[0]} fallbackIcon="cube-outline" /></View><Text numberOfLines={2} className="mt-3 min-h-10 text-sm font-bold leading-5">{product.title}</Text><Text className="mt-1 text-base font-black">₦{Number(product.sellingPrice || 0).toLocaleString()}</Text></View>)}</ScrollView> : <View className="mx-5 items-center rounded-[22px] bg-white p-8"><Ionicons name="cube-outline" size={30} color="#999" /><Text className="mt-3 font-bold">No products available</Text><Text className="mt-1 text-center text-xs text-[#777]">Try another operating state.</Text></View>}
       </View>
-
-      <View className="mx-5 mt-8 flex-row items-center overflow-hidden rounded-[24px] bg-[#171717] p-5"><View className="flex-1"><Text className="text-lg font-black text-white">Shopping at a booth?</Text><Text className="mt-1 text-xs leading-5 text-white/60">Scan its QR or enter the six-digit code to see verified inventory.</Text><Pressable onPress={() => router.push('/(tabs)/scan')} className="mt-4 self-start rounded-full bg-hook px-4 py-2.5"><Text className="text-xs font-black">Open scanner</Text></Pressable></View><Ionicons name="qr-code-outline" size={64} color="#FFC809" /></View>
     </ScrollView>
     <StateDropdownSheet visible={stateOpen} onClose={() => setStateOpen(false)} selectedCode={selectedState.code} onSelect={chooseState} />
   </View>;

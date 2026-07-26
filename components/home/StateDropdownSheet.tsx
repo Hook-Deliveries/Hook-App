@@ -3,7 +3,7 @@ import { MotiView } from 'moti';
 import { Pressable, Text, View } from 'react-native';
 
 import { BottomSheetModal } from '@/components/shared/BottomSheetModal';
-import { LottieLoader } from '@/components/shared/LottieLoader';
+import { HookLoader } from '@/components/shared/HookLoader';
 import { useOperatingStatesQuery } from '@/lib/mobile-api';
 
 export interface OperatingState {
@@ -82,7 +82,7 @@ export function StateDropdownSheet({ visible, onClose, selectedCode, onSelect }:
     <BottomSheetModal visible={visible} onClose={onClose} title="Choose Location">
       {statesQuery.isLoading ? (
         <View className="items-center py-6">
-          <LottieLoader label="Loading states..." />
+          <HookLoader label="Loading states..." />
         </View>
       ) : states.length === 0 ? (
         <View className="items-center py-8">
