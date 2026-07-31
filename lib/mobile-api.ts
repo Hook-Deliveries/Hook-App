@@ -1,11 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { apiRequest } from '@/lib/api';
+import { apiRequest } from "@/lib/api";
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
 export interface PublicCatalogMedia {
-  type: 'image';
+  type: "image";
   url: string;
   width: number;
   height: number;
@@ -20,8 +20,18 @@ export interface PublicCatalogProduct {
   media: PublicCatalogMedia[];
   sourceState: { publicId: string; name: string; code: string } | null;
   market: { publicId: string; name: string } | null;
-  category: { publicId: string; name: string; slug: string; iconUrl?: string } | null;
-  variants: Array<{ publicId: string; size?: string; colour?: string; attributes: Record<string, string> }>;
+  category: {
+    publicId: string;
+    name: string;
+    slug: string;
+    iconUrl?: string;
+  } | null;
+  variants: Array<{
+    publicId: string;
+    size?: string;
+    colour?: string;
+    attributes: Record<string, string>;
+  }>;
   currency: string;
   sellingPriceMinor: number;
   effectivePriceMinor: number;
@@ -47,121 +57,146 @@ export interface PublicProductPage {
 }
 
 function toQueryString(params?: QueryParams) {
-  if (!params) return '';
+  if (!params) return "";
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return;
+    if (value === undefined || value === null || value === "") return;
     search.set(key, String(value));
   });
   const value = search.toString();
-  return value ? `?${value}` : '';
+  return value ? `?${value}` : "";
 }
 
 function post<TData, TVariables>(path: string, variables?: TVariables) {
   return apiRequest<TData>(path, {
-    method: 'POST',
+    method: "POST",
     body: variables ? JSON.stringify(variables) : undefined,
   });
 }
 
 function patch<TData, TVariables>(path: string, variables?: TVariables) {
   return apiRequest<TData>(path, {
-    method: 'PATCH',
+    method: "PATCH",
     body: variables ? JSON.stringify(variables) : undefined,
   });
 }
 
 function remove<TData>(path: string) {
-  return apiRequest<TData>(path, { method: 'DELETE' });
+  return apiRequest<TData>(path, { method: "DELETE" });
 }
 
 export const mobileQueryKeys = {
-  feed: () => ['mobile', 'feed'] as const,
-  search: (params?: QueryParams) => ['mobile', 'search', params ?? {}] as const,
-  products: (params?: QueryParams) => ['mobile', 'products', params ?? {}] as const,
-  product: (id: string) => ['mobile', 'products', id] as const,
-  categories: () => ['mobile', 'categories'] as const,
-  cart: () => ['mobile', 'cart'] as const,
-  orders: (params?: QueryParams) => ['mobile', 'orders', params ?? {}] as const,
-  order: (id: string) => ['mobile', 'orders', id] as const,
-  negotiations: (params?: QueryParams) => ['mobile', 'negotiations', params ?? {}] as const,
-  negotiation: (id: string) => ['mobile', 'negotiations', id] as const,
-  paymentStatus: (orderId: string) => ['mobile', 'payments', orderId, 'status'] as const,
-  notifications: () => ['mobile', 'notifications'] as const,
-  notification: (id: string) => ['mobile', 'notifications', id] as const,
+  feed: () => ["mobile", "feed"] as const,
+  search: (params?: QueryParams) => ["mobile", "search", params ?? {}] as const,
+  products: (params?: QueryParams) =>
+    ["mobile", "products", params ?? {}] as const,
+  product: (id: string) => ["mobile", "products", id] as const,
+  categories: () => ["mobile", "categories"] as const,
+  cart: () => ["mobile", "cart"] as const,
+  orders: (params?: QueryParams) => ["mobile", "orders", params ?? {}] as const,
+  order: (id: string) => ["mobile", "orders", id] as const,
+  negotiations: (params?: QueryParams) =>
+    ["mobile", "negotiations", params ?? {}] as const,
+  negotiation: (id: string) => ["mobile", "negotiations", id] as const,
+  paymentStatus: (orderId: string) =>
+    ["mobile", "payments", orderId, "status"] as const,
+  addresses: () => ["mobile", "addresses"] as const,
+  commerceConfig: () => ["mobile", "commerce-config"] as const,
+  notifications: () => ["mobile", "notifications"] as const,
+  notification: (id: string) => ["mobile", "notifications", id] as const,
 };
 
 export function useHomeFeedQuery() {
   return useQuery({
     queryKey: mobileQueryKeys.feed(),
-    queryFn: () => apiRequest('/public/home', { auth: false }),
+    queryFn: () => apiRequest("/public/home", { auth: false }),
   });
 }
 
 export function useSearchQuery(params?: QueryParams) {
   return useQuery({
     queryKey: mobileQueryKeys.search(params),
-    queryFn: () => apiRequest<PublicProductPage>(`/public/search${toQueryString(params)}`, { auth: false }),
+    queryFn: () =>
+      apiRequest<PublicProductPage>(`/public/search${toQueryString(params)}`, {
+        auth: false,
+      }),
   });
 }
 
 export function useProductsQuery(params?: QueryParams) {
   return useQuery({
     queryKey: mobileQueryKeys.products(params),
-    queryFn: () => apiRequest<PublicProductPage>(`/public/products${toQueryString(params)}`, { auth: false }),
+    queryFn: () =>
+      apiRequest<PublicProductPage>(
+        `/public/products${toQueryString(params)}`,
+        { auth: false },
+      ),
   });
 }
 
 export function useProductQuery(id?: string) {
   return useQuery({
     enabled: Boolean(id),
-    queryKey: mobileQueryKeys.product(id || ''),
-    queryFn: () => apiRequest<PublicCatalogProduct>(`/public/products/${id}`, { auth: false }),
+    queryKey: mobileQueryKeys.product(id || ""),
+    queryFn: () =>
+      apiRequest<PublicCatalogProduct>(`/public/products/${id}`, {
+        auth: false,
+      }),
   });
 }
 
 export function useOperatingStatesQuery() {
   return useQuery({
-    queryKey: ['mobile', 'operating-states'],
-    queryFn: () => apiRequest('/public/states', { auth: false }),
+    queryKey: ["mobile", "operating-states"],
+    queryFn: () => apiRequest("/public/states", { auth: false }),
   });
 }
 
 export function useOperationCitiesQuery(stateId?: string) {
   return useQuery({
     enabled: Boolean(stateId),
-    queryKey: ['mobile', 'public', 'cities', stateId],
-    queryFn: () => apiRequest(`/public/cities${toQueryString({ stateId })}`, { auth: false }),
+    queryKey: ["mobile", "public", "cities", stateId],
+    queryFn: () =>
+      apiRequest(`/public/cities${toQueryString({ stateId })}`, {
+        auth: false,
+      }),
   });
 }
 
 export function useServiceZonesQuery(stateId?: string, cityId?: string) {
   return useQuery({
     enabled: Boolean(stateId),
-    queryKey: ['mobile', 'public', 'zones', stateId, cityId],
-    queryFn: () => apiRequest(`/public/zones${toQueryString({ stateId, cityId })}`, { auth: false }),
+    queryKey: ["mobile", "public", "zones", stateId, cityId],
+    queryFn: () =>
+      apiRequest(`/public/zones${toQueryString({ stateId, cityId })}`, {
+        auth: false,
+      }),
   });
 }
 
 export function useMarketsQuery(stateId?: string, cityId?: string) {
   return useQuery({
     enabled: Boolean(stateId),
-    queryKey: ['mobile', 'public', 'markets', stateId, cityId],
-    queryFn: () => apiRequest(`/public/markets${toQueryString({ stateId, cityId })}`, { auth: false }),
+    queryKey: ["mobile", "public", "markets", stateId, cityId],
+    queryFn: () =>
+      apiRequest(`/public/markets${toQueryString({ stateId, cityId })}`, {
+        auth: false,
+      }),
   });
 }
 
 export function useCategoriesQuery() {
   return useQuery({
     queryKey: mobileQueryKeys.categories(),
-    queryFn: () => apiRequest<PublicCategory[]>('/public/categories', { auth: false }),
+    queryFn: () =>
+      apiRequest<PublicCategory[]>("/public/categories", { auth: false }),
   });
 }
 
 export function useCartQuery() {
   return useQuery({
     queryKey: mobileQueryKeys.cart(),
-    queryFn: () => apiRequest('/cart'),
+    queryFn: () => apiRequest("/cart"),
   });
 }
 
@@ -172,8 +207,11 @@ export function useAddCartItemMutation() {
       productId: string;
       quantity: number;
       selectedVariants?: { color?: string; size?: string };
-    }) => post('/cart/items', input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
+      variantId?: string;
+      quoteId?: string;
+    }) => post("/cart/items", input),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
   });
 }
 
@@ -182,7 +220,8 @@ export function useUpdateCartItemMutation() {
   return useMutation({
     mutationFn: (input: { itemId: string; quantity: number }) =>
       patch(`/cart/items/${input.itemId}`, { quantity: input.quantity }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
   });
 }
 
@@ -190,41 +229,128 @@ export function useRemoveCartItemMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (itemId: string) => remove(`/cart/items/${itemId}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
   });
 }
 
 export function useClearCartMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => remove('/cart'),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
+    mutationFn: () => remove("/cart"),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
   });
 }
 
-export function useCheckoutMutation() {
+export function useClearCartStateMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (stateId: string) => remove(`/cart/states/${stateId}`),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
+  });
+}
+
+export interface CustomerAddressInput {
+  label: string;
+  recipientName: string;
+  phone: string;
+  line1: string;
+  line2?: string;
+  landmark?: string;
+  stateId: string;
+  cityId: string;
+  zoneId: string;
+  postalCode?: string;
+  isDefault?: boolean;
+}
+export function useAddressesQuery() {
+  return useQuery({
+    queryKey: mobileQueryKeys.addresses(),
+    queryFn: () => apiRequest<any[]>("/addresses"),
+  });
+}
+export function useCommerceConfigQuery() {
+  return useQuery({
+    queryKey: mobileQueryKeys.commerceConfig(),
+    queryFn: () => apiRequest<any>("/commerce/config"),
+  });
+}
+export function useCreateAddressMutation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CustomerAddressInput) => post("/addresses", input),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: mobileQueryKeys.addresses() }),
+  });
+}
+export function useUpdateAddressMutation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...input
+    }: Partial<CustomerAddressInput> & { id: string }) =>
+      patch(`/addresses/${id}`, input),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: mobileQueryKeys.addresses() }),
+  });
+}
+export function useDeleteAddressMutation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => remove(`/addresses/${id}`),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: mobileQueryKeys.addresses() }),
+  });
+}
+export function useDefaultAddressMutation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => post(`/addresses/${id}/default`),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: mobileQueryKeys.addresses() }),
+  });
+}
+
+export function useCheckoutPreviewMutation() {
+  return useMutation({
+    mutationFn: (input: {
+      stateId: string;
+      addressId?: string;
+      deliveryMethod: "HOME_DELIVERY" | "PARTNER_PICKUP";
+      paymentMethod: "PREPAID" | "PAY_AT_HANDOVER";
+      policyVersions: { TERMS: string; PRIVACY: string; RETURNS: string };
+    }) =>
+      post<any, Omit<typeof input, "stateId">>(
+        `/checkout/states/${input.stateId}/preview`,
+        {
+          addressId: input.addressId,
+          deliveryMethod: input.deliveryMethod,
+          paymentMethod: input.paymentMethod,
+          policyVersions: input.policyVersions,
+        },
+      ),
+  });
+}
+
+export function useCheckoutConfirmMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
-      guestEmail?: string;
-      guestName?: string;
-      deliveryAddress: {
-        street: string;
-        city: string;
-        state: string;
-        landmark?: string;
-        coordinates?: { lat: number; lng: number };
-        phone: string;
-      };
-      deliveryNotes?: string;
-      scheduledDeliveryAt?: string;
-      paymentMode?: 'pay_now' | 'pay_on_delivery';
-      orderType?: 'standard' | 'gift';
-      giftRecipient?: { name: string; email: string; phone: string; address: { street: string; city: string; state: string; landmark?: string; phone: string }; message?: string };
-    }) => post('/checkout', input),
+      stateId: string;
+      previewToken: string;
+      idempotencyKey: string;
+    }) =>
+      apiRequest<any>(`/checkout/states/${input.stateId}/confirm`, {
+        method: "POST",
+        headers: { "Idempotency-Key": input.idempotencyKey },
+        body: JSON.stringify({ previewToken: input.previewToken }),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() });
-      queryClient.invalidateQueries({ queryKey: ['mobile', 'orders'] });
+      queryClient.invalidateQueries({ queryKey: ["mobile", "orders"] });
     },
   });
 }
@@ -239,7 +365,7 @@ export function useOrdersQuery(params?: QueryParams) {
 export function useOrderQuery(id?: string) {
   return useQuery({
     enabled: Boolean(id),
-    queryKey: mobileQueryKeys.order(id || ''),
+    queryKey: mobileQueryKeys.order(id || ""),
     queryFn: () => apiRequest(`/orders/${id}`),
   });
 }
@@ -250,8 +376,10 @@ export function useCancelOrderMutation() {
     mutationFn: (input: { orderId: string; reason?: string }) =>
       post(`/orders/${input.orderId}/cancel`, { reason: input.reason }),
     onSuccess: (_data, input) => {
-      queryClient.invalidateQueries({ queryKey: ['mobile', 'orders'] });
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.order(input.orderId) });
+      queryClient.invalidateQueries({ queryKey: ["mobile", "orders"] });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.order(input.orderId),
+      });
     },
   });
 }
@@ -266,7 +394,7 @@ export function useNegotiationsQuery(params?: QueryParams) {
 export function useNegotiationQuery(id?: string) {
   return useQuery({
     enabled: Boolean(id),
-    queryKey: mobileQueryKeys.negotiation(id || ''),
+    queryKey: mobileQueryKeys.negotiation(id || ""),
     queryFn: () => apiRequest(`/negotiations/${id}`),
   });
 }
@@ -274,23 +402,34 @@ export function useNegotiationQuery(id?: string) {
 export function useStartNegotiationMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { productId: string; offeredPrice: number; message?: string }) =>
-      post('/negotiations', input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mobile', 'negotiations'] }),
+    mutationFn: (input: {
+      productId: string;
+      variantId: string;
+      quantity: number;
+    }) => post("/negotiations", input),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] }),
   });
 }
 
 export function useCounterNegotiationMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { negotiationId: string; offeredPrice: number; message?: string }) =>
-      post(`/negotiations/${input.negotiationId}/counter`, {
-        offeredPrice: input.offeredPrice,
-        message: input.message,
+    mutationFn: (input: {
+      negotiationId: string;
+      offeredPrice: number;
+      message?: string;
+    }) =>
+      apiRequest(`/negotiations/${input.negotiationId}/offers`, {
+        method: "POST",
+        headers: { "Idempotency-Key": `${input.negotiationId}-${Date.now()}` },
+        body: JSON.stringify({ offeredPriceMinor: input.offeredPrice }),
       }),
     onSuccess: (_data, input) => {
-      queryClient.invalidateQueries({ queryKey: ['mobile', 'negotiations'] });
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.negotiation(input.negotiationId) });
+      queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.negotiation(input.negotiationId),
+      });
     },
   });
 }
@@ -298,10 +437,13 @@ export function useCounterNegotiationMutation() {
 export function useAcceptNegotiationMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (negotiationId: string) => post(`/negotiations/${negotiationId}/accept`),
+    mutationFn: (negotiationId: string) =>
+      post(`/negotiations/${negotiationId}/accept`),
     onSuccess: (_data, negotiationId) => {
-      queryClient.invalidateQueries({ queryKey: ['mobile', 'negotiations'] });
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.negotiation(negotiationId) });
+      queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.negotiation(negotiationId),
+      });
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() });
     },
   });
@@ -309,42 +451,30 @@ export function useAcceptNegotiationMutation() {
 
 export function useInitializePaymentMutation() {
   return useMutation({
-    mutationFn: (input: {
-      orderId: string;
-      gateway?: 'opay';
-      paymentMethod?: 'card' | 'bank_transfer' | 'ussd';
-    }) =>
-      post('/payments/initialize', input),
-  });
-}
-
-export function useVerifyPaymentMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (reference: string) => post(`/payments/verify/${reference}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mobile', 'payments'] }),
+    mutationFn: (input: { orderId: string }) =>
+      post<any, typeof input>("/payments/initialize", input),
   });
 }
 
 export function usePaymentStatusQuery(orderId?: string) {
   return useQuery({
     enabled: Boolean(orderId),
-    queryKey: mobileQueryKeys.paymentStatus(orderId || ''),
-    queryFn: () => apiRequest(`/payments/orders/${orderId}/status`),
+    queryKey: mobileQueryKeys.paymentStatus(orderId || ""),
+    queryFn: () => apiRequest(`/payments/${orderId}`),
   });
 }
 
 export function useNotificationsQuery() {
   return useQuery({
     queryKey: mobileQueryKeys.notifications(),
-    queryFn: () => apiRequest('/notifications'),
+    queryFn: () => apiRequest("/notifications"),
   });
 }
 
 export function useNotificationQuery(id?: string) {
   return useQuery({
     enabled: Boolean(id),
-    queryKey: mobileQueryKeys.notification(id || ''),
+    queryKey: mobileQueryKeys.notification(id || ""),
     queryFn: () => apiRequest(`/notifications/${id}`),
   });
 }
@@ -352,10 +482,15 @@ export function useNotificationQuery(id?: string) {
 export function useMarkNotificationReadMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (notificationId: string) => patch(`/notifications/${notificationId}/read`),
+    mutationFn: (notificationId: string) =>
+      patch(`/notifications/${notificationId}/read`),
     onSuccess: (_data, notificationId) => {
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notifications() });
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notification(notificationId) });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.notifications(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.notification(notificationId),
+      });
     },
   });
 }
@@ -363,18 +498,26 @@ export function useMarkNotificationReadMutation() {
 export function useMarkAllNotificationsReadMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => patch('/notifications/read-all'),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notifications() }),
+    mutationFn: () => patch("/notifications/read-all"),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.notifications(),
+      }),
   });
 }
 
 export function useDeleteNotificationMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (notificationId: string) => remove(`/notifications/${notificationId}`),
+    mutationFn: (notificationId: string) =>
+      remove(`/notifications/${notificationId}`),
     onSuccess: (_data, notificationId) => {
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notifications() });
-      queryClient.removeQueries({ queryKey: mobileQueryKeys.notification(notificationId) });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.notifications(),
+      });
+      queryClient.removeQueries({
+        queryKey: mobileQueryKeys.notification(notificationId),
+      });
     },
   });
 }
@@ -382,10 +525,16 @@ export function useDeleteNotificationMutation() {
 export function useClearNotificationsMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => remove('/notifications/clear'),
+    mutationFn: () => remove("/notifications/clear"),
     onSuccess: () => {
-      queryClient.setQueryData(mobileQueryKeys.notifications(), { data: [], unread: 0, total: 0 });
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.notifications() });
+      queryClient.setQueryData(mobileQueryKeys.notifications(), {
+        data: [],
+        unread: 0,
+        total: 0,
+      });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.notifications(),
+      });
     },
   });
 }
