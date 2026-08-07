@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -10,13 +10,16 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BottomSheetModal } from "@/components/shared/BottomSheetModal";
+import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
+import { resolveColor } from "@/components/marketplace/product-colors";
 import {
   useCartQuery,
   useClearCartMutation,
+  getCartGroupItems,
+  getCartItems,
   useRemoveCartItemMutation,
   useUpdateCartItemMutation,
 } from "@/lib/mobile-api";
@@ -27,36 +30,95 @@ export default function CartScreen() {
   const update = useUpdateCartItemMutation();
   const remove = useRemoveCartItemMutation();
   const clear = useClearCartMutation();
-  const [workingId, setWorkingId] = useState<string>();
+  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
+  const [pendingQuantities, setPendingQuantities] = useState<Record<string, number>>({});
+  const quantityQueue = useRef(new Map<string, number>());
+  const quantityWorkers = useRef(new Map<string, Promise<void>>());
   const [confirmClear, setConfirmClear] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<{ item: any; id: string } | null>(null);
   const data = cart.data as any;
 
-  async function change(item: any, quantity: number) {
-    if (quantity < 1 || workingId) return;
-    setWorkingId(item.id);
-    try {
-      await update.mutateAsync({ itemId: item.id, quantity });
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not update quantity",
-      );
-    } finally {
-      setWorkingId(undefined);
-    }
+  function visibleSubtotal(groupItems: any[]) {
+    return groupItems.reduce(
+      (sum, item) => sum + Number(item.unitPriceMinor || 0) * visibleQuantity(item),
+      0,
+    );
   }
+
+  function change(item: any, quantity: number) {
+    const itemId = cartItemIdentifier(item);
+    if (quantity < 1 || quantity > 99 || !itemId) return;
+    quantityQueue.current.set(itemId, quantity);
+    setPendingQuantities((current) => ({ ...current, [itemId]: quantity }));
+    if (quantityWorkers.current.has(itemId)) return;
+
+    const worker = (async () => {
+      try {
+        while (quantityQueue.current.has(itemId)) {
+          const target = quantityQueue.current.get(itemId)!;
+          await update.mutateAsync({ itemId, quantity: target });
+          if (quantityQueue.current.get(itemId) === target) {
+            quantityQueue.current.delete(itemId);
+            setPendingQuantities((current) => {
+              const next = { ...current };
+              delete next[itemId];
+              return next;
+            });
+          }
+        }
+      } catch (error) {
+        quantityQueue.current.delete(itemId);
+        setPendingQuantities((current) => {
+          const next = { ...current };
+          delete next[itemId];
+          return next;
+        });
+        toast.error(
+          error instanceof Error ? error.message : "Could not update quantity",
+        );
+      } finally {
+        quantityWorkers.current.delete(itemId);
+      }
+    })();
+    quantityWorkers.current.set(itemId, worker);
+  }
+
+  function visibleQuantity(item: any) {
+    const itemId = cartItemIdentifier(item);
+    return itemId ? pendingQuantities[itemId] ?? Number(item.quantity || 1) : Number(item.quantity || 1);
+  }
+
   async function removeItem(item: any) {
-    if (workingId) return;
-    setWorkingId(item.id);
+    const itemId = cartItemIdentifier(item);
+    if (!itemId || pendingIds.has(itemId)) return;
+    quantityQueue.current.delete(itemId);
+    setPendingQuantities((current) => {
+      const next = { ...current };
+      delete next[itemId];
+      return next;
+    });
+    setPendingIds((current) => new Set(current).add(itemId));
     try {
-      await remove.mutateAsync(item.id);
+      await quantityWorkers.current.get(itemId)?.catch(() => undefined);
+      await remove.mutateAsync(itemId);
+      setPendingRemoval(null);
       toast.success("Item removed");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not remove item",
       );
     } finally {
-      setWorkingId(undefined);
+      setPendingIds((current) => {
+        const next = new Set(current);
+        next.delete(itemId);
+        return next;
+      });
     }
+  }
+  function requestRemoveItem(item: any) {
+    const itemId = cartItemIdentifier(item);
+    if (!itemId) return toast.error("This cart item cannot be removed yet");
+    setPendingRemoval({ item, id: itemId });
   }
   async function clearCart() {
     try {
@@ -70,10 +132,14 @@ export default function CartScreen() {
     }
   }
   function continueShopping() {
-    router.push("/(tabs)/location" as never);
+    router.push("/(tabs)/discover" as never);
   }
-  function checkout(stateId: string, eligible: boolean) {
-    if (!eligible)
+  function checkout(group: any) {
+    const stateId = group.stateId || group.publicId || group.id;
+    if (!stateId) {
+      return toast.error("This State basket cannot be opened yet");
+    }
+    if (group.checkoutEligible !== true)
       return toast.error("Review this State basket before checkout");
     router.push({ pathname: "/checkout", params: { stateId } } as never);
   }
@@ -85,7 +151,7 @@ export default function CartScreen() {
       </View>
     );
   if (cart.isError) return <CartError retry={() => cart.refetch()} />;
-  const items = data?.items || [];
+  const items = getCartItems(data);
   if (!items.length) return <EmptyCart />;
 
   return (
@@ -136,44 +202,72 @@ export default function CartScreen() {
           <Ionicons name="chevron-forward" size={19} color="#fff" />
         </Pressable>
         <View className="mt-4 gap-5">
-          {(data.stateGroups || []).map((group: any, index: number) => (
+          {(data?.stateGroups || []).map((group: any, index: number) => (
+            (() => {
+              const groupItems = getCartGroupItems(data, group);
+              const groupSubtotalMinor = visibleSubtotal(groupItems);
+              return (
             <View
-              key={group.stateId}
+              key={group.stateId || group.publicId || `state-group-${index}`}
               className="overflow-hidden rounded-[24px] bg-white"
             >
               <View className="flex-row items-center justify-between border-b border-black/5 px-4 py-4">
                 <View>
                   <Text className="text-xs font-semibold uppercase text-[#777]">
-                    State basket {index + 1}
+                    {group.state?.name || `State basket ${index + 1}`}
                   </Text>
                   <Text className="mt-1 text-base font-black">
-                    {group.items.length} product
-                    {group.items.length === 1 ? "" : "s"}
+                    {groupItems.length} product
+                    {groupItems.length === 1 ? "" : "s"}
                   </Text>
                 </View>
-                <Text className="font-black">
-                  ₦{Number(group.subtotalMinor / 100).toLocaleString()}
-                </Text>
+                <View className="items-end">
+                  <Text className="text-xs text-[#777]">Subtotal</Text>
+                  <Text className="mt-1 font-black">
+                    ₦{Number(groupSubtotalMinor / 100).toLocaleString()}
+                  </Text>
+                </View>
               </View>
               <View className="gap-3 p-3">
-                {group.items.map((item: any) => (
-                  <CartRow
-                    key={item.id}
-                    item={item}
-                    busy={workingId === item.id}
-                    onChange={(quantity) => change(item, quantity)}
-                    onRemove={() => removeItem(item)}
-                  />
-                ))}
+                {groupItems.map((item: any, itemIndex: number) => {
+                  const itemId = cartItemIdentifier(item);
+                  const rowKey =
+                    itemId ||
+                    `cart-row-${item.productId || "product"}-${item.variantKey || "default"}-${itemIndex}`;
+
+                  return (
+                    <CartRow
+                      key={rowKey}
+                      item={item}
+                      busy={Boolean(itemId && pendingIds.has(itemId))}
+                      quantity={visibleQuantity(item)}
+                      onChange={(quantity) => change(item, quantity)}
+                      onRemove={() => requestRemoveItem(item)}
+                    />
+                  );
+                })}
               </View>
               <View className="px-4 pb-4">
                 <Pressable
-                  onPress={() =>
-                    checkout(group.stateId, group.checkoutEligible)
-                  }
-                  className={`h-13 items-center justify-center rounded-2xl ${group.checkoutEligible ? "bg-hook" : "bg-[#e5e5e7]"}`}
+                  accessibilityRole="button"
+                  accessibilityLabel="Checkout this State basket"
+                  disabled={group.checkoutEligible !== true}
+                  onPress={() => checkout(group)}
+                  className={`h-[52px] flex-row items-center justify-center rounded-2xl ${group.checkoutEligible === true ? "bg-hook" : "bg-[#e5e5e7]"}`}
                 >
-                  <Text className="font-black">Checkout this State</Text>
+                  <Text className="font-black">
+                    {group.checkoutEligible === true
+                      ? "Checkout this State"
+                      : "Review State basket"}
+                  </Text>
+                  {group.checkoutEligible === true ? (
+                    <Ionicons
+                      name="arrow-forward"
+                      size={18}
+                      color="#111"
+                      style={{ marginLeft: 8 }}
+                    />
+                  ) : null}
                 </Pressable>
                 {group.blockingReasons?.length ? (
                   <Text className="mt-2 text-xs text-red-500">
@@ -182,12 +276,20 @@ export default function CartScreen() {
                 ) : null}
               </View>
             </View>
+              );
+            })()
           ))}
         </View>
         <View className="mt-5 rounded-[22px] bg-white p-5">
           <SummaryRow
             label="Basket subtotal"
-            value={Number(data.subtotalMinor || 0) / 100}
+            value={
+              getCartItems(data).reduce(
+                (sum, item) =>
+                  sum + Number(item.unitPriceMinor || 0) * visibleQuantity(item),
+                0,
+              ) / 100
+            }
             strong
           />
           <Text className="mt-2 text-xs leading-5 text-[#777]">
@@ -203,34 +305,30 @@ export default function CartScreen() {
           Choose a State section above to checkout
         </Text>
       </View>
-      <BottomSheetModal
+      <HookConfirmSheet
         visible={confirmClear}
-        onClose={() => setConfirmClear(false)}
         title="Clear your cart?"
-      >
-        <Text className="text-center text-sm leading-6 text-[#666]">
-          This removes every item currently saved in your cart.
-        </Text>
-        <View className="mt-6 flex-row gap-3">
-          <Pressable
-            onPress={() => setConfirmClear(false)}
-            className="h-13 flex-1 items-center justify-center rounded-2xl bg-[#f1f1f3]"
-          >
-            <Text className="font-bold">Keep items</Text>
-          </Pressable>
-          <Pressable
-            disabled={clear.isPending}
-            onPress={() => void clearCart()}
-            className="h-13 flex-1 items-center justify-center rounded-2xl bg-red-500"
-          >
-            {clear.isPending ? (
-              <HookLoader size="button" variant="dark" />
-            ) : (
-              <Text className="font-bold text-white">Clear cart</Text>
-            )}
-          </Pressable>
-        </View>
-      </BottomSheetModal>
+        message="This removes every item currently saved in your cart."
+        icon="trash-outline"
+        confirmLabel="Clear cart"
+        cancelLabel="Keep items"
+        destructive
+        busy={clear.isPending}
+        onConfirm={clearCart}
+        onClose={() => setConfirmClear(false)}
+      />
+      <HookConfirmSheet
+        visible={Boolean(pendingRemoval)}
+        title="Remove item?"
+        message={pendingRemoval ? `Remove ${pendingRemoval.item.product?.title || "this product"} from your cart?` : ""}
+        icon="trash-outline"
+        confirmLabel="Remove"
+        cancelLabel="Keep item"
+        destructive
+        busy={Boolean(pendingRemoval && pendingIds.has(pendingRemoval.id))}
+        onConfirm={() => (pendingRemoval ? removeItem(pendingRemoval.item) : undefined)}
+        onClose={() => setPendingRemoval(null)}
+      />
     </View>
   );
 }
@@ -238,21 +336,29 @@ export default function CartScreen() {
 function CartRow({
   item,
   busy,
+  quantity,
   onChange,
   onRemove,
 }: {
   item: any;
   busy: boolean;
+  quantity: number;
   onChange: (quantity: number) => void;
   onRemove: () => void;
 }) {
   const product = item.product;
+  const selectedColorValue =
+    item.selectedVariants?.color || item.selectedVariants?.colour;
+  const displayColor = selectedColorValue
+    ? resolveColor(selectedColorValue)
+    : undefined;
+  const lineTotalMinor = Number(item.unitPriceMinor || 0) * quantity;
   return (
     <View
       className={`flex-row gap-3 rounded-[18px] bg-[#fafafa] p-3 ${item.checkoutEligible ? "" : "border border-red-100"}`}
     >
       <View className="h-24 w-24 overflow-hidden rounded-[16px] bg-[#f1f1f3]">
-        <RemoteImage uri={product?.images?.[0]} />
+        <RemoteImage uri={product?.imageUrl || product?.media?.[0]?.url || product?.images?.[0]} />
       </View>
       <View className="min-w-0 flex-1">
         <View className="flex-row items-start justify-between gap-2">
@@ -262,44 +368,60 @@ function CartRow({
           >
             {product?.title || "Unavailable product"}
           </Text>
-          <Pressable onPress={onRemove} hitSlop={8}>
+          <Pressable disabled={busy} onPress={onRemove} hitSlop={8}>
             <Ionicons name="close-circle" size={20} color="#aaa" />
           </Pressable>
         </View>
-        {item.selectedVariants?.color || item.selectedVariants?.size ? (
-          <Text numberOfLines={1} className="mt-1 text-xs text-[#777]">
-            {[item.selectedVariants?.color, item.selectedVariants?.size]
-              .filter(Boolean)
-              .join(" · ")}
-          </Text>
+        {item.selectedVariants?.color ||
+        item.selectedVariants?.colour ||
+        item.selectedVariants?.size ? (
+          <View className="mt-2 flex-row items-center gap-2">
+            {displayColor ? (
+              <View
+                className="h-4 w-4 rounded-full border border-black/10"
+                style={{ backgroundColor: displayColor.hex }}
+              />
+            ) : null}
+            <Text numberOfLines={1} className="flex-1 text-xs text-[#777]">
+              {[
+                displayColor?.name,
+                item.selectedVariants?.size,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </Text>
+          </View>
         ) : null}
-        <Text className="mt-2 text-sm font-black">
-          ₦{(Number(item.totalPriceMinor || 0) / 100).toLocaleString()}
-        </Text>
+        <View className="mt-2 flex-row items-center justify-between">
+          <Text className="text-xs text-[#777]">
+            ₦{(Number(item.unitPriceMinor || 0) / 100).toLocaleString()} each
+          </Text>
+          <Text className="text-sm font-black">
+            ₦{(lineTotalMinor / 100).toLocaleString()}
+          </Text>
+        </View>
         <View className="mt-2 flex-row items-center justify-between">
           {!item.checkoutEligible ? (
             <Text className="text-xs font-bold text-red-500">
               Review required
             </Text>
           ) : (
-            <View className="flex-row items-center rounded-full bg-[#f2f2f3] p-1">
+            <View
+              className="flex-row items-center rounded-full bg-[#f2f2f3] p-1"
+            >
               <Pressable
-                disabled={busy || item.quantity <= 1}
-                onPress={() => onChange(item.quantity - 1)}
+                disabled={quantity <= 1}
+                onPress={() => onChange(quantity - 1)}
                 className="h-7 w-7 items-center justify-center rounded-full bg-white"
               >
                 <Ionicons name="remove" size={15} />
               </Pressable>
               <View className="w-9 items-center">
-                {busy ? (
-                  <HookLoader size="button" />
-                ) : (
-                  <Text className="text-xs font-black">{item.quantity}</Text>
-                )}
+                <Text className="text-xs font-black">{quantity}</Text>
               </View>
               <Pressable
-                disabled={busy || item.quantity >= 99}
-                onPress={() => onChange(item.quantity + 1)}
+                disabled={quantity >= 99}
+                onPress={() => onChange(quantity + 1)}
                 className="h-7 w-7 items-center justify-center rounded-full bg-white"
               >
                 <Ionicons name="add" size={15} />
@@ -311,6 +433,12 @@ function CartRow({
     </View>
   );
 }
+
+function cartItemIdentifier(item: any): string | null {
+  const identifier = item?.id || item?.publicId || item?._id;
+  return identifier ? String(identifier) : null;
+}
+
 function SummaryRow({
   label,
   value,
@@ -346,7 +474,7 @@ function EmptyCart() {
         Products you add from Hook’s commercial catalog will appear here.
       </Text>
       <Pressable
-        onPress={() => router.replace("/(tabs)/location")}
+        onPress={() => router.replace("/(tabs)/discover")}
         className="mt-6 rounded-full bg-black px-5 py-3.5"
       >
         <Text className="font-black text-white">Discover products</Text>

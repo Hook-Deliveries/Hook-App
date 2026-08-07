@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { apiRequest } from "@/lib/api";
+import { getSession, isCustomerSession, onSessionChanged } from "@/lib/session";
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
@@ -39,7 +41,7 @@ export interface PublicCatalogProduct {
   negotiationAvailable: boolean;
   availabilityStatus: string;
   availabilityNote?: string;
-  publishedAt: string;
+  publishedAt?: string;
 }
 
 export interface PublicCategory {
@@ -48,12 +50,60 @@ export interface PublicCategory {
   slug: string;
   iconUrl?: string;
   description?: string;
+  productCount?: number;
 }
 
 export interface PublicProductPage {
   data: PublicCatalogProduct[];
   nextCursor: string | null;
   hasMore: boolean;
+}
+
+export interface PublicMarket {
+  publicId: string;
+  name: string;
+  address?: string | null;
+  imageUrl?: string | null;
+  shortDisplayName?: string;
+  discoveryColor?: string;
+  isFeatured?: boolean;
+  displayPriority?: number;
+  coordinates?: { lat: number; lng: number } | null;
+  operatingHours?: Record<string, unknown> | null;
+  state?: { publicId?: string; name?: string; code?: string } | null;
+  city?: { publicId?: string; name?: string; code?: string } | null;
+  zone?: { publicId?: string; name?: string; code?: string } | null;
+}
+
+export interface PublicHomeFeed {
+  featuredProducts: PublicCatalogProduct[];
+  flashDeals?: PublicCatalogProduct[];
+  categories: PublicCategory[];
+  markets: PublicMarket[];
+}
+
+export interface HookOperatingState {
+  publicId: string;
+  name: string;
+  capitalName?: string;
+  code: string;
+  deliveryEnabled?: boolean;
+  deliveryPromiseHours?: number;
+}
+
+export interface PublicLocalGovernment {
+  publicId: string;
+  stateId: string;
+  name: string;
+}
+
+export interface ProductLikesResponse {
+  productIds: string[];
+  items: Array<{
+    productId: string;
+    createdAt: string;
+    product?: PublicCatalogProduct | null;
+  }>;
 }
 
 function toQueryString(params?: QueryParams) {
@@ -86,35 +136,49 @@ function remove<TData>(path: string) {
 }
 
 export const mobileQueryKeys = {
-  feed: () => ["mobile", "feed"] as const,
+  feed: (params?: QueryParams) => ["mobile", "feed", params ?? {}] as const,
   search: (params?: QueryParams) => ["mobile", "search", params ?? {}] as const,
   products: (params?: QueryParams) =>
     ["mobile", "products", params ?? {}] as const,
   product: (id: string) => ["mobile", "products", id] as const,
   categories: () => ["mobile", "categories"] as const,
+  markets: (params?: QueryParams) =>
+    ["mobile", "public", "markets", params ?? {}] as const,
+  market: (id: string) => ["mobile", "public", "markets", id] as const,
+  marketCategories: (id: string) =>
+    ["mobile", "public", "markets", id, "categories"] as const,
+  session: () => ["mobile", "auth", "session"] as const,
+  likes: (userId?: string) => ["mobile", "likes", userId || "current"] as const,
   cart: () => ["mobile", "cart"] as const,
   orders: (params?: QueryParams) => ["mobile", "orders", params ?? {}] as const,
   order: (id: string) => ["mobile", "orders", id] as const,
+  orderFulfilment: (id: string) =>
+    ["mobile", "orders", id, "fulfilment"] as const,
   negotiations: (params?: QueryParams) =>
     ["mobile", "negotiations", params ?? {}] as const,
   negotiation: (id: string) => ["mobile", "negotiations", id] as const,
   paymentStatus: (orderId: string) =>
     ["mobile", "payments", orderId, "status"] as const,
   addresses: () => ["mobile", "addresses"] as const,
+  localGovernments: (stateId: string) => ["mobile", "local-governments", stateId] as const,
   commerceConfig: () => ["mobile", "commerce-config"] as const,
   notifications: () => ["mobile", "notifications"] as const,
   notification: (id: string) => ["mobile", "notifications", id] as const,
 };
 
-export function useHomeFeedQuery() {
+export function useHomeFeedQuery(params?: QueryParams) {
   return useQuery({
-    queryKey: mobileQueryKeys.feed(),
-    queryFn: () => apiRequest("/public/home", { auth: false }),
+    queryKey: mobileQueryKeys.feed(params),
+    queryFn: () =>
+      apiRequest<PublicHomeFeed>(`/public/home${toQueryString(params)}`, {
+        auth: false,
+      }),
   });
 }
 
 export function useSearchQuery(params?: QueryParams) {
   return useQuery({
+    enabled: Boolean(params?.q),
     queryKey: mobileQueryKeys.search(params),
     queryFn: () =>
       apiRequest<PublicProductPage>(`/public/search${toQueryString(params)}`, {
@@ -148,7 +212,7 @@ export function useProductQuery(id?: string) {
 export function useOperatingStatesQuery() {
   return useQuery({
     queryKey: ["mobile", "operating-states"],
-    queryFn: () => apiRequest("/public/states", { auth: false }),
+    queryFn: () => apiRequest<HookOperatingState[]>("/public/states", { auth: false }),
   });
 }
 
@@ -163,6 +227,15 @@ export function useOperationCitiesQuery(stateId?: string) {
   });
 }
 
+export function useLocalGovernmentsQuery(stateId?: string) {
+  return useQuery({
+    enabled: Boolean(stateId),
+    queryKey: mobileQueryKeys.localGovernments(stateId || ""),
+    queryFn: () => apiRequest<{ state: HookOperatingState; data: PublicLocalGovernment[] }>(`/public/states/${stateId}/lgas`, { auth: false }),
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function useServiceZonesQuery(stateId?: string, cityId?: string) {
   return useQuery({
     enabled: Boolean(stateId),
@@ -174,12 +247,31 @@ export function useServiceZonesQuery(stateId?: string, cityId?: string) {
   });
 }
 
-export function useMarketsQuery(stateId?: string, cityId?: string) {
+export function useMarketsQuery(params?: QueryParams) {
   return useQuery({
-    enabled: Boolean(stateId),
-    queryKey: ["mobile", "public", "markets", stateId, cityId],
+    queryKey: mobileQueryKeys.markets(params),
     queryFn: () =>
-      apiRequest(`/public/markets${toQueryString({ stateId, cityId })}`, {
+      apiRequest<PublicMarket[]>(`/public/markets${toQueryString(params)}`, {
+        auth: false,
+      }),
+  });
+}
+
+export function useMarketQuery(id?: string) {
+  return useQuery({
+    enabled: Boolean(id),
+    queryKey: mobileQueryKeys.market(id || ""),
+    queryFn: () =>
+      apiRequest<PublicMarket>(`/public/markets/${id}`, { auth: false }),
+  });
+}
+
+export function useMarketCategoriesQuery(id?: string) {
+  return useQuery({
+    enabled: Boolean(id),
+    queryKey: mobileQueryKeys.marketCategories(id || ""),
+    queryFn: () =>
+      apiRequest<PublicCategory[]>(`/public/markets/${id}/categories`, {
         auth: false,
       }),
   });
@@ -193,26 +285,383 @@ export function useCategoriesQuery() {
   });
 }
 
+export function useCustomerSessionQuery() {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const unsubscribe = onSessionChanged(() => {
+      void queryClient.invalidateQueries({ queryKey: mobileQueryKeys.session() });
+    });
+    return () => unsubscribe();
+  }, [queryClient]);
+
+  return useQuery({
+    queryKey: mobileQueryKeys.session(),
+    queryFn: getSession,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+}
+
+export function useLikedProductsQuery() {
+  const session = useCustomerSessionQuery();
+  const likesKey = mobileQueryKeys.likes(session.data?.user.id || session.data?.user.publicId);
+  return useQuery({
+    enabled: isCustomerSession(session.data),
+    queryKey: likesKey,
+    queryFn: () => apiRequest<ProductLikesResponse>("/likes"),
+    retry: false,
+    placeholderData: { productIds: [], items: [] },
+  });
+}
+
+export function useToggleProductLikeMutation() {
+  const session = useCustomerSessionQuery();
+  const queryClient = useQueryClient();
+  const likesKey = mobileQueryKeys.likes(session.data?.user.id || session.data?.user.publicId);
+  return useMutation({
+    mutationFn: ({
+      productId,
+      liked,
+    }: {
+      productId: string;
+      liked: boolean;
+    }) =>
+      liked
+        ? remove(`/likes/${productId}`)
+        : apiRequest(`/likes/${productId}`, { method: "PUT" }),
+    onMutate: async ({ productId, liked }) => {
+      await queryClient.cancelQueries({ queryKey: likesKey });
+      const previous = queryClient.getQueryData<ProductLikesResponse>(likesKey);
+      const current = previous || { productIds: [], items: [] };
+      const productIds = liked
+        ? current.productIds.filter((id) => id !== productId)
+        : current.productIds.includes(productId)
+          ? current.productIds
+          : [productId, ...current.productIds];
+      queryClient.setQueryData(likesKey, {
+        ...current,
+        productIds,
+      });
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(likesKey, context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: likesKey });
+    },
+  });
+}
+
 export function useCartQuery() {
   return useQuery({
     queryKey: mobileQueryKeys.cart(),
     queryFn: () => apiRequest("/cart"),
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
+
+export function getCartItems(cart: any): any[] {
+  if (Array.isArray(cart?.items)) return cart.items;
+  return Array.isArray(cart?.stateGroups)
+    ? cart.stateGroups.flatMap((group: any) => group.items || [])
+    : [];
+}
+
+export function getCartGroupItems(cart: any, group: any): any[] {
+  if (Array.isArray(group?.items)) return group.items;
+  const lines = getCartItems(cart);
+  const ids = new Set((group?.itemIds || []).map((id: unknown) => String(id)));
+  if (ids.size) {
+    return lines.filter((item) => ids.has(cartLineIdentifier(item)));
+  }
+  const stateId = String(group?.publicStateId || group?.stateId || group?.id || "");
+  return lines.filter(
+    (item) => String(item?.stateId || item?.publicStateId || "") === stateId,
+  );
+}
+
+type AddCartItemInput = {
+  productId: string;
+  quantity: number;
+  selectedVariants?: { color?: string; size?: string };
+  variantId?: string;
+  quoteId?: string;
+  // Optional product used for instant cart feedback.
+  optimisticProduct?: PublicCatalogProduct;
+};
 
 export function useAddCartItemMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: {
-      productId: string;
-      quantity: number;
-      selectedVariants?: { color?: string; size?: string };
-      variantId?: string;
-      quoteId?: string;
-    }) => post("/cart/items", input),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
+    mutationFn: async (input: AddCartItemInput) => {
+      const { optimisticProduct: _product, ...payload } = input;
+      return post("/cart/items", payload);
+    },
+    onMutate: async (input) => {
+      const cartKey = mobileQueryKeys.cart();
+      await queryClient.cancelQueries({ queryKey: cartKey });
+      const previous = queryClient.getQueryData(cartKey);
+
+      queryClient.setQueryData(cartKey, (current: unknown) =>
+        optimisticAddCartSnapshot(current, input),
+      );
+
+      return { previous };
+    },
+    onSuccess: (data) => {
+      // Replace the optimistic snapshot when a full cart is returned.
+      if (data && typeof data === "object" &&
+          (Array.isArray((data as any).items) || Array.isArray((data as any).stateGroups))) {
+        queryClient.setQueryData(mobileQueryKeys.cart(), data);
+      } else {
+        // Keep the optimistic result and reconcile it in the background.
+        void queryClient.invalidateQueries({
+          queryKey: mobileQueryKeys.cart(),
+          refetchType: "none",
+        });
+      }
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(mobileQueryKeys.cart(), context.previous);
+      }
+      // Reconcile ambiguous network failures in the background.
+      void queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() });
+    },
   });
+}
+
+function cartLineIdentifier(item: any): string {
+  const identifier = item?.id ?? item?.publicId ?? item?._id;
+  return identifier == null ? "" : String(identifier);
+}
+
+function cartLineTotalMinor(item: any): number {
+  const total = Number(item?.totalPriceMinor);
+  if (Number.isFinite(total)) return total;
+
+  const unitPrice = Number(item?.unitPriceMinor ?? item?.priceMinor ?? 0);
+  return unitPrice * Number(item?.quantity ?? 0);
+}
+
+function normalizedVariantValue(value: unknown) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function matchesOptimisticLine(item: any, input: AddCartItemInput) {
+  const productId = item?.productId || item?.product?.publicId || item?.product?.id;
+  if (String(productId || "") !== String(input.productId)) return false;
+  if (input.variantId && item?.variantId) {
+    return String(item.variantId) === String(input.variantId);
+  }
+
+  const current = item?.selectedVariants || {};
+  const selected = input.selectedVariants || {};
+  return (
+    normalizedVariantValue(current.color) === normalizedVariantValue(selected.color) &&
+    normalizedVariantValue(current.size) === normalizedVariantValue(selected.size)
+  );
+}
+
+function provisionalCartItem(input: AddCartItemInput) {
+  const product = input.optimisticProduct;
+  if (!product) return null;
+
+  const selectedVariants = input.selectedVariants || {};
+  const variantKey = input.variantId || [
+    normalizedVariantValue(selectedVariants.color) || "-",
+    normalizedVariantValue(selectedVariants.size) || "-",
+  ].join("::");
+  const unitPriceMinor = Number(product.effectivePriceMinor || 0);
+  const optimisticId = `optimistic-${product.publicId}-${variantKey}`;
+  const quantity = Math.max(Number(input.quantity) || 1, 1);
+  const images = (product.media || []).map((asset) => asset.url).filter(Boolean);
+
+  return {
+    id: optimisticId,
+    publicId: optimisticId,
+    productId: product.publicId,
+    quantity,
+    unitPriceMinor,
+    totalPriceMinor: unitPriceMinor * quantity,
+    currency: product.currency || "NGN",
+    selectedVariants,
+    variantId: input.variantId,
+    variantKey,
+    productVersion: 1,
+    stateId: product.sourceState?.publicId,
+    marketId: product.market?.publicId,
+    product: {
+      ...product,
+      id: product.publicId,
+      images,
+    },
+    blockingReasons: [],
+    checkoutEligible: true,
+  };
+}
+
+function upsertOptimisticLine(items: any[], line: any, input: AddCartItemInput) {
+  let matched = false;
+  const next = items.map((item) => {
+    if (!matchesOptimisticLine(item, input)) return item;
+    matched = true;
+    const quantity = Number(item.quantity || 0) + Number(line.quantity || 0);
+    const unitPriceMinor = Number(item.unitPriceMinor ?? line.unitPriceMinor ?? 0);
+    return {
+      ...item,
+      quantity,
+      totalPriceMinor: unitPriceMinor * quantity,
+    };
+  });
+  return { items: matched ? next : [...next, line], matched };
+}
+
+function optimisticAddCartSnapshot(current: any, input: AddCartItemInput) {
+  const line = provisionalCartItem(input);
+  if (!line) return current;
+
+  const base = current && typeof current === "object"
+    ? current
+    : { items: [], stateGroups: [], currency: line.currency };
+  const existingItems = getCartItems(base);
+  const topLevel = upsertOptimisticLine(existingItems, line, input).items;
+  const targetStateId = line.stateId || "unknown";
+  let groupMatched = false;
+  const groups = Array.isArray(base.stateGroups) ? base.stateGroups : [];
+  const nextGroups = groups.map((group: any) => {
+    if (
+      String(group.publicStateId || group.stateId || group.publicId || "") !==
+      String(targetStateId)
+    ) {
+      return group;
+    }
+    groupMatched = true;
+    const result = upsertOptimisticLine(getCartGroupItems(base, group), line, input);
+    return {
+      ...group,
+      items: result.items,
+      subtotalMinor: result.items.reduce(
+        (sum: number, item: any) => sum + cartLineTotalMinor(item),
+        0,
+      ),
+    };
+  });
+
+  if (!groupMatched) {
+    nextGroups.push({
+      stateId: targetStateId,
+      items: [line],
+      subtotalMinor: cartLineTotalMinor(line),
+      currency: line.currency,
+      checkoutEligible: true,
+      blockingReasons: [],
+    });
+  }
+
+  const subtotalMinor = topLevel.reduce(
+    (sum: number, item: any) => sum + cartLineTotalMinor(item),
+    0,
+  );
+  return {
+    ...base,
+    items: topLevel,
+    stateGroups: nextGroups,
+    subtotalMinor,
+    itemCount: topLevel.reduce(
+      (sum: number, item: any) => sum + Number(item.quantity || 0),
+      0,
+    ),
+  };
+}
+
+function updateCartItems(items: unknown, itemId: string, quantity: number) {
+  if (!Array.isArray(items)) return [];
+
+  return items.map((item: any) => {
+    if (cartLineIdentifier(item) !== itemId) return item;
+
+    const currentQuantity = Math.max(Number(item.quantity) || 1, 1);
+    const currentTotal = Number(item.totalPriceMinor);
+    const unitPrice = Number(
+      item.unitPriceMinor ??
+        item.priceMinor ??
+        (Number.isFinite(currentTotal) ? currentTotal / currentQuantity : 0),
+    );
+    const nextTotal = unitPrice * quantity;
+    const nextItem = { ...item, quantity };
+
+    if (Object.prototype.hasOwnProperty.call(item, "totalPriceMinor")) {
+      nextItem.totalPriceMinor = nextTotal;
+    }
+    if (Object.prototype.hasOwnProperty.call(item, "lineTotalMinor")) {
+      nextItem.lineTotalMinor = nextTotal;
+    }
+
+    return nextItem;
+  });
+}
+
+function updateCartQuantitySnapshot(
+  cart: any,
+  itemId: string,
+  quantity: number,
+) {
+  if (!cart || typeof cart !== "object") return cart;
+
+  const hasTopLevelItems = Array.isArray(cart.items);
+  const items = hasTopLevelItems
+    ? updateCartItems(cart.items, itemId, quantity)
+    : undefined;
+  const stateGroups = Array.isArray(cart.stateGroups)
+    ? cart.stateGroups.map((group: any) => {
+        const groupItems = updateCartItems(
+          getCartGroupItems(cart, group),
+          itemId,
+          quantity,
+        );
+        return {
+          ...group,
+          items: groupItems,
+          ...(Object.prototype.hasOwnProperty.call(group, "subtotalMinor")
+            ? {
+                subtotalMinor: groupItems.reduce(
+                  (sum: number, item: any) => sum + cartLineTotalMinor(item),
+                  0,
+                ),
+              }
+            : {}),
+        };
+      })
+    : cart.stateGroups;
+  const summaryItems = hasTopLevelItems
+    ? items || []
+    : (stateGroups || []).flatMap((group: any) => group.items || []);
+  const nextCart = {
+    ...cart,
+    ...(hasTopLevelItems ? { items } : {}),
+    ...(Array.isArray(cart.stateGroups) ? { stateGroups } : {}),
+  };
+
+  if (Object.prototype.hasOwnProperty.call(cart, "subtotalMinor")) {
+    nextCart.subtotalMinor = summaryItems.reduce(
+      (sum: number, item: any) => sum + cartLineTotalMinor(item),
+      0,
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(cart, "itemCount")) {
+    nextCart.itemCount = summaryItems.reduce(
+      (sum: number, item: any) => sum + Number(item.quantity || 0),
+      0,
+    );
+  }
+
+  return nextCart;
 }
 
 export function useUpdateCartItemMutation() {
@@ -220,8 +669,28 @@ export function useUpdateCartItemMutation() {
   return useMutation({
     mutationFn: (input: { itemId: string; quantity: number }) =>
       patch(`/cart/items/${input.itemId}`, { quantity: input.quantity }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
+    onMutate: async ({ itemId, quantity }) => {
+      const cartKey = mobileQueryKeys.cart();
+      await queryClient.cancelQueries({ queryKey: cartKey });
+      const previous = queryClient.getQueryData(cartKey);
+
+      queryClient.setQueryData(cartKey, (current: any) =>
+        updateCartQuantitySnapshot(current, itemId, quantity),
+      );
+
+      return { previous };
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(mobileQueryKeys.cart(), context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.cart(),
+        refetchType: "none",
+      });
+    },
   });
 }
 
@@ -260,9 +729,16 @@ export interface CustomerAddressInput {
   line2?: string;
   landmark?: string;
   stateId: string;
-  cityId: string;
-  zoneId: string;
+  cityId?: string;
+  zoneId?: string;
+  localGovernmentAreaId: string;
   postalCode?: string;
+  formattedAddress?: string;
+  stateCode: string;
+  stateName: string;
+  cityName: string;
+  localGovernmentArea?: string;
+  coordinates?: { latitude: number; longitude: number };
   isDefault?: boolean;
 }
 export function useAddressesQuery() {
@@ -367,6 +843,50 @@ export function useOrderQuery(id?: string) {
     enabled: Boolean(id),
     queryKey: mobileQueryKeys.order(id || ""),
     queryFn: () => apiRequest(`/orders/${id}`),
+  });
+}
+
+export function useOrderFulfilmentQuery(id?: string) {
+  return useQuery({
+    enabled: Boolean(id),
+    queryKey: mobileQueryKeys.orderFulfilment(id || ""),
+    queryFn: () =>
+      apiRequest<{
+        tasks: any[];
+        packages: any[];
+        shipment?: any;
+        custody?: any;
+        returns: any[];
+        refunds: any[];
+      }>(`/orders/${id}/fulfilment`),
+  });
+}
+
+export function useCreateReturnMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      orderId: string;
+      orderItemIds: string[];
+      reasonType: string;
+      reason: string;
+      evidenceAssetIds?: string[];
+    }) =>
+      post(`/orders/${input.orderId}/returns`, {
+        orderItemIds: input.orderItemIds,
+        reasonType: input.reasonType,
+        reason: input.reason,
+        evidenceAssetIds: input.evidenceAssetIds || [],
+      }),
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.order(input.orderId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.orderFulfilment(input.orderId),
+      });
+      queryClient.invalidateQueries({ queryKey: ["mobile", "orders"] });
+    },
   });
 }
 

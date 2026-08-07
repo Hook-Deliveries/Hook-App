@@ -1,25 +1,33 @@
-import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { Text, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from "expo-router";
+import { useState } from "react";
+import { Text, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BackButton, NextButton, PaginationDots, SkipButton } from '@/components/features/onboarding/controls';
-import { DESIGN_WIDTH, ONBOARDING_SLIDES } from '@/components/features/onboarding/data';
-import { OnboardingVisual } from '@/components/features/onboarding/visuals';
-import { setOnboardingComplete } from '@/lib/session';
+import {
+  BackButton,
+  NextButton,
+  PaginationDots,
+  SkipButton,
+} from "@/components/onboarding/controls";
+import {
+  DESIGN_WIDTH,
+  ONBOARDING_SLIDES,
+} from "@/components/onboarding/data";
+import { OnboardingVisual } from "@/components/onboarding/visuals";
+import { setOnboardingComplete } from "@/lib/session";
 
 export default function OnboardingScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
-  const { width } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const scale = width / DESIGN_WIDTH;
   const activeSlide = ONBOARDING_SLIDES[activeIndex];
   const topY = Math.max(insets.top + 8, 44 * scale);
+  const nextTop = Math.min(770 * scale, height - insets.bottom - 70 * scale);
 
   const finishOnboarding = async () => {
     await setOnboardingComplete(true);
-    router.replace('/auth');
+    router.replace("/auth");
   };
 
   const goNext = () => {
@@ -33,8 +41,6 @@ export default function OnboardingScreen() {
 
   return (
     <View className="flex-1 overflow-hidden bg-hook-surface">
-      <StatusBar style="dark" />
-
       <OnboardingVisual activeIndex={activeIndex} scale={scale} />
 
       <SkipButton scale={scale} top={topY} onPress={finishOnboarding} />
@@ -50,31 +56,34 @@ export default function OnboardingScreen() {
 
       <View
         className="absolute"
-        style={{ left: 16 * scale, top: 602 * scale, width: 288 * scale }}>
+        style={{ left: 16 * scale, top: 602 * scale, width: 288 * scale }}
+      >
         <Text
           style={{
-            color: '#000',
+            color: "#000",
             fontSize: 32 * scale,
-            fontWeight: '700',
+            fontWeight: "700",
             lineHeight: 38 * scale,
-          }}>
+          }}
+        >
           {activeSlide.title}
         </Text>
         <Text
           style={{
-            color: '#414040',
+            color: "#414040",
             fontSize: 16 * scale,
-            fontWeight: '500',
+            fontWeight: "500",
             lineHeight: 20 * scale,
             marginTop: 6 * scale,
-          }}>
+          }}
+        >
           {activeSlide.description}
         </Text>
       </View>
 
       <NextButton
         scale={scale}
-        top={770 * scale}
+        top={nextTop}
         isLast={activeIndex === ONBOARDING_SLIDES.length - 1}
         onPress={goNext}
       />

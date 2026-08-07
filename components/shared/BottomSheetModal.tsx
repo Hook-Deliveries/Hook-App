@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type BottomSheetModalProps = PropsWithChildren<{
   visible: boolean;
@@ -16,6 +17,7 @@ type BottomSheetModalProps = PropsWithChildren<{
   title?: string;
   dismissible?: boolean;
   accessibilityLabel?: string;
+  fullScreen?: boolean;
 }>;
 
 const enterTransition = SlideInDown.springify()
@@ -34,8 +36,11 @@ export function BottomSheetModal({
   title,
   dismissible = true,
   accessibilityLabel,
+  fullScreen = false,
   children,
 }: BottomSheetModalProps) {
+  const insets = useSafeAreaInsets();
+
   function handleClose() {
     if (dismissible) onClose();
   }
@@ -48,23 +53,40 @@ export function BottomSheetModal({
       transparent
       visible={visible}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1 justify-end bg-black/50">
-        <Pressable
-          accessibilityLabel="Close modal"
-          accessibilityRole="button"
-          className="flex-1"
-          disabled={!dismissible}
-          onPress={handleClose}
-        />
+        behavior={fullScreen ? 'height' : Platform.OS === 'ios' ? 'padding' : undefined}
+        className={fullScreen ? 'flex-1 bg-white' : 'flex-1 bg-black/50'}>
+        {!fullScreen ? (
+          <Pressable
+            accessibilityLabel="Close modal"
+            accessibilityRole="button"
+            className="absolute inset-0"
+            disabled={!dismissible}
+            onPress={handleClose}
+          />
+        ) : null}
 
         <Animated.View
           accessibilityLabel={accessibilityLabel ?? title}
           accessibilityViewIsModal
-          className="max-h-[90%] rounded-t-[28px] bg-white px-6 pb-8 pt-3"
+          className={
+            fullScreen
+              ? 'flex-1 bg-white px-5 pb-2'
+              : 'w-full max-h-[90%] self-end rounded-t-[28px] bg-white px-6 pt-3'
+          }
           entering={enterTransition}
-          exiting={exitTransition}>
-          <View className="mb-3 h-1 w-10 self-center rounded-full bg-black/10" />
+          exiting={exitTransition}
+          style={
+            fullScreen
+              ? {
+                  paddingTop: insets.top + 8,
+                  paddingBottom: Math.max(insets.bottom, 8),
+                }
+              : {
+                  marginTop: 'auto',
+                  paddingBottom: Math.max(insets.bottom, 16),
+                }
+          }>
+          {!fullScreen ? <View className="mb-3 h-1 w-10 self-center rounded-full bg-black/10" /> : null}
 
           <View className={title ? 'mb-6 min-h-9 justify-center' : 'mb-2 min-h-9 justify-center'}>
             {title ? (
@@ -90,4 +112,3 @@ export function BottomSheetModal({
     </NativeModal>
   );
 }
-

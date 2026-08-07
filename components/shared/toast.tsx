@@ -43,21 +43,15 @@ export const toast = {
 
 // ─── Accent dot colour per variant ──────────────────────────────────────────
 
-const toastStyle: Record<ToastVariant, { accent: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string }> = {
+const toastStyle: Record<ToastVariant, { icon: keyof typeof Ionicons.glyphMap }> = {
   info: {
-    accent: '#FFC809',
-    icon: 'sparkles-outline',
-    iconColor: '#111111',
+    icon: 'information',
   },
   success: {
-    accent: '#12b981',
-    icon: 'checkmark-circle-outline',
-    iconColor: '#047857',
+    icon: 'checkmark',
   },
   error: {
-    accent: '#ff3b30',
-    icon: 'alert-circle-outline',
-    iconColor: '#dc2626',
+    icon: 'close',
   },
 };
 
@@ -120,27 +114,28 @@ function ToastPill({
         transform: [{ translateY }],
         zIndex: 9999,
       }}>
-      <View className="overflow-hidden rounded-[18px] border border-black/10 bg-white shadow-lg">
-        <View
-          className="absolute bottom-0 left-0 top-0 w-1"
-          style={{ backgroundColor: style.accent }}
-        />
+      <View
+        className="overflow-hidden rounded-xl border border-black/10 bg-[#FFC809] shadow-lg"
+        style={{
+          shadowColor: '#111111',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.18,
+          shadowRadius: 12,
+        }}>
         <View className="flex-row items-center gap-3 px-4 py-3">
-          <View
-            className="h-9 w-9 items-center justify-center rounded-full"
-            style={{ backgroundColor: variant === 'info' ? '#fff4c7' : `${style.accent}18` }}>
-            <Ionicons name={style.icon} size={18} color={style.iconColor} />
+          <View className="h-9 w-9 items-center justify-center rounded-full bg-black">
+            <Ionicons name={style.icon} size={18} color="#FFC809" />
           </View>
           <View className="min-w-0 flex-1">
             <Text
-              className="text-left text-[14px] font-semibold text-black"
+              className="text-left text-[14px] font-bold text-black"
               ellipsizeMode="tail"
               numberOfLines={1}>
               {config.message}
             </Text>
             {config.subtitle ? (
               <Text
-                className="mt-0.5 text-left text-[12px] leading-4 text-hook-text"
+                className="mt-0.5 text-left text-[12px] leading-4 text-black/65"
                 ellipsizeMode="tail"
                 numberOfLines={1}>
                 {config.subtitle}

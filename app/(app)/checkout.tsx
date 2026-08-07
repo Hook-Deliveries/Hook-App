@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BottomSheetModal } from "@/components/shared/BottomSheetModal";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { toast } from "@/components/shared/toast";
 import { apiRequest } from "@/lib/api";
@@ -13,6 +14,7 @@ import { getSession } from "@/lib/session";
 import {
   useAddressesQuery,
   useCartQuery,
+  getCartGroupItems,
   useCheckoutConfirmMutation,
   useCheckoutPreviewMutation,
   useCommerceConfigQuery,
@@ -33,18 +35,42 @@ export default function CheckoutScreen() {
   const [addressId, setAddressId] = useState<string>();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("PREPAID");
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
+  const [addressPromptVisible, setAddressPromptVisible] = useState(false);
+  const addressRows = Array.isArray(addresses.data) ? addresses.data : [];
   const selectedAddress =
-    addressId ||
-    addresses.data?.find((item) => item.isDefault)?.publicId ||
-    addresses.data?.[0]?.publicId;
+    addressRows.find((item) => item.publicId === addressId)?.publicId ||
+    addressRows.find((item) => item.isDefault)?.publicId ||
+    addressRows[0]?.publicId;
   const group = useMemo(
     () =>
       (cart.data as any)?.stateGroups?.find(
-        (item: any) => item.stateId === stateId,
+        (item: any) =>
+          String(item.stateId || item.publicId || item.id) === String(stateId),
       ),
     [cart.data, stateId],
   );
+  const groupItems = useMemo(
+    () => (group ? getCartGroupItems(cart.data, group) : []),
+    [cart.data, group],
+  );
   const busy = preview.isPending || confirm.isPending || initialize.isPending;
+
+  function openAddressPrompt() {
+    setAddressPromptVisible(true);
+  }
+
+  function openAddresses() {
+    setAddressPromptVisible(false);
+    router.push("/addresses" as never);
+  }
+
+  function choosePaymentMethod(method: PaymentMethod) {
+    if (!selectedAddress) {
+      openAddressPrompt();
+      return;
+    }
+    setPaymentMethod(method);
+  }
 
   useEffect(() => {
     void getSession().then((session) => {
@@ -63,8 +89,10 @@ export default function CheckoutScreen() {
   async function placeOrder() {
     if (!stateId || !group)
       return toast.error("This State basket is no longer available");
-    if (!selectedAddress)
-      return toast.error("Add a covered delivery address first");
+    if (!selectedAddress) {
+      openAddressPrompt();
+      return;
+    }
     const policyVersions = config.data?.policyVersions;
     if (
       !policyVersions?.TERMS ||
@@ -154,6 +182,10 @@ export default function CheckoutScreen() {
   return (
     <View className="flex-1 bg-[#f4f4f5]" style={{ paddingTop: insets.top }}>
       <ScrollView
+        contentInsetAdjustmentBehavior="never"
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           padding: 16,
           paddingBottom: insets.bottom + 120,
@@ -169,19 +201,19 @@ export default function CheckoutScreen() {
           <View>
             <Text className="text-2xl font-black">Checkout</Text>
             <Text className="text-xs text-[#666]">
-              One State · {group.items.length} product
-              {group.items.length === 1 ? "" : "s"}
+              One State · {groupItems.length} product
+              {groupItems.length === 1 ? "" : "s"}
             </Text>
           </View>
         </View>
         <Section
           title="Delivery address"
           action="Manage"
-          onAction={() => router.push("/addresses" as never)}
+          onAction={openAddresses}
         >
-          {addresses.data?.length ? (
+          {addressRows.length ? (
             <View className="gap-2">
-              {addresses.data.map((address) => (
+              {addressRows.map((address) => (
                 <Pressable
                   key={address.publicId}
                   onPress={() => setAddressId(address.publicId)}
@@ -198,12 +230,30 @@ export default function CheckoutScreen() {
               ))}
             </View>
           ) : (
-            <Pressable
-              onPress={() => router.push("/addresses" as never)}
-              className="h-13 items-center justify-center rounded-2xl bg-hook"
-            >
-              <Text className="font-bold">Add delivery address</Text>
-            </Pressable>
+            <View className="rounded-2xl border border-hook/30 bg-[#fff9df] p-4">
+              <View className="flex-row items-start">
+                <View className="h-10 w-10 items-center justify-center rounded-full bg-hook">
+                  <Ionicons name="location" size={19} color="#111" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="font-black text-black">
+                    Delivery address required
+                  </Text>
+                  <Text className="mt-1 text-xs leading-5 text-black/60">
+                    Add a verified address so Hook can confirm coverage and calculate your delivery fee.
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={openAddresses}
+                className="mt-4 h-11 items-center justify-center rounded-full bg-black"
+              >
+                <Text className="text-sm font-bold text-white">
+                  Add delivery address
+                </Text>
+              </Pressable>
+            </View>
           )}
         </Section>
         <Section title="Payment">
@@ -212,14 +262,14 @@ export default function CheckoutScreen() {
               active={paymentMethod === "PREPAID"}
               title="Pay now"
               description="Complete payment securely with Paystack."
-              onPress={() => setPaymentMethod("PREPAID")}
+              onPress={() => choosePaymentMethod("PREPAID")}
             />
             <PaymentChoice
               active={paymentMethod === "PAY_AT_HANDOVER"}
               title="Pay at handover"
               description="Subject to coverage, account and Operations approval."
               disabled={!config.data?.podEnabled}
-              onPress={() => setPaymentMethod("PAY_AT_HANDOVER")}
+              onPress={() => choosePaymentMethod("PAY_AT_HANDOVER")}
             />
           </View>
         </Section>
@@ -253,18 +303,70 @@ export default function CheckoutScreen() {
         className="absolute inset-x-0 bottom-0 border-t border-black/5 bg-white px-4 pt-3"
         style={{ paddingBottom: insets.bottom + 8 }}
       >
+        <View className="mb-2 flex-row items-center justify-between">
+          <Text className="text-xs text-[#777]">
+            {paymentMethod === "PREPAID"
+              ? "Secure Paystack payment"
+              : "Operations review may apply"}
+          </Text>
+          <Text className="font-black">
+            ₦{(Number(group.subtotalMinor || 0) / 100).toLocaleString()}
+          </Text>
+        </View>
         <Pressable
-          disabled={busy || !selectedAddress || !acceptedPolicies}
+          disabled={busy}
           onPress={() => void placeOrder()}
-          className={`h-14 items-center justify-center rounded-2xl ${busy || !selectedAddress || !acceptedPolicies ? "bg-[#e3e3e5]" : "bg-hook"}`}
+          className={`h-14 items-center justify-center rounded-2xl ${busy ? "bg-[#e3e3e5]" : "bg-hook"}`}
         >
           {busy ? (
             <HookLoader size="button" />
           ) : (
-            <Text className="font-black">Review and place Order</Text>
+            <Text className="font-black">
+              {!selectedAddress
+                ? "Add delivery address"
+                : paymentMethod === "PREPAID"
+                ? "Continue to secure payment"
+                : "Submit handover request"}
+            </Text>
           )}
         </Pressable>
       </View>
+      <BottomSheetModal
+        visible={addressPromptVisible}
+        onClose={() => setAddressPromptVisible(false)}
+        title="Add a delivery address"
+        accessibilityLabel="Delivery address required"
+      >
+        <View className="items-center">
+          <View className="h-14 w-14 items-center justify-center rounded-full bg-hook">
+            <Ionicons name="location-outline" size={27} color="#111" />
+          </View>
+          <Text className="mt-4 text-center text-base font-black text-black">
+            We need your delivery address first
+          </Text>
+          <Text className="mt-2 max-w-[320px] text-center text-sm leading-6 text-[#666]">
+            Add a verified Nigerian address so Hook can calculate delivery and continue with Paystack or pay-at-handover checkout.
+          </Text>
+        </View>
+        <View className="mt-6 gap-3">
+          <Pressable
+            accessibilityRole="button"
+            onPress={openAddresses}
+            className="h-[52px] items-center justify-center rounded-full bg-hook"
+          >
+            <Text className="text-sm font-black text-black">
+              Add delivery address
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setAddressPromptVisible(false)}
+            className="h-[52px] items-center justify-center rounded-full bg-hook-surface"
+          >
+            <Text className="text-sm font-bold text-black">Not now</Text>
+          </Pressable>
+        </View>
+      </BottomSheetModal>
     </View>
   );
 }
