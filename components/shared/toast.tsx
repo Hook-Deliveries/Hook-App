@@ -1,6 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  PanResponder,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -65,10 +70,135 @@ function ToastPill({
   onDone: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissedRef = useRef(false);
+  const onDoneRef = useRef(onDone);
   const { variant = 'info', duration = 2600 } = config;
   const style = toastStyle[variant];
+
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
+
+  const dismiss = useCallback(
+    (direction: 'left' | 'right' | 'up') => {
+      if (dismissedRef.current) return;
+      dismissedRef.current = true;
+
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+
+      const targetX =
+        direction === 'left' ? -420 : direction === 'right' ? 420 : 0;
+      const targetY = direction === 'up' ? -(insets.top + 120) : -24;
+
+      Animated.parallel([
+        Animated.timing(translateX, {
+          duration: 190,
+          toValue: targetX,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          duration: 190,
+          toValue: targetY,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          duration: 170,
+          toValue: 0,
+          useNativeDriver: true,
+        }),
+      ]).start(() => onDoneRef.current());
+    },
+    [insets.top, opacity, translateX, translateY],
+  );
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dx) > 8 || gesture.dy < -8,
+        onPanResponderGrant: () => {
+          if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+          }
+        },
+        onPanResponderMove: (_, gesture) => {
+          const isHorizontal = Math.abs(gesture.dx) >= Math.abs(gesture.dy);
+          const nextX = isHorizontal ? gesture.dx : gesture.dx * 0.28;
+          const nextY = isHorizontal ? Math.min(0, gesture.dy * 0.25) : Math.min(0, gesture.dy);
+          const progress = Math.max(
+            Math.abs(nextX) / 180,
+            Math.max(0, -nextY) / 110,
+          );
+
+          translateX.setValue(nextX);
+          translateY.setValue(nextY);
+          opacity.setValue(1 - Math.min(progress * 0.7, 0.7));
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (Math.abs(gesture.dx) > 80) {
+            dismiss(gesture.dx < 0 ? 'left' : 'right');
+            return;
+          }
+          if (gesture.dy < -52) {
+            dismiss('up');
+            return;
+          }
+
+          Animated.parallel([
+            Animated.spring(translateX, {
+              damping: 20,
+              stiffness: 240,
+              toValue: 0,
+              useNativeDriver: true,
+            }),
+            Animated.spring(translateY, {
+              damping: 20,
+              stiffness: 240,
+              toValue: 0,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacity, {
+              duration: 120,
+              toValue: 1,
+              useNativeDriver: true,
+            }),
+          ]).start();
+
+          timerRef.current = setTimeout(() => dismiss('up'), duration);
+        },
+        onPanResponderTerminate: () => {
+          Animated.parallel([
+            Animated.spring(translateX, {
+              damping: 20,
+              stiffness: 240,
+              toValue: 0,
+              useNativeDriver: true,
+            }),
+            Animated.spring(translateY, {
+              damping: 20,
+              stiffness: 240,
+              toValue: 0,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacity, {
+              duration: 120,
+              toValue: 1,
+              useNativeDriver: true,
+            }),
+          ]).start();
+          timerRef.current = setTimeout(() => dismiss('up'), duration);
+        },
+      }),
+    [dismiss, duration, opacity, translateX, translateY],
+  );
 
   useEffect(() => {
     Animated.parallel([
@@ -85,33 +215,28 @@ function ToastPill({
       }),
     ]).start();
 
-    const timer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(translateY, {
-          duration: 200,
-          toValue: -80,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          duration: 200,
-          toValue: 0,
-          useNativeDriver: true,
-        }),
-      ]).start(onDone);
-    }, duration);
+    timerRef.current = setTimeout(() => dismiss('up'), duration);
 
-    return () => clearTimeout(timer);
-  }, [duration, onDone, opacity, translateY]);
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [dismiss, duration, opacity, translateY]);
 
   return (
     <Animated.View
+      {...panResponder.panHandlers}
+      accessibilityRole="alert"
+      accessibilityHint="Swipe left or right, or pull upward to dismiss"
       style={{
         left: 16,
         opacity,
         position: 'absolute',
         right: 16,
         top: insets.top + 12,
-        transform: [{ translateY }],
+        transform: [{ translateX }, { translateY }],
         zIndex: 9999,
       }}>
       <View
@@ -128,16 +253,16 @@ function ToastPill({
           </View>
           <View className="min-w-0 flex-1">
             <Text
-              className="text-left text-[14px] font-bold text-black"
+              className="text-left text-[14px] font-bold leading-5 text-black"
               ellipsizeMode="tail"
-              numberOfLines={1}>
+              numberOfLines={2}>
               {config.message}
             </Text>
             {config.subtitle ? (
               <Text
                 className="mt-0.5 text-left text-[12px] leading-4 text-black/65"
                 ellipsizeMode="tail"
-                numberOfLines={1}>
+                numberOfLines={2}>
                 {config.subtitle}
               </Text>
             ) : null}

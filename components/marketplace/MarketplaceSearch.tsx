@@ -7,6 +7,7 @@ type MarketplaceSearchProps = React.ComponentProps<typeof TextInput> & {
 
 export function MarketplaceSearch({
   iconPosition = "left",
+  style,
   className,
   ...props
 }: MarketplaceSearchProps) {
@@ -15,6 +16,7 @@ export function MarketplaceSearch({
       {...props}
       placeholderTextColor="#B0B0B5"
       className={`flex-1 text-[15px] text-black ${className || ""}`}
+      style={[{ fontFamily: "NunitoSans-Regular" }, style]}
     />
   );
 

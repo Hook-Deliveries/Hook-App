@@ -14,6 +14,41 @@ export class ApiError extends Error {
   }
 }
 
+const errorFieldLabels: Record<string, string> = {
+  line1: "Address",
+  recipientName: "Recipient name",
+  phone: "Phone number",
+  stateId: "State",
+  localGovernmentAreaId: "Local Government Area",
+  cityName: "City",
+  formattedAddress: "Address",
+};
+
+export function getApiErrorMessage(
+  error: unknown,
+  fallback = "Something went wrong. Please try again.",
+) {
+  if (!(error instanceof ApiError)) {
+    return error instanceof Error && error.message.trim()
+      ? error.message
+      : fallback;
+  }
+
+  const details = error.data as
+    | { fieldErrors?: Record<string, string[]>; formErrors?: string[] }
+    | undefined;
+  const firstFieldError = Object.entries(details?.fieldErrors || {})
+    .find(([, messages]) => Array.isArray(messages) && messages.length > 0);
+  if (firstFieldError) {
+    const [field, messages] = firstFieldError;
+    const message = messages[0];
+    return `${errorFieldLabels[field] || field}: ${message}`;
+  }
+
+  const formError = details?.formErrors?.find(Boolean);
+  return formError || error.message || fallback;
+}
+
 type ApiOptions = RequestInit & {
   auth?: boolean;
   guest?: boolean;

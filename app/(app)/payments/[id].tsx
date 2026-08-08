@@ -1,11 +1,20 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { useEffect } from "react";
 import { Pressable, Text, View } from "react-native";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { usePaymentStatusQuery } from "@/lib/mobile-api";
 export default function PaymentStatusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const query = usePaymentStatusQuery(id);
-  const status = (query.data as any)?.payment?.status;
+  const status = String((query.data as any)?.payment?.status || "").toUpperCase();
+  const { refetch } = query;
+
+  useEffect(() => {
+    if (!id || ["CONFIRMED", "FAILED", "REFUNDED"].includes(status)) return;
+    const timer = setInterval(() => void refetch(), 2000);
+    return () => clearInterval(timer);
+  }, [id, refetch, status]);
+
   return (
     <View className="flex-1 items-center justify-center bg-[#f4f4f5] px-8">
       {query.isLoading ? (
@@ -14,14 +23,14 @@ export default function PaymentStatusScreen() {
         <>
           <Text className="text-2xl font-black">
             {status === "CONFIRMED"
-              ? "Payment confirmed"
+              ? "Payment successful"
               : status === "FAILED"
                 ? "Payment failed"
                 : "Payment processing"}
           </Text>
           <Text className="mt-3 text-center text-sm leading-5 text-[#777]">
             {status === "CONFIRMED"
-              ? "Your Order is approved for fulfilment."
+              ? "Your payment was confirmed and your Order is now moving forward."
               : "We only confirm payments after verified Paystack evidence."}
           </Text>
           <Pressable

@@ -14,6 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { HookLoader } from "@/components/shared/HookLoader";
+import { HookRefreshIndicator } from "@/components/shared/HookRefreshIndicator";
 import { useCategoriesQuery, useMarketsQuery } from "@/lib/mobile-api";
 import { useHookLocation } from "@/lib/location-context";
 
@@ -73,20 +74,6 @@ export function MarketplaceHomeScreen() {
     },
   });
 
-  const compactHeaderStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [36, 86], [0, 1], Extrapolation.CLAMP),
-    transform: [
-      {
-        translateY: interpolate(
-          scrollY.value,
-          [36, 86],
-          [-8, 0],
-          Extrapolation.CLAMP,
-        ),
-      },
-    ],
-  }));
-
   const categoryStripStyle = useAnimatedStyle(() => ({
     height: interpolate(
       scrollY.value,
@@ -113,15 +100,29 @@ export function MarketplaceHomeScreen() {
     overflow: "hidden",
   }));
 
+  const compactHeaderStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [36, 86], [0, 1], Extrapolation.CLAMP),
+    transform: [
+      {
+        translateY: interpolate(
+          scrollY.value,
+          [36, 86],
+          [-8, 0],
+          Extrapolation.CLAMP,
+        ),
+      },
+    ],
+  }));
+
   const originalSearchStyle = useAnimatedStyle(() => {
     if (marketSectionY.value <= 0) return { opacity: 1 };
     const searchStart = marketSectionY.value + 92 - compactHeaderHeight;
     return {
       opacity: interpolate(
-        scrollY.value,
-        [searchStart - 28, searchStart + 18],
-        [1, 0],
-        Extrapolation.CLAMP,
+      scrollY.value,
+      [searchStart - 28, searchStart + 18],
+      [1, 0],
+      Extrapolation.CLAMP,
       ),
       transform: [
         {
@@ -170,7 +171,10 @@ export function MarketplaceHomeScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            tintColor="#111"
+            tintColor="transparent"
+            colors={["transparent"]}
+            progressBackgroundColor="transparent"
+            progressViewOffset={insets.top + 8}
             onRefresh={() => {
               void categoriesQuery.refetch();
               void marketsQuery.refetch();
@@ -323,11 +327,17 @@ export function MarketplaceHomeScreen() {
         </View>
       </Animated.ScrollView>
 
+      <HookRefreshIndicator
+        visible={refreshing}
+        top={insets.top + 8}
+      />
+
       <MarketplaceCompactHeader
         visible={headerVisible}
         stateName={selectedState.name}
         style={compactHeaderStyle}
       />
+
       <Animated.View
         pointerEvents={searchPinned ? "auto" : "none"}
         style={[

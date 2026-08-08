@@ -247,42 +247,6 @@ export default function ProductDetailScreen() {
             ))}
           </ScrollView>
 
-          <View
-            className="absolute left-4 right-4 flex-row items-center justify-between"
-            style={{ top: insets.top + 10 }}
-          >
-            <Pressable
-              accessibilityLabel="Go back"
-              onPress={() => router.back()}
-              className="h-11 w-11 items-center justify-center rounded-full bg-white/90"
-            >
-              <Ionicons name="chevron-back" size={21} color="#111" />
-            </Pressable>
-            <View className="flex-row items-center gap-2">
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  isLiked
-                    ? "Remove product from likes"
-                    : "Save product to likes"
-                }
-                accessibilityState={{
-                  selected: isLiked,
-                  disabled: toggleLike.isPending,
-                }}
-                disabled={toggleLike.isPending}
-                onPress={() => void toggleProductLike()}
-                className="h-11 w-11 items-center justify-center rounded-full bg-white/90"
-              >
-                <Ionicons
-                  name={isLiked ? "heart" : "heart-outline"}
-                  size={20}
-                  color={isLiked ? "#FFC809" : "#111"}
-                />
-              </Pressable>
-              <CartButton tone="white" />
-            </View>
-          </View>
         </View>
 
         <View className="h-10 flex-row items-center justify-center gap-1.5">
@@ -417,6 +381,41 @@ export default function ProductDetailScreen() {
           </Text>
         </View>
       </ScrollView>
+      <View
+        className="absolute inset-x-0 z-50 flex-row items-center justify-between px-4"
+        pointerEvents="box-none"
+        style={{ top: insets.top + 10, height: 44, elevation: 20 }}
+      >
+        <Pressable
+          accessibilityLabel="Go back"
+          onPress={() => router.back()}
+          className="h-11 w-11 items-center justify-center rounded-full bg-white/90"
+        >
+          <Ionicons name="chevron-back" size={21} color="#111" />
+        </Pressable>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              isLiked ? "Remove product from likes" : "Save product to likes"
+            }
+            accessibilityState={{
+              selected: isLiked,
+              disabled: toggleLike.isPending,
+            }}
+            disabled={toggleLike.isPending}
+            onPress={() => void toggleProductLike()}
+            className="h-11 w-11 items-center justify-center rounded-full bg-white/90"
+          >
+            <Ionicons
+              name={isLiked ? "heart" : "heart-outline"}
+              size={20}
+              color={isLiked ? "#FFC809" : "#111"}
+            />
+          </Pressable>
+          <CartButton tone="white" />
+        </View>
+      </View>
 
       <View
         className="absolute inset-x-0 bottom-0 flex-row gap-3 border-t border-black/5 bg-white px-4 pt-3"

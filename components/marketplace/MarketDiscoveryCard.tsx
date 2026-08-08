@@ -20,6 +20,28 @@ function getTextColor(color: string) {
     : "#FFFFFF";
 }
 
+function getFrameColor(color: string) {
+  const value = color.trim().replace("#", "");
+  if (!/^(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)) return color;
+
+  const hex =
+    value.length === 3
+      ? value
+          .split("")
+          .map((character) => `${character}${character}`)
+          .join("")
+      : value;
+  const blend = 0.36;
+  const channels = [0, 2, 4].map((offset) => {
+    const channel = Number.parseInt(hex.slice(offset, offset + 2), 16);
+    return Math.round(channel + (255 - channel) * blend)
+      .toString(16)
+      .padStart(2, "0");
+  });
+
+  return `#${channels.join("")}`;
+}
+
 export function MarketDiscoveryCard({
   market,
   index,
@@ -30,6 +52,7 @@ export function MarketDiscoveryCard({
   const color =
     market.discoveryColor ||
     marketFallbackColors[index % marketFallbackColors.length];
+  const frameColor = getFrameColor(color);
   const textColor = getTextColor(color);
 
   return (
@@ -71,7 +94,7 @@ export function MarketDiscoveryCard({
 
       <View className="absolute -right-1 -top-[15px] z-20 h-[138px] w-[138px] items-center justify-center">
         <SvgXml
-          xml={replaceSvgColor(marketCardFrameXml, color)}
+          xml={replaceSvgColor(marketCardFrameXml, frameColor)}
           width={138}
           height={138}
           style={{ position: "absolute" }}

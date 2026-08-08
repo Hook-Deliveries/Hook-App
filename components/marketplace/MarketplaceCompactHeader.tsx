@@ -102,8 +102,7 @@ export function MarketplaceCompactHeader({
             <View className="flex-row items-center">
               <Ionicons name="location-sharp" size={14} color="#111" />
               <Text
-                numberOfLines={1}
-                className="ml-1 max-w-[122px] text-[13px] font-bold text-[#111]"
+                className="ml-1 max-w-[122px] flex-shrink text-[13px] font-bold leading-4 text-[#111]"
               >
                 {stateName}
               </Text>
@@ -113,17 +112,13 @@ export function MarketplaceCompactHeader({
             <View className="min-w-0 max-w-[240px] items-center">
               {subtitle ? (
                 <Text
-                  numberOfLines={1}
                   className="text-[9px] font-medium text-black/60"
                 >
                   {subtitle}
                 </Text>
               ) : null}
               <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.72}
-                className="max-w-[230px] text-[15px] font-black text-[#111]"
+                className="max-w-[230px] flex-shrink text-center text-[15px] font-black leading-5 text-[#111]"
               >
                 {title}
               </Text>

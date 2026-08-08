@@ -24,7 +24,10 @@ import {
 type PaymentMethod = "PREPAID" | "PAY_AT_HANDOVER";
 
 export default function CheckoutScreen() {
-  const { stateId } = useLocalSearchParams<{ stateId: string }>();
+  const { stateId: rawStateId } = useLocalSearchParams<{
+    stateId?: string | string[];
+  }>();
+  const stateId = Array.isArray(rawStateId) ? rawStateId[0] : rawStateId;
   const insets = useSafeAreaInsets();
   const cart = useCartQuery();
   const addresses = useAddressesQuery();
@@ -45,7 +48,16 @@ export default function CheckoutScreen() {
     () =>
       (cart.data as any)?.stateGroups?.find(
         (item: any) =>
-          String(item.stateId || item.publicId || item.id) === String(stateId),
+          [
+            item.publicStateId,
+            item.stateId,
+            item.publicId,
+            item.id,
+            item.state?.publicId,
+          ]
+            .filter(Boolean)
+            .map(String)
+            .includes(String(stateId)),
       ),
     [cart.data, stateId],
   );
@@ -130,16 +142,24 @@ export default function CheckoutScreen() {
       const payment = await initialize.mutateAsync({ orderId: order.id });
       if (!payment.authorizationUrl)
         throw new Error("Secure payment checkout is unavailable");
-      await WebBrowser.openAuthSessionAsync(
+      const browserResult = await WebBrowser.openAuthSessionAsync(
         payment.authorizationUrl,
         "hook://payments/return",
       );
+      await WebBrowser.dismissBrowser();
+      if (browserResult.type === "cancel" || browserResult.type === "dismiss") {
+        router.replace({
+          pathname: "/payments/[id]",
+          params: { id: order.id },
+        } as never);
+        return;
+      }
       for (let attempt = 0; attempt < 8; attempt += 1) {
         const status = await apiRequest<any>(`/payments/${order.id}`);
-        if (status.payment?.status === "CONFIRMED") {
+        if (String(status.payment?.status || "").toUpperCase() === "CONFIRMED") {
           toast.success("Payment confirmed");
           router.replace({
-            pathname: "/orders/[id]",
+            pathname: "/payments/[id]",
             params: { id: order.id },
           } as never);
           return;

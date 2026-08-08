@@ -5,6 +5,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   View,
 } from "react-native";
@@ -45,12 +46,10 @@ export function MarketSelectionSheet({
 }: MarketSelectionSheetProps) {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     if (!visible) {
       setSearch("");
-      setSearchFocused(false);
     }
   }, [visible]);
 
@@ -71,12 +70,12 @@ export function MarketSelectionSheet({
     <Modal
       animationType="none"
       onRequestClose={onClose}
-      statusBarTranslucent
       transparent
       visible={visible}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={insets.top}
         className="flex-1 bg-black/45"
       >
         <Pressable
@@ -87,7 +86,7 @@ export function MarketSelectionSheet({
         />
         <Animated.View
           accessibilityViewIsModal
-          className={`relative w-full self-end bg-[#F1F1F3] px-4 ${searchFocused ? "flex-1 pt-8" : "max-h-[78%] min-h-[54%] rounded-t-[28px] pt-14"}`}
+          className="relative max-h-[80%] min-h-[54%] w-full self-end rounded-t-[28px] bg-[#F1F1F3] px-4 pt-14"
           entering={enterTransition}
           exiting={exitTransition}
           style={{
@@ -99,7 +98,7 @@ export function MarketSelectionSheet({
           <ScallopedEdge color="#F1F1F3" count={16} edge="top" size={26} />
 
           <View
-            className={`absolute left-1/2 h-24 w-24 -translate-x-1/2 items-center justify-center rounded-full bg-white shadow-sm ${searchFocused ? "-top-7" : "-top-12"}`}
+            className="absolute left-1/2 -top-10 h-24 w-24 -translate-x-1/2 items-center justify-center rounded-full bg-white shadow-sm"
             style={{ zIndex: 50, elevation: 12 }}
           >
             <Image
@@ -115,11 +114,14 @@ export function MarketSelectionSheet({
             onChangeText={setSearch}
             placeholder="Search for market"
             returnKeyType="search"
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
           />
 
-          <View className="mt-4 flex-1">
+          <ScrollView
+            className="mt-4 flex-1"
+            contentContainerStyle={{ paddingBottom: 8 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <MarketOption
               label="All markets"
               selected={selectedMarketId === "all"}
@@ -141,7 +143,7 @@ export function MarketSelectionSheet({
                 </Text>
               </View>
             ) : null}
-          </View>
+          </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>

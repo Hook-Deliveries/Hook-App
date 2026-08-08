@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HookLoader } from "@/components/shared/HookLoader";
+import { HookRefreshIndicator } from "@/components/shared/HookRefreshIndicator";
 import {
   ALL_STATES,
   type HookOperatingState,
@@ -133,7 +134,10 @@ export function StateSelectionScreen() {
         refreshControl={
           <RefreshControl
             refreshing={query.isRefetching}
-            tintColor="#111"
+            tintColor="transparent"
+            colors={["transparent"]}
+            progressBackgroundColor="transparent"
+            progressViewOffset={insets.top + 8}
             onRefresh={() => void query.refetch()}
           />
         }
@@ -183,6 +187,11 @@ export function StateSelectionScreen() {
             </View>
           )
         }
+      />
+
+      <HookRefreshIndicator
+        visible={query.isRefetching}
+        top={insets.top + 8}
       />
 
       <Animated.View

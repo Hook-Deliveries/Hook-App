@@ -20,6 +20,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { HookLoader } from "@/components/shared/HookLoader";
+import { HookRefreshIndicator } from "@/components/shared/HookRefreshIndicator";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import {
   type PublicCatalogProduct,
@@ -240,7 +241,6 @@ export function MarketStorefrontScreen() {
           </View>
           <Text
             numberOfLines={1}
-            adjustsFontSizeToFit
             minimumFontScale={0.72}
             className="absolute left-5 right-5 z-10 text-[34px] font-black text-white"
             style={{ top: SEARCH_TOP - 50, lineHeight: 44 }}
@@ -328,7 +328,10 @@ export function MarketStorefrontScreen() {
         refreshControl={
           <RefreshControl
             refreshing={products.isRefetching}
-            tintColor="#111"
+            tintColor="transparent"
+            colors={["transparent"]}
+            progressBackgroundColor="transparent"
+            progressViewOffset={insets.top + 8}
             onRefresh={() => void products.refetch()}
           />
         }
@@ -348,6 +351,11 @@ export function MarketStorefrontScreen() {
             </View>
           ) : null
         }
+      />
+
+      <HookRefreshIndicator
+        visible={products.isRefetching}
+        top={insets.top + 8}
       />
 
       <MarketplaceCompactHeader

@@ -20,6 +20,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HookLoader } from "@/components/shared/HookLoader";
+import { HookRefreshIndicator } from "@/components/shared/HookRefreshIndicator";
 import { useHookLocation } from "@/lib/location-context";
 import {
   useHomeFeedQuery,
@@ -87,6 +88,10 @@ export function CategoryStorefrontScreen() {
   const flashDeals = homeFeedQuery.data?.flashDeals?.slice(0, 2) || [];
   const marketLabel =
     selectedMarket?.shortDisplayName || selectedMarket?.name || "All markets";
+  const categoryDisplayName = useMemo(() => {
+    const name = (category?.name || "All categories").trim();
+    return name.split(/\s+/)[0] || "All";
+  }, [category?.name]);
 
   useEffect(() => {
     setSelectedCategoryId(routeCategoryId || "all");
@@ -204,7 +209,10 @@ export function CategoryStorefrontScreen() {
             refreshing={
               productsQuery.isRefetching || categoriesQuery.isRefetching
             }
-            tintColor="#111"
+            tintColor="transparent"
+            colors={["transparent"]}
+            progressBackgroundColor="transparent"
+            progressViewOffset={insets.top + 8}
             onRefresh={() => {
               void productsQuery.refetch();
               void categoriesQuery.refetch();
@@ -255,9 +263,11 @@ export function CategoryStorefrontScreen() {
 
                   <Text
                     numberOfLines={1}
-                    className="mt-4 text-[34px] font-black leading-9 text-black"
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.78}
+                    className="mt-4 max-w-[150px] text-[34px] font-black leading-9 text-black"
                   >
-                    {category?.name || "All categories"}
+                    {categoryDisplayName}
                   </Text>
                 </View>
 
@@ -381,6 +391,15 @@ export function CategoryStorefrontScreen() {
             </View>
           ) : null
         }
+      />
+
+      <HookRefreshIndicator
+        visible={
+          productsQuery.isRefetching ||
+          categoriesQuery.isRefetching ||
+          marketsQuery.isRefetching
+        }
+        top={insets.top + 8}
       />
 
       <MarketplaceCompactHeader

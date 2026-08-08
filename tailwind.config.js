@@ -6,6 +6,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: ["NunitoSans-Regular"],
+        regular: ["NunitoSans-Regular"],
         medium: ["NunitoSans-Medium"],
         semibold: ["NunitoSans-SemiBold"],
         bold: ["NunitoSans-Bold"],

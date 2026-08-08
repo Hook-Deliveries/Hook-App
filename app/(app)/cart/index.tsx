@@ -135,7 +135,7 @@ export default function CartScreen() {
     router.push("/(tabs)/discover" as never);
   }
   function checkout(group: any) {
-    const stateId = group.stateId || group.publicId || group.id;
+    const stateId = group.stateId || group.publicStateId || group.publicId || group.id;
     if (!stateId) {
       return toast.error("This State basket cannot be opened yet");
     }

@@ -127,7 +127,7 @@ export function AuthStart() {
           className="absolute right-4 top-14 px-4 py-2"
           onPress={() => router.push("/auth/guest-mode")}
         >
-          <Text className="text-sm font-semibold text-black">Skip for now</Text>
+          <Text className="text-sm font-semibold text-black">Continue as guest</Text>
         </GlassButton>
       </View>
 

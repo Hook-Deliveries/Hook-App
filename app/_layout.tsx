@@ -5,6 +5,8 @@ import {
 } from "@react-navigation/native";
 import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
@@ -51,7 +53,7 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const pathname = usePathname();
   const isMarketHero = pathname.includes("/markets/");
-  const [fontsLoaded, fontError] = useFonts({
+  const [fontsLoaded] = useFonts({
     "NunitoSans-Regular": require("@expo-google-fonts/nunito-sans/400Regular/NunitoSans_400Regular.ttf"),
     "NunitoSans-Medium": require("@expo-google-fonts/nunito-sans/500Medium/NunitoSans_500Medium.ttf"),
     "NunitoSans-SemiBold": require("@expo-google-fonts/nunito-sans/600SemiBold/NunitoSans_600SemiBold.ttf"),
@@ -61,11 +63,20 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) void SplashScreen.hideAsync();
-  }, [fontError, fontsLoaded]);
+    if (fontsLoaded) void SplashScreen.hideAsync();
+  }, [fontsLoaded]);
 
-  if (!fontsLoaded && !fontError) return null;
-  if (fontsLoaded) applyNunitoDefaults();
+  useEffect(() => {
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      if (url.startsWith("hook://payments/return")) {
+        void WebBrowser.dismissBrowser();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  if (!fontsLoaded) return null;
+  applyNunitoDefaults();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -105,6 +116,7 @@ export default function RootLayout() {
                   headerTintColor: "#111",
                   headerTitleStyle: {
                     color: "#000",
+                    fontFamily: "NunitoSans-Bold",
                     fontSize: 18,
                     fontWeight: "700",
                   },
@@ -116,6 +128,14 @@ export default function RootLayout() {
               />
               <Stack.Screen
                 name="(app)/cart/index"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="(app)/orders/[id]"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="(app)/payments/[id]"
                 options={{ headerShown: false }}
               />
               <Stack.Screen

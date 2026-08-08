@@ -18,6 +18,8 @@ type BottomSheetModalProps = PropsWithChildren<{
   dismissible?: boolean;
   accessibilityLabel?: string;
   fullScreen?: boolean;
+  height?: number | `${number}%`;
+  maxHeight?: number | `${number}%`;
 }>;
 
 const enterTransition = SlideInDown.springify()
@@ -37,6 +39,8 @@ export function BottomSheetModal({
   dismissible = true,
   accessibilityLabel,
   fullScreen = false,
+  height,
+  maxHeight = '90%',
   children,
 }: BottomSheetModalProps) {
   const insets = useSafeAreaInsets();
@@ -71,7 +75,7 @@ export function BottomSheetModal({
           className={
             fullScreen
               ? 'flex-1 bg-white px-5 pb-2'
-              : 'w-full max-h-[90%] self-end rounded-t-[28px] bg-white px-6 pt-3'
+              : 'w-full self-end rounded-t-[28px] bg-white px-6 pt-3'
           }
           entering={enterTransition}
           exiting={exitTransition}
@@ -83,6 +87,8 @@ export function BottomSheetModal({
                 }
               : {
                   marginTop: 'auto',
+                  ...(height ? { height } : {}),
+                  maxHeight,
                   paddingBottom: Math.max(insets.bottom, 16),
                 }
           }>

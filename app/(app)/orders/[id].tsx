@@ -50,6 +50,7 @@ export default function OrderDetailScreen() {
       const initialized = await initializePayment.mutateAsync({ orderId: id });
       if (!initialized?.authorizationUrl) throw new Error("Secure payment checkout is unavailable");
       const result = await WebBrowser.openAuthSessionAsync(initialized.authorizationUrl, "hook://payments/return");
+      await WebBrowser.dismissBrowser();
       if (result.type === "cancel" || result.type === "dismiss") return;
       for (let attempt = 0; attempt < 6; attempt += 1) {
         const refreshed = await payment.refetch();
