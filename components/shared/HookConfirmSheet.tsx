@@ -73,7 +73,7 @@ export function HookConfirmSheet({
         />
         <Animated.View
           accessibilityViewIsModal
-          className="relative mt-auto w-full rounded-t-[28px] bg-[#F1F1F3] px-5 pt-14"
+          className="relative mt-auto min-h-[45vh] w-full rounded-t-[28px] bg-[#F1F1F3] px-5 pt-14"
           entering={enterTransition}
           exiting={exitTransition}
           style={{

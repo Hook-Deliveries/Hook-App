@@ -25,7 +25,7 @@ import {
   useDefaultAddressMutation,
   useDeleteAddressMutation,
   useLocalGovernmentsQuery,
-  useOperatingStatesQuery,
+  useDeliveryStatesQuery,
   useUpdateAddressMutation,
 } from "@/lib/mobile-api";
 
@@ -69,7 +69,7 @@ function emptyDraft(): AddressDraft {
 export default function AddressesScreen() {
   const insets = useSafeAreaInsets();
   const addresses = useAddressesQuery();
-  const states = useOperatingStatesQuery();
+  const states = useDeliveryStatesQuery();
   const create = useCreateAddressMutation();
   const update = useUpdateAddressMutation();
   const remove = useDeleteAddressMutation();

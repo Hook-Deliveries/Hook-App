@@ -15,14 +15,16 @@ import { HookLoader } from "@/components/shared/HookLoader";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
 import { resolveColor } from "@/components/marketplace/product-colors";
+import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import {
   useCartQuery,
   useClearCartMutation,
-  getCartGroupItems,
   getCartItems,
+  useCustomerSessionQuery,
   useRemoveCartItemMutation,
   useUpdateCartItemMutation,
 } from "@/lib/mobile-api";
+import { isCustomerSession } from "@/lib/session";
 
 export default function CartScreen() {
   const insets = useSafeAreaInsets();
@@ -30,6 +32,8 @@ export default function CartScreen() {
   const update = useUpdateCartItemMutation();
   const remove = useRemoveCartItemMutation();
   const clear = useClearCartMutation();
+  const session = useCustomerSessionQuery();
+  const { openAuth } = useAuthSheet();
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
   const [pendingQuantities, setPendingQuantities] = useState<Record<string, number>>({});
   const quantityQueue = useRef(new Map<string, number>());
@@ -134,14 +138,12 @@ export default function CartScreen() {
   function continueShopping() {
     router.push("/(tabs)/discover" as never);
   }
-  function checkout(group: any) {
-    const stateId = group.stateId || group.publicStateId || group.publicId || group.id;
-    if (!stateId) {
-      return toast.error("This State basket cannot be opened yet");
+  function checkout() {
+    if (!isCustomerSession(session.data)) {
+      openAuth("/checkout" as never);
+      return;
     }
-    if (group.checkoutEligible !== true)
-      return toast.error("Review this State basket before checkout");
-    router.push({ pathname: "/checkout", params: { stateId } } as never);
+    router.push("/checkout" as never);
   }
 
   if (cart.isLoading)
@@ -201,35 +203,13 @@ export default function CartScreen() {
           </View>
           <Ionicons name="chevron-forward" size={19} color="#fff" />
         </Pressable>
-        <View className="mt-4 gap-5">
-          {(data?.stateGroups || []).map((group: any, index: number) => (
-            (() => {
-              const groupItems = getCartGroupItems(data, group);
-              const groupSubtotalMinor = visibleSubtotal(groupItems);
-              return (
-            <View
-              key={group.stateId || group.publicId || `state-group-${index}`}
-              className="overflow-hidden rounded-[24px] bg-white"
-            >
+        <View className="mt-4 overflow-hidden rounded-[24px] bg-white">
               <View className="flex-row items-center justify-between border-b border-black/5 px-4 py-4">
-                <View>
-                  <Text className="text-xs font-semibold uppercase text-[#777]">
-                    {group.state?.name || `State basket ${index + 1}`}
-                  </Text>
-                  <Text className="mt-1 text-base font-black">
-                    {groupItems.length} product
-                    {groupItems.length === 1 ? "" : "s"}
-                  </Text>
-                </View>
-                <View className="items-end">
-                  <Text className="text-xs text-[#777]">Subtotal</Text>
-                  <Text className="mt-1 font-black">
-                    ₦{Number(groupSubtotalMinor / 100).toLocaleString()}
-                  </Text>
-                </View>
+                <View><Text className="text-xs font-semibold uppercase text-[#777]">Your products</Text><Text className="mt-1 text-base font-black">{items.length} item{items.length === 1 ? "" : "s"}</Text></View>
+                <View className="items-end"><Text className="text-xs text-[#777]">Subtotal</Text><Text className="mt-1 font-black">₦{Number(visibleSubtotal(items) / 100).toLocaleString()}</Text></View>
               </View>
               <View className="gap-3 p-3">
-                {groupItems.map((item: any, itemIndex: number) => {
+                {items.map((item: any, itemIndex: number) => {
                   const itemId = cartItemIdentifier(item);
                   const rowKey =
                     itemId ||
@@ -247,42 +227,10 @@ export default function CartScreen() {
                   );
                 })}
               </View>
-              <View className="px-4 pb-4">
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Checkout this State basket"
-                  disabled={group.checkoutEligible !== true}
-                  onPress={() => checkout(group)}
-                  className={`h-[52px] flex-row items-center justify-center rounded-2xl ${group.checkoutEligible === true ? "bg-hook" : "bg-[#e5e5e7]"}`}
-                >
-                  <Text className="font-black">
-                    {group.checkoutEligible === true
-                      ? "Checkout this State"
-                      : "Review State basket"}
-                  </Text>
-                  {group.checkoutEligible === true ? (
-                    <Ionicons
-                      name="arrow-forward"
-                      size={18}
-                      color="#111"
-                      style={{ marginLeft: 8 }}
-                    />
-                  ) : null}
-                </Pressable>
-                {group.blockingReasons?.length ? (
-                  <Text className="mt-2 text-xs text-red-500">
-                    Some products need your attention before checkout.
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-              );
-            })()
-          ))}
         </View>
         <View className="mt-5 rounded-[22px] bg-white p-5">
           <SummaryRow
-            label="Basket subtotal"
+            label="Cart subtotal"
             value={
               getCartItems(data).reduce(
                 (sum, item) =>
@@ -293,7 +241,7 @@ export default function CartScreen() {
             strong
           />
           <Text className="mt-2 text-xs leading-5 text-[#777]">
-            Delivery is calculated separately for each State during checkout.
+            Delivery is calculated once when you confirm your address.
           </Text>
         </View>
       </ScrollView>
@@ -301,9 +249,10 @@ export default function CartScreen() {
         className="absolute inset-x-0 bottom-0 border-t border-black/5 bg-white px-4 pt-3"
         style={{ paddingBottom: insets.bottom + 10 }}
       >
-        <Text className="text-center text-xs text-[#777]">
-          Choose a State section above to checkout
-        </Text>
+        <Pressable accessibilityRole="button" onPress={checkout} className="h-[54px] flex-row items-center justify-center rounded-2xl bg-hook">
+          <Text className="font-black text-black">Checkout</Text>
+          <Ionicons name="arrow-forward" size={18} color="#111" style={{ marginLeft: 8 }} />
+        </Pressable>
       </View>
       <HookConfirmSheet
         visible={confirmClear}

@@ -27,7 +27,8 @@ export default function OnboardingScreen() {
 
   const finishOnboarding = async () => {
     await setOnboardingComplete(true);
-    router.replace("/auth");
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)");
   };
 
   const goNext = () => {

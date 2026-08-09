@@ -10,7 +10,6 @@ import {
   useToggleProductLikeMutation,
   type PublicCatalogProduct,
 } from "@/lib/mobile-api";
-import { isCustomerSession } from "@/lib/session";
 
 export function CatalogProductCard({
   product,
@@ -33,18 +32,11 @@ export function CatalogProductCard({
   async function handleLike(event: { stopPropagation?: () => void }) {
     event.stopPropagation?.();
     if (session.isPending) return;
-    if (!isCustomerSession(session.data)) {
-      toast.info(
-        "Sign in to save products",
-        "Your saved products will appear in your profile.",
-      );
-      return;
-    }
-
     try {
       await toggleLike.mutateAsync({
         productId: product.publicId,
         liked: isLiked,
+        product,
       });
       toast.success(isLiked ? "Removed from saved" : "Saved to your likes");
     } catch (error) {

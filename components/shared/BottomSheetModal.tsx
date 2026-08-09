@@ -87,7 +87,7 @@ export function BottomSheetModal({
                 }
               : {
                   marginTop: 'auto',
-                  ...(height ? { height } : {}),
+                  ...(height ? { height } : { minHeight: '45%' }),
                   maxHeight,
                   paddingBottom: Math.max(insets.bottom, 16),
                 }

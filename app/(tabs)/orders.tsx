@@ -3,12 +3,24 @@ import { router } from "expo-router";
 import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HookLoader } from "@/components/shared/HookLoader";
-import { useOrdersQuery } from "@/lib/mobile-api";
+import { useCustomerSessionQuery, useOrdersQuery } from "@/lib/mobile-api";
+import { isCustomerSession } from "@/lib/session";
+import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const query = useOrdersQuery();
+  const session = useCustomerSessionQuery();
+  const { openAuth } = useAuthSheet();
   const orders = (query.data as any[]) || [];
-  if (query.isLoading)
+  if (!session.isPending && !isCustomerSession(session.data)) return (
+    <View className="flex-1 items-center justify-center bg-[#f4f4f5] px-8">
+      <View className="h-20 w-20 items-center justify-center rounded-full bg-[#fff4c7]"><Ionicons name="cube-outline" size={36} /></View>
+      <Text className="mt-5 text-xl font-black">Sign in to track orders</Text>
+      <Text className="mt-2 text-center text-sm leading-5 text-[#777]">Your local cart stays ready while you sign in or create an account.</Text>
+      <Pressable onPress={() => openAuth("/(tabs)/orders")} className="mt-6 h-[52px] w-full items-center justify-center rounded-full bg-hook"><Text className="font-bold text-black">Continue</Text></Pressable>
+    </View>
+  );
+  if (query.isLoading || session.isPending)
     return (
       <View className="flex-1 items-center justify-center bg-[#f4f4f5]">
         <HookLoader label="Loading Orders" />
@@ -87,7 +99,7 @@ export default function OrdersScreen() {
             </View>
             <Text className="mt-5 text-xl font-black">No Orders yet</Text>
             <Text className="mt-2 text-center text-sm text-[#777]">
-              Each State checkout will appear here separately.
+              Your orders and delivery progress will appear here.
             </Text>
           </View>
         }

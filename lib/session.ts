@@ -6,6 +6,7 @@ export type HookUser = {
   firstName?: string;
   lastName?: string;
   avatarUrl?: string;
+  phone?: string;
   role?: string;
   isEmailVerified?: boolean;
   publicId?: string;
@@ -58,9 +59,10 @@ export type PendingSignup = {
 
 const KEYS = {
   session: "hook.auth.session",
-  guestSession: "hook.guest.session",
-  onboarding: "hook.onboarding.complete",
+  onboarding: "hook.onboarding.v1.complete",
   pendingSignup: "hook.signup.pending",
+  deviceId: "hook.device.id",
+  biometric: "hook.security.biometric",
 };
 
 type SessionListener = () => void;
@@ -76,11 +78,6 @@ export function onSessionChanged(listener: SessionListener) {
     sessionListeners.delete(listener);
   };
 }
-
-export type StoredGuestSession = {
-  token: string;
-  guest: { publicId: string; expiresAt: string };
-};
 
 async function getJson<T>(key: string): Promise<T | null> {
   const raw = await SecureStore.getItemAsync(key);
@@ -110,89 +107,6 @@ export async function clearSession() {
   notifySessionChanged();
 }
 
-export async function getGuestId() {
-  return (
-    (await getJson<StoredGuestSession>(KEYS.guestSession))?.guest.publicId ||
-    null
-  );
-}
-
-export async function ensureGuestId() {
-  const existing = await getGuestSession();
-  if (existing && new Date(existing.guest.expiresAt) > new Date())
-    return existing.guest.publicId;
-  const apiBase =
-    process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-  const response = await fetch(`${apiBase}/guest-sessions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ platform: "unknown" }),
-  });
-  const payload = await response.json();
-  if (!response.ok || !payload?.success || !payload?.data?.token) {
-    throw new Error(payload?.error?.message || "Unable to start guest session");
-  }
-  await saveGuestSession(payload.data);
-  return payload.data.guest.publicId as string;
-}
-
-export async function restoreGuestSession() {
-  const existing = await getGuestSession();
-  if (!existing) return null;
-
-  if (new Date(existing.guest.expiresAt) <= new Date()) {
-    await clearGuestId();
-    return null;
-  }
-
-  const apiBase =
-    process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-  try {
-    const response = await fetch(`${apiBase}/guest-sessions/current`, {
-      headers: {
-        Accept: "application/json",
-        "X-Guest-Session": existing.token,
-      },
-    });
-
-    if (response.status === 401) {
-      await clearGuestId();
-      return null;
-    }
-
-    if (!response.ok) return existing;
-    const payload = await response.json();
-    if (!payload?.success || !payload?.data?.publicId) return existing;
-
-    const restored: StoredGuestSession = {
-      token: existing.token,
-      guest: {
-        publicId: payload.data.publicId,
-        expiresAt: payload.data.expiresAt || existing.guest.expiresAt,
-      },
-    };
-    await saveGuestSession(restored);
-    return restored;
-  } catch {
-    // Preserve a locally valid guest session while the device is offline.
-    return existing;
-  }
-}
-
-export function getGuestSession() {
-  return getJson<StoredGuestSession>(KEYS.guestSession);
-}
-
-export async function saveGuestSession(session: StoredGuestSession) {
-  await setJson(KEYS.guestSession, session);
-  notifySessionChanged();
-}
-
-export async function clearGuestId() {
-  await SecureStore.deleteItemAsync(KEYS.guestSession);
-  notifySessionChanged();
-}
-
 export async function getPendingSignup() {
   return getJson<PendingSignup>(KEYS.pendingSignup);
 }
@@ -211,4 +125,20 @@ export async function getOnboardingComplete() {
 
 export async function setOnboardingComplete(value = true) {
   await SecureStore.setItemAsync(KEYS.onboarding, value ? "true" : "false");
+}
+
+export async function getDeviceId() {
+  const existing = await SecureStore.getItemAsync(KEYS.deviceId);
+  if (existing) return existing;
+  const value = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+  await SecureStore.setItemAsync(KEYS.deviceId, value);
+  return value;
+}
+
+export async function getBiometricEnabled() {
+  return (await SecureStore.getItemAsync(KEYS.biometric)) === "true";
+}
+
+export async function setBiometricEnabled(value: boolean) {
+  await SecureStore.setItemAsync(KEYS.biometric, String(value));
 }

@@ -7,7 +7,7 @@ import { AuthPrimaryButton, AuthScreenShell } from '@/components/auth/auth-scree
 import { toast } from '@/components/shared/toast';
 import { useLoginMutation } from '@/lib/auth-api';
 import { registerPushToken } from '@/lib/push';
-import { getGuestId, saveSession } from '@/lib/session';
+import { saveSession } from '@/lib/session';
 
 const MIN_LENGTH = 9;
 
@@ -27,8 +27,7 @@ export function PasswordLogin() {
     setTouched(true);
     if (!isValid) return;
     try {
-      const guestId = await getGuestId();
-      const session = await login.mutateAsync({ email, password, guestId });
+      const session = await login.mutateAsync({ email, password });
       await saveSession(session);
       await registerPushToken({ sendWelcome: true });
       toast.success('Welcome back', 'You are signed in');

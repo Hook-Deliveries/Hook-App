@@ -1,7 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-export type HookOperatingState = { publicId?: string; code: string; name: string };
+export type HookOperatingState = {
+  publicId?: string;
+  code: string;
+  name: string;
+  capitalName?: string;
+  operationsEnabled?: boolean;
+  deliveryEnabled?: boolean;
+};
 
 export const ALL_STATES: HookOperatingState = { code: 'ALL', name: 'All States' };
 const STORAGE_KEY = 'hook.marketplace.selected-state';

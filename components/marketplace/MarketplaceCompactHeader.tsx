@@ -6,6 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScallopedEdge } from "./ScallopedEdge";
 import { HookYellowPattern } from "./HookYellowPattern";
+import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
+import { useCustomerSessionQuery } from "@/lib/mobile-api";
+import { isCustomerSession } from "@/lib/session";
 
 type MarketplaceCompactHeaderProps = {
   title?: string;
@@ -31,6 +34,8 @@ export function MarketplaceCompactHeader({
   style,
 }: MarketplaceCompactHeaderProps) {
   const insets = useSafeAreaInsets();
+  const session = useCustomerSessionQuery();
+  const { openAuth } = useAuthSheet();
   const hasBack = Boolean(onBack);
   const isHomeHeader = Boolean(stateName) && !hasBack;
 
@@ -139,7 +144,7 @@ export function MarketplaceCompactHeader({
             ) : null}
             <Pressable
               accessibilityLabel="Open notifications"
-              onPress={() => router.push("/notifications" as never)}
+              onPress={() => isCustomerSession(session.data) ? router.push("/notifications" as never) : openAuth("/notifications" as never)}
               className="h-11 w-11 items-center justify-center rounded-full bg-white"
             >
               <Ionicons
@@ -148,6 +153,15 @@ export function MarketplaceCompactHeader({
                 color="#8B6D52"
               />
             </Pressable>
+            {isHomeHeader ? (
+              <Pressable
+                accessibilityLabel="Open profile"
+                onPress={() => isCustomerSession(session.data) ? router.push("/(tabs)/profile") : openAuth("/(tabs)/profile")}
+                className="h-11 w-11 items-center justify-center rounded-full bg-white"
+              >
+                <Ionicons name="person-outline" size={19} color="#8B6D52" />
+              </Pressable>
+            ) : null}
           </View>
         ) : (
           <View className="h-11 w-11" />

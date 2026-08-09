@@ -43,11 +43,11 @@ export default function OrderDetailScreen() {
   const canPay = !["CONFIRMED", "REFUNDED", "CANCELLED"].includes(paymentStatus)
     && (order.commercePaymentMethod === "PREPAID" || handoverPaymentDue);
 
-  async function resumePayment() {
+  async function resumePayment(fulfilmentGroupId?: string) {
     if (!id || paymentBusy) return;
     setPaymentBusy(true);
     try {
-      const initialized = await initializePayment.mutateAsync({ orderId: id });
+      const initialized = await initializePayment.mutateAsync({ orderId: id, fulfilmentGroupId });
       if (!initialized?.authorizationUrl) throw new Error("Secure payment checkout is unavailable");
       const result = await WebBrowser.openAuthSessionAsync(initialized.authorizationUrl, "hook://payments/return");
       await WebBrowser.dismissBrowser();
@@ -103,10 +103,19 @@ export default function OrderDetailScreen() {
           </Text>
         </View>
         <View className="mt-4 gap-3">
-          {order.items?.map((item: any) => (
+          {(order.fulfilmentGroups?.length ? order.fulfilmentGroups : [{ publicId: "legacy", sourceStateId: order.sourceStateId, status: order.commerceStatus }]).map((group: any, groupIndex: number) => {
+            const groupItems = (order.items || []).filter((item: any) => !item.fulfilmentGroupId || item.fulfilmentGroupId === group.publicId);
+            const groupPayment = (order.payments || []).find((entry: any) => entry.fulfilmentGroupId === group.publicId);
+            return <View key={group.publicId || groupIndex} className="rounded-[22px] bg-white p-3">
+              <View className="mb-3 flex-row items-center justify-between gap-3 px-1">
+                <View><Text className="font-black">Delivery {groupIndex + 1}</Text><Text className="text-xs text-[#777]">{label(group.status)} · {group.sourceStateId || "Source state"}</Text></View>
+                {order.commercePaymentMethod === "PAY_AT_HANDOVER" && groupPayment && String(groupPayment.commerceStatus || groupPayment.status).toUpperCase() !== "CONFIRMED" ? <Pressable onPress={() => void resumePayment(group.publicId)} disabled={paymentBusy} className="rounded-full bg-hook px-4 py-2"><Text className="text-xs font-black">Pay for delivery</Text></Pressable> : null}
+              </View>
+              <View className="gap-3">
+          {groupItems.map((item: any) => (
             <View
-              key={item.id}
-              className="flex-row gap-3 rounded-[20px] bg-white p-3"
+              key={item.id || item.publicId}
+              className="flex-row gap-3 rounded-[18px] bg-[#f7f7f8] p-3"
             >
               <View className="h-20 w-20 overflow-hidden rounded-2xl bg-[#eee]">
                 <RemoteImage
@@ -123,9 +132,13 @@ export default function OrderDetailScreen() {
                 <Text className="mt-2 font-black">
                   {money(item.totalPriceMinor)}
                 </Text>
+                <Text className="mt-1 text-[11px] font-bold uppercase text-[#777]">{label(item.deliveryStatus || "processing")}</Text>
               </View>
             </View>
           ))}
+              </View>
+            </View>;
+          })}
         </View>
         <View className="mt-4 rounded-[20px] bg-white p-4">
           <View className="flex-row items-center justify-between gap-3">

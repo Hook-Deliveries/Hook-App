@@ -21,7 +21,6 @@ import { useCompleteSignupMutation } from "@/lib/auth-api";
 import { registerPushToken } from "@/lib/push";
 import {
   clearPendingSignup,
-  getGuestId,
   getPendingSignup,
   saveSession,
 } from "@/lib/session";
@@ -53,12 +52,10 @@ export function EnterName({ email }: { email: string }) {
     }
     try {
       const [firstName, ...rest] = name.trim().split(/\s+/);
-      const guestId = await getGuestId();
       const session = await completeSignup.mutateAsync({
         signupSessionToken: pending.signupSessionToken,
         firstName,
         lastName: rest.join(" ") || firstName,
-        guestId,
       });
       await saveSession(session);
       await clearPendingSignup();

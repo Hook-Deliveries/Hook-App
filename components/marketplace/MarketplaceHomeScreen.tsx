@@ -15,19 +15,23 @@ import Animated, {
 
 import { HookLoader } from "@/components/shared/HookLoader";
 import { HookRefreshIndicator } from "@/components/shared/HookRefreshIndicator";
-import { useCategoriesQuery, useMarketsQuery } from "@/lib/mobile-api";
+import { useCategoriesQuery, useCustomerSessionQuery, useMarketsQuery, type PublicCategory } from "@/lib/mobile-api";
 import { useHookLocation } from "@/lib/location-context";
 
 import { MarketDiscoveryCard } from "./MarketDiscoveryCard";
 import { CategoryCircle } from "./CategoryCircle";
 import { HookYellowPattern } from "./HookYellowPattern";
 import { MarketplaceCompactHeader } from "./MarketplaceCompactHeader";
+import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
+import { isCustomerSession } from "@/lib/session";
 import { MarketplaceSearch } from "./MarketplaceSearch";
 import { ScallopedEdge } from "./ScallopedEdge";
 
 const MARKET_ICON = require("../../assets/images/market-icon.png");
 
 export function MarketplaceHomeScreen() {
+  const session = useCustomerSessionQuery();
+  const { openAuth } = useAuthSheet();
   const insets = useSafeAreaInsets();
   const { selectedState, stateParams } = useHookLocation();
   const categoriesQuery = useCategoriesQuery();
@@ -42,6 +46,16 @@ export function MarketplaceHomeScreen() {
   const categoryStripHeight = useSharedValue(120);
   const categoryStripMeasured = useSharedValue(false);
   const compactHeaderHeight = insets.top + 62;
+  const displayCategories = useMemo<PublicCategory[]>(() => {
+    const categories = categoriesQuery.data || [];
+    const comingSoon: PublicCategory = {
+      publicId: "categories-coming-soon",
+      name: "More coming soon",
+      slug: "categories-coming-soon",
+      isComingSoon: true,
+    };
+    return categories.length ? [...categories.slice(0, 6), comingSoon] : [comingSoon];
+  }, [categoriesQuery.data]);
 
   const markets = useMemo(() => {
     const value = search.trim().toLowerCase();
@@ -212,17 +226,22 @@ export function MarketplaceHomeScreen() {
                 </Text>
                 <Ionicons name="chevron-down" size={14} color="#111" />
               </Pressable>
-              <Pressable
-                accessibilityLabel="Open notifications"
-                onPress={() => router.push("/notifications" as never)}
-                className="h-11 w-11 items-center justify-center rounded-full bg-white"
-              >
-                <Ionicons
-                  name="notifications-outline"
-                  size={20}
-                  color="#8B6D52"
-                />
-              </Pressable>
+              <View className="flex-row gap-2">
+                <Pressable
+                  accessibilityLabel="Open notifications"
+                  onPress={() => isCustomerSession(session.data) ? router.push("/notifications" as never) : openAuth("/notifications" as never)}
+                  className="h-11 w-11 items-center justify-center rounded-full bg-white"
+                >
+                  <Ionicons name="notifications-outline" size={20} color="#8B6D52" />
+                </Pressable>
+                <Pressable
+                  accessibilityLabel="Open profile"
+                  onPress={() => isCustomerSession(session.data) ? router.push("/(tabs)/profile") : openAuth("/(tabs)/profile")}
+                  className="h-11 w-11 items-center justify-center rounded-full bg-white"
+                >
+                  <Ionicons name="person-outline" size={19} color="#8B6D52" />
+                </Pressable>
+              </View>
             </View>
 
             <Animated.View
@@ -239,29 +258,30 @@ export function MarketplaceHomeScreen() {
                 <View className="h-28 items-center justify-center">
                   <HookLoader size="inline" />
                 </View>
-              ) : (
-                <Animated.ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{
-                    gap: 5,
-                    paddingTop: 17,
-                    paddingHorizontal: 0,
-                  }}
-                >
-                  {(categoriesQuery.data || []).slice(0, 7).map((category) => (
-                    <CategoryCircle
-                      key={category.publicId}
-                      category={category}
-                      onPress={() =>
-                        router.push({
-                          pathname: "/shop/[categoryId]",
-                          params: { categoryId: category.publicId },
-                        } as never)
-                      }
-                    />
-                  ))}
-                </Animated.ScrollView>
+            ) : (
+              <Animated.ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  gap: 5,
+                  paddingTop: 17,
+                  paddingHorizontal: 0,
+                }}
+              >
+                {displayCategories.map((category) => (
+                  <CategoryCircle
+                    key={category.publicId}
+                    category={category}
+                    onPress={() => {
+                      if (category.isComingSoon) return;
+                      router.push({
+                        pathname: "/shop/[categoryId]",
+                        params: { categoryId: category.publicId },
+                      } as never);
+                    }}
+                  />
+                ))}
+              </Animated.ScrollView>
               )}
             </Animated.View>
           </View>

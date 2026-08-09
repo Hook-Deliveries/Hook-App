@@ -8,7 +8,8 @@ import { toast } from '@/components/shared/toast';
 import { ApiError } from '@/lib/api';
 import { useGoogleLoginMutation } from '@/lib/auth-api';
 import { registerPushToken } from '@/lib/push';
-import { getGuestId, saveSession } from '@/lib/session';
+import { saveSession } from '@/lib/session';
+import { syncAnonymousCommerce } from '@/lib/commerce-sync';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -40,10 +41,9 @@ export function useHookGoogleAuth() {
       if (handledTokenRef.current === idToken) return;
       handledTokenRef.current = idToken;
       try {
-        const guestId = await getGuestId();
-        const session = await googleLogin.mutateAsync({ idToken, guestId });
+        const session = await googleLogin.mutateAsync({ idToken });
         await saveSession(session);
-        await registerPushToken({ sendWelcome: true });
+        await Promise.allSettled([syncAnonymousCommerce(), registerPushToken({ sendWelcome: true })]);
         toast.success('Welcome to Hook', 'Google sign-in completed.');
         router.replace('/(tabs)');
       } catch (error) {

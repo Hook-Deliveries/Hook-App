@@ -3,6 +3,16 @@ import { useEffect } from "react";
 
 import { apiRequest } from "@/lib/api";
 import { getSession, isCustomerSession, onSessionChanged } from "@/lib/session";
+import {
+  addAnonymousCartItem,
+  anonymousCartResponse,
+  clearAnonymousCart,
+  getAnonymousCommerce,
+  onAnonymousCommerceChanged,
+  removeAnonymousCartItem,
+  setAnonymousCartQuantity,
+  toggleAnonymousLike,
+} from "@/lib/anonymous-commerce";
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
@@ -51,6 +61,7 @@ export interface PublicCategory {
   iconUrl?: string;
   description?: string;
   productCount?: number;
+  isComingSoon?: boolean;
 }
 
 export interface PublicProductPage {
@@ -212,7 +223,14 @@ export function useProductQuery(id?: string) {
 export function useOperatingStatesQuery() {
   return useQuery({
     queryKey: ["mobile", "operating-states"],
-    queryFn: () => apiRequest<HookOperatingState[]>("/public/states", { auth: false }),
+    queryFn: () => apiRequest<HookOperatingState[]>("/public/operating-states", { auth: false }),
+  });
+}
+
+export function useDeliveryStatesQuery() {
+  return useQuery({
+    queryKey: ["mobile", "delivery-states"],
+    queryFn: () => apiRequest<HookOperatingState[]>("/public/delivery-states", { auth: false }),
   });
 }
 
@@ -231,7 +249,7 @@ export function useLocalGovernmentsQuery(stateId?: string) {
   return useQuery({
     enabled: Boolean(stateId),
     queryKey: mobileQueryKeys.localGovernments(stateId || ""),
-    queryFn: () => apiRequest<{ state: HookOperatingState; data: PublicLocalGovernment[] }>(`/public/states/${stateId}/lgas`, { auth: false }),
+    queryFn: () => apiRequest<{ state: HookOperatingState; data: PublicLocalGovernment[] }>(`/public/delivery-states/${stateId}/lgas`, { auth: false }),
     staleTime: 5 * 60_000,
   });
 }
@@ -306,9 +324,34 @@ export function useLikedProductsQuery() {
   const session = useCustomerSessionQuery();
   const likesKey = mobileQueryKeys.likes(session.data?.user.id || session.data?.user.publicId);
   return useQuery({
-    enabled: isCustomerSession(session.data),
     queryKey: likesKey,
-    queryFn: () => apiRequest<ProductLikesResponse>("/likes"),
+    queryFn: async () => {
+      if (isCustomerSession(await getSession())) return apiRequest<ProductLikesResponse>("/likes");
+      const local = await getAnonymousCommerce();
+      return {
+        productIds: local.likedProducts.map((item) => item.productId),
+        items: local.likedProducts.map((item) => ({
+          productId: item.productId,
+          createdAt: item.updatedAt,
+          product: {
+            publicId: item.productId,
+            title: item.title,
+            slug: item.productId,
+            media: item.imageUrl ? [{ type: "image" as const, url: item.imageUrl, width: 0, height: 0, alt: item.title }] : [],
+            sourceState: null,
+            market: null,
+            category: null,
+            variants: [],
+            currency: item.currency,
+            sellingPriceMinor: item.effectivePriceMinor,
+            effectivePriceMinor: item.effectivePriceMinor,
+            discountMinor: 0,
+            negotiationAvailable: false,
+            availabilityStatus: "local",
+          },
+        })),
+      };
+    },
     retry: false,
     placeholderData: { productIds: [], items: [] },
   });
@@ -322,13 +365,21 @@ export function useToggleProductLikeMutation() {
     mutationFn: ({
       productId,
       liked,
+      product,
     }: {
       productId: string;
       liked: boolean;
+      product?: PublicCatalogProduct;
     }) =>
-      liked
-        ? remove(`/likes/${productId}`)
-        : apiRequest(`/likes/${productId}`, { method: "PUT" }),
+      getSession().then((current) => {
+        if (!isCustomerSession(current)) {
+          if (!product) throw new Error("Product details are unavailable");
+          return toggleAnonymousLike(product);
+        }
+        return liked
+          ? remove(`/likes/${productId}`)
+          : apiRequest(`/likes/${productId}`, { method: "PUT" });
+      }),
     onMutate: async ({ productId, liked }) => {
       await queryClient.cancelQueries({ queryKey: likesKey });
       const previous = queryClient.getQueryData<ProductLikesResponse>(likesKey);
@@ -356,9 +407,15 @@ export function useToggleProductLikeMutation() {
 }
 
 export function useCartQuery() {
+  const queryClient = useQueryClient();
+  useEffect(() => onAnonymousCommerceChanged(() => {
+    void queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() });
+  }), [queryClient]);
   return useQuery({
     queryKey: mobileQueryKeys.cart(),
-    queryFn: () => apiRequest("/cart"),
+    queryFn: async () => isCustomerSession(await getSession())
+      ? apiRequest("/cart")
+      : anonymousCartResponse(await getAnonymousCommerce()),
     staleTime: 15_000,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -400,6 +457,17 @@ export function useAddCartItemMutation() {
   return useMutation({
     mutationFn: async (input: AddCartItemInput) => {
       const { optimisticProduct: _product, ...payload } = input;
+      const current = await getSession();
+      if (!isCustomerSession(current)) {
+        if (!input.optimisticProduct) throw new Error("Product details are unavailable");
+        const local = await addAnonymousCartItem({
+          product: input.optimisticProduct,
+          variantId: input.variantId,
+          selectedVariants: input.selectedVariants,
+          quantity: input.quantity,
+        });
+        return anonymousCartResponse(local);
+      }
       return post("/cart/items", payload);
     },
     onMutate: async (input) => {
@@ -667,8 +735,12 @@ function updateCartQuantitySnapshot(
 export function useUpdateCartItemMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { itemId: string; quantity: number }) =>
-      patch(`/cart/items/${input.itemId}`, { quantity: input.quantity }),
+    mutationFn: async (input: { itemId: string; quantity: number }) => {
+      if (!isCustomerSession(await getSession())) {
+        return anonymousCartResponse(await setAnonymousCartQuantity(input.itemId, input.quantity));
+      }
+      return patch(`/cart/items/${input.itemId}`, { quantity: input.quantity });
+    },
     onMutate: async ({ itemId, quantity }) => {
       const cartKey = mobileQueryKeys.cart();
       await queryClient.cancelQueries({ queryKey: cartKey });
@@ -697,7 +769,9 @@ export function useUpdateCartItemMutation() {
 export function useRemoveCartItemMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (itemId: string) => remove(`/cart/items/${itemId}`),
+    mutationFn: async (itemId: string) => !isCustomerSession(await getSession())
+      ? anonymousCartResponse(await removeAnonymousCartItem(itemId))
+      : remove(`/cart/items/${itemId}`),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
   });
@@ -706,7 +780,9 @@ export function useRemoveCartItemMutation() {
 export function useClearCartMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => remove("/cart"),
+    mutationFn: async () => !isCustomerSession(await getSession())
+      ? anonymousCartResponse(await clearAnonymousCart())
+      : remove("/cart"),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() }),
   });
@@ -793,14 +869,13 @@ export function useDefaultAddressMutation() {
 export function useCheckoutPreviewMutation() {
   return useMutation({
     mutationFn: (input: {
-      stateId: string;
       addressId?: string;
       deliveryMethod: "HOME_DELIVERY" | "PARTNER_PICKUP";
       paymentMethod: "PREPAID" | "PAY_AT_HANDOVER";
       policyVersions: { TERMS: string; PRIVACY: string; RETURNS: string };
     }) =>
-      post<any, Omit<typeof input, "stateId">>(
-        `/checkout/states/${input.stateId}/preview`,
+      post<any, typeof input>(
+        "/checkout/preview",
         {
           addressId: input.addressId,
           deliveryMethod: input.deliveryMethod,
@@ -815,11 +890,10 @@ export function useCheckoutConfirmMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
-      stateId: string;
       previewToken: string;
       idempotencyKey: string;
     }) =>
-      apiRequest<any>(`/checkout/states/${input.stateId}/confirm`, {
+      apiRequest<any>("/checkout/confirm", {
         method: "POST",
         headers: { "Idempotency-Key": input.idempotencyKey },
         body: JSON.stringify({ previewToken: input.previewToken }),
@@ -832,7 +906,9 @@ export function useCheckoutConfirmMutation() {
 }
 
 export function useOrdersQuery(params?: QueryParams) {
+  const session = useCustomerSessionQuery();
   return useQuery({
+    enabled: isCustomerSession(session.data),
     queryKey: mobileQueryKeys.orders(params),
     queryFn: () => apiRequest(`/orders${toQueryString(params)}`),
   });
@@ -971,7 +1047,7 @@ export function useAcceptNegotiationMutation() {
 
 export function useInitializePaymentMutation() {
   return useMutation({
-    mutationFn: (input: { orderId: string }) =>
+    mutationFn: (input: { orderId: string; fulfilmentGroupId?: string }) =>
       post<any, typeof input>("/payments/initialize", input),
   });
 }
@@ -985,7 +1061,9 @@ export function usePaymentStatusQuery(orderId?: string) {
 }
 
 export function useNotificationsQuery() {
+  const session = useCustomerSessionQuery();
   return useQuery({
+    enabled: isCustomerSession(session.data),
     queryKey: mobileQueryKeys.notifications(),
     queryFn: () => apiRequest("/notifications"),
   });

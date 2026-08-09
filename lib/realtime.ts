@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { API_BASE_URL, refreshSession } from "@/lib/api";
 import {
-  getGuestSession,
   getSession,
   onSessionChanged,
   type AuthSession,
@@ -28,8 +27,8 @@ export class HookRealtimeClient {
   private listeners = new Set<(event: string, payload: RealtimePayload) => void>();
 
   async connect() {
-    const [session, guest] = await Promise.all([getSession(), getGuestSession()]);
-    const auth = this.authFor(session, guest);
+    const session = await getSession();
+    const auth = this.authFor(session);
     const nextSignature = JSON.stringify(auth);
     if (!this.socket) {
       this.socket = io(socketBaseUrl(), {
@@ -50,7 +49,7 @@ export class HookRealtimeClient {
         if (current?.accessToken && current.refreshToken) {
           const refreshed = await refreshSession(current);
           if (refreshed) {
-            this.socket!.auth = this.authFor(refreshed, await getGuestSession());
+            this.socket!.auth = this.authFor(refreshed);
             this.socket!.connect();
           }
         }
@@ -79,10 +78,9 @@ export class HookRealtimeClient {
     return () => this.listeners.delete(listener);
   }
 
-  private authFor(session: AuthSession | null, guest: Awaited<ReturnType<typeof getGuestSession>>) {
+  private authFor(session: AuthSession | null) {
     return {
       ...(session?.accessToken ? { accessToken: session.accessToken } : {}),
-      ...(guest?.token ? { guestSessionToken: guest.token } : {}),
     };
   }
 }

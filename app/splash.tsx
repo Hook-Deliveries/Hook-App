@@ -1,50 +1,51 @@
 import { router } from "expo-router";
-import { useEffect } from "react";
-import { Pressable, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useRef } from "react";
+import { Text, View } from "react-native";
+
 import { refreshSession } from "@/lib/api";
-import {
-  getPendingSignup,
-  getSession,
-  restoreGuestSession,
-} from "@/lib/session";
-import { HookLogo } from "@/components/shared/HookLogo";
+import { getPendingSignup, getSession } from "@/lib/session";
+
+const SPLASH_DELAY = 900;
 
 export default function SplashScreen() {
+  const routed = useRef(false);
+
   useEffect(() => {
     let mounted = true;
 
+    function replace(path: Parameters<typeof router.replace>[0]) {
+      if (!mounted || routed.current) return;
+      routed.current = true;
+      router.replace(path);
+    }
+
     async function route() {
-      await new Promise((resolve) => setTimeout(resolve, 900));
+      await new Promise((resolve) => setTimeout(resolve, SPLASH_DELAY));
+      if (!mounted) return;
+
       const session = await getSession();
       if (session && (await refreshSession(session))) {
-        if (mounted) router.replace("/(tabs)");
-        return;
-      }
-
-      const guestSession = await restoreGuestSession();
-      if (guestSession) {
-        if (mounted) router.replace("/(tabs)");
+        replace("/(tabs)");
         return;
       }
 
       const pendingSignup = await getPendingSignup();
       if (pendingSignup) {
-        if (mounted) {
-          router.replace({
-            pathname:
-              pendingSignup.step === "complete_profile"
-                ? "/auth/enter-name"
-                : "/auth/verify-email",
-            params: { email: pendingSignup.email },
-          });
-        }
+        replace({
+          pathname:
+            pendingSignup.step === "complete_profile"
+              ? "/auth/enter-name"
+              : "/auth/verify-email",
+          params: { email: pendingSignup.email },
+        });
         return;
       }
 
-      if (mounted) router.replace("/onboarding");
+      replace("/(tabs)");
     }
 
-    route();
+    void route();
 
     return () => {
       mounted = false;
@@ -52,13 +53,16 @@ export default function SplashScreen() {
   }, []);
 
   return (
-    <Pressable
-      className="flex-1 items-center justify-center bg-hook"
-      onPress={() => router.replace("/onboarding")}
-    >
+    <View className="flex-1 items-center justify-center bg-hook">
+      <StatusBar style="light" />
       <View className="h-full w-full items-center justify-center">
-        <HookLogo size="lg" markColor="#111111" />
+        <Text className="text-[55px] font-bold leading-[66px] text-black">
+          hook
+          <Text className="text-[55px] font-bold leading-[66px] text-white">
+            .
+          </Text>
+        </Text>
       </View>
-    </Pressable>
+    </View>
   );
 }

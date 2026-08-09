@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiRequest } from '@/lib/api';
-import { getGuestId, getSession, type AuthSession } from '@/lib/session';
+import { getSession, type AuthSession } from '@/lib/session';
 
 function compactBody<T extends Record<string, unknown>>(input: T) {
   return Object.fromEntries(
@@ -23,7 +23,6 @@ export type SignupStartResponse = {
 
 export type LocalSessionState = {
   session: AuthSession | null;
-  guestId: string | null;
 };
 
 export function lookupEmail(email: string) {
@@ -34,11 +33,12 @@ export function lookupEmail(email: string) {
   });
 }
 
-export function startSignup(input: { email: string; password: string; guestId?: string | null }) {
+export function startSignup(input: { email: string; password: string }) {
+  const body = input;
   return apiRequest<SignupStartResponse>('/auth/signup/start', {
     auth: false,
     method: 'POST',
-    body: JSON.stringify(compactBody(input)),
+    body: JSON.stringify(compactBody(body)),
   });
 }
 
@@ -62,25 +62,35 @@ export function completeSignup(input: {
   signupSessionToken: string;
   firstName: string;
   lastName: string;
-  guestId?: string | null;
 }) {
+  const body = input;
   return apiRequest<AuthSession>('/auth/signup/complete', {
     auth: false,
     method: 'POST',
-    body: JSON.stringify(compactBody(input)),
+    body: JSON.stringify(compactBody(body)),
   });
 }
 
-export function login(input: { email: string; password: string; guestId?: string | null }) {
+export function login(input: { email: string; password: string }) {
+  const body = input;
   return apiRequest<AuthSession>('/auth/login', {
     auth: false,
     method: 'POST',
-    body: JSON.stringify(compactBody(input)),
+    body: JSON.stringify(compactBody(body)),
   });
 }
 
-export function googleLogin(input: { idToken: string; guestId?: string | null }) {
+export function googleLogin(input: { idToken: string }) {
+  const body = input;
   return apiRequest<AuthSession>('/auth/google', {
+    auth: false,
+    method: 'POST',
+    body: JSON.stringify(compactBody(body)),
+  });
+}
+
+export function appleLogin(input: { identityToken: string; firstName?: string; lastName?: string }) {
+  return apiRequest<AuthSession>('/auth/apple', {
     auth: false,
     method: 'POST',
     body: JSON.stringify(compactBody(input)),
@@ -118,9 +128,26 @@ export function logout(refreshToken?: string) {
   });
 }
 
+export function getProfile() {
+  return apiRequest<AuthSession['user']>('/auth/profile');
+}
+
+export function updateProfile(input: { firstName: string; lastName: string; phone?: string; avatarUrl?: string }) {
+  return apiRequest<AuthSession['user']>('/auth/profile', { method: 'PATCH', body: JSON.stringify(compactBody(input)) });
+}
+
+export function changePassword(input: { currentPassword: string; newPassword: string }) {
+  return apiRequest('/auth/password/change', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export type AccountDevice = { id: string; deviceId?: string; deviceName: string; platform: string; createdAt: string; lastActiveAt: string; current: boolean };
+export function listDevices() { return apiRequest<AccountDevice[]>('/devices'); }
+export function renameDevice(id: string, deviceName: string) { return apiRequest(`/devices/${id}`, { method: 'PATCH', body: JSON.stringify({ deviceName }) }); }
+export function revokeDevice(id: string) { return apiRequest(`/devices/${id}`, { method: 'DELETE' }); }
+export function revokeOtherDevices() { return apiRequest('/devices/others', { method: 'DELETE' }); }
+
 export async function getLocalSessionState(): Promise<LocalSessionState> {
-  const [session, guestId] = await Promise.all([getSession(), getGuestId()]);
-  return { session, guestId };
+  return { session: await getSession() };
 }
 
 export function useLookupEmailMutation() {

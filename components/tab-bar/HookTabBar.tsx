@@ -17,6 +17,8 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { getCartItems, useCartQuery } from "@/lib/mobile-api";
+import { useLocalSessionQuery } from "@/lib/auth-api";
+import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -94,6 +96,8 @@ export function HookTabBar({
   navigation,
 }: BottomTabBarProps) {
   const cart = useCartQuery();
+  const session = useLocalSessionQuery();
+  const { openAuth } = useAuthSheet();
   const cartCount = getCartItems(cart.data).reduce(
     (sum, item) => sum + Number(item.quantity || 0),
     0,
@@ -153,6 +157,11 @@ export function HookTabBar({
                   navigation.emit({ type: "tabLongPress", target: route.key })
                 }
                 onPress={() => {
+                  if (route.name === 'profile' && !session.data?.session) {
+                    void Haptics.selectionAsync();
+                    openAuth('/(tabs)/profile');
+                    return;
+                  }
                   const event = navigation.emit({
                     type: "tabPress",
                     target: route.key,
@@ -193,8 +202,8 @@ const styles = StyleSheet.create({
   shadow: {
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.09,
-    shadowRadius: 14,
-    elevation: 9,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 12,
   },
 });

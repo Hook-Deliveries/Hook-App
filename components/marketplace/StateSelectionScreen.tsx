@@ -41,6 +41,7 @@ export function StateSelectionScreen() {
         !value || `${state.name} ${state.code}`.toLowerCase().includes(value),
     );
   }, [query.data, search]);
+  const showMoreComingSoon = Boolean(query.data && query.data.length < 37);
 
   async function choose(state: HookOperatingState) {
     await selectState(state);
@@ -186,6 +187,19 @@ export function StateSelectionScreen() {
               </Text>
             </View>
           )
+        }
+        ListFooterComponent={
+          showMoreComingSoon ? (
+            <View className="mx-4 mt-2 flex-row items-center rounded-2xl border border-[#F0D979] bg-[#FFF9DC] px-4 py-4">
+              <View className="h-9 w-9 items-center justify-center rounded-full bg-[#FFE88B]">
+                <Ionicons name="time-outline" size={18} color="#665100" />
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-sm font-black text-[#665100]">More States coming soon</Text>
+                <Text className="mt-0.5 text-xs leading-4 text-[#806D25]">Hook is expanding to more operating locations.</Text>
+              </View>
+            </View>
+          ) : null
         }
       />
 

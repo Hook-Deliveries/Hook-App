@@ -25,7 +25,6 @@ import {
   useToggleProductLikeMutation,
   type PublicCatalogProduct,
 } from "@/lib/mobile-api";
-import { isCustomerSession } from "@/lib/session";
 
 type ProductVariant = PublicCatalogProduct["variants"][number];
 
@@ -157,24 +156,17 @@ export default function ProductDetailScreen() {
       },
     });
     setAddedToCart(true);
-    toast.success("Added to basket");
+    toast.success("Added to cart");
     if (redirectToCart) router.push("/cart" as never);
   }
 
   async function toggleProductLike() {
     if (!product || session.isPending) return;
-    if (!isCustomerSession(session.data)) {
-      toast.info(
-        "Sign in to save products",
-        "Your saved products will appear in your profile.",
-      );
-      return;
-    }
-
     try {
       await toggleLike.mutateAsync({
         productId: product.publicId,
         liked: isLiked,
+        product,
       });
       toast.success(isLiked ? "Removed from saved" : "Saved to your likes");
     } catch (error) {

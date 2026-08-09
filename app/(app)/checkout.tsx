@@ -1,34 +1,34 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { router } from "expo-router";
+import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BottomSheetModal } from "@/components/shared/BottomSheetModal";
+import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { toast } from "@/components/shared/toast";
 import { apiRequest } from "@/lib/api";
-import { getSession } from "@/lib/session";
 import {
   useAddressesQuery,
   useCartQuery,
-  getCartGroupItems,
+  getCartItems,
   useCheckoutConfirmMutation,
   useCheckoutPreviewMutation,
   useCommerceConfigQuery,
   useInitializePaymentMutation,
+  useCustomerSessionQuery,
 } from "@/lib/mobile-api";
+import { isCustomerSession } from "@/lib/session";
 
 type PaymentMethod = "PREPAID" | "PAY_AT_HANDOVER";
 
 export default function CheckoutScreen() {
-  const { stateId: rawStateId } = useLocalSearchParams<{
-    stateId?: string | string[];
-  }>();
-  const stateId = Array.isArray(rawStateId) ? rawStateId[0] : rawStateId;
   const insets = useSafeAreaInsets();
+  const session = useCustomerSessionQuery();
+  const { openAuth } = useAuthSheet();
   const cart = useCartQuery();
   const addresses = useAddressesQuery();
   const config = useCommerceConfigQuery();
@@ -44,28 +44,23 @@ export default function CheckoutScreen() {
     addressRows.find((item) => item.publicId === addressId)?.publicId ||
     addressRows.find((item) => item.isDefault)?.publicId ||
     addressRows[0]?.publicId;
-  const group = useMemo(
-    () =>
-      (cart.data as any)?.stateGroups?.find(
-        (item: any) =>
-          [
-            item.publicStateId,
-            item.stateId,
-            item.publicId,
-            item.id,
-            item.state?.publicId,
-          ]
-            .filter(Boolean)
-            .map(String)
-            .includes(String(stateId)),
-      ),
-    [cart.data, stateId],
-  );
-  const groupItems = useMemo(
-    () => (group ? getCartGroupItems(cart.data, group) : []),
-    [cart.data, group],
-  );
+  const cartItems = getCartItems(cart.data);
   const busy = preview.isPending || confirm.isPending || initialize.isPending;
+
+  if (!session.isLoading && !isCustomerSession(session.data)) {
+    return (
+      <View className="flex-1 items-center justify-center bg-[#f4f4f5] px-8">
+        <View className="h-16 w-16 items-center justify-center rounded-full bg-hook">
+          <Ionicons name="lock-closed-outline" size={27} color="#111" />
+        </View>
+        <Text className="mt-5 text-center text-2xl font-black text-black">Sign in to checkout</Text>
+        <Text className="mt-2 text-center text-sm leading-5 text-[#666]">Your local cart will be added to your Hook account before checkout.</Text>
+        <Pressable onPress={() => openAuth("/checkout" as never)} className="mt-6 h-[52px] w-full items-center justify-center rounded-full bg-hook">
+          <Text className="font-black text-black">Continue</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   function openAddressPrompt() {
     setAddressPromptVisible(true);
@@ -84,23 +79,8 @@ export default function CheckoutScreen() {
     setPaymentMethod(method);
   }
 
-  useEffect(() => {
-    void getSession().then((session) => {
-      if (!session?.user || session.user.accountType !== "customer") {
-        toast.info(
-          "Sign in or create an account to keep your basket and checkout",
-        );
-        router.replace("/auth" as never);
-      } else if (!session.user.isEmailVerified) {
-        toast.info("Verify your email before checkout");
-        router.replace("/auth" as never);
-      }
-    });
-  }, []);
-
   async function placeOrder() {
-    if (!stateId || !group)
-      return toast.error("This State basket is no longer available");
+    if (!cartItems.length) return toast.error("Your cart is empty");
     if (!selectedAddress) {
       openAddressPrompt();
       return;
@@ -116,14 +96,12 @@ export default function CheckoutScreen() {
       return toast.error("Accept the current Hook policies to continue");
     try {
       const summary = await preview.mutateAsync({
-        stateId,
         addressId: selectedAddress,
         deliveryMethod: "HOME_DELIVERY",
         paymentMethod,
         policyVersions,
       });
       const order = await confirm.mutateAsync({
-        stateId,
         previewToken: summary.previewToken,
         idempotencyKey: Crypto.randomUUID(),
       });
@@ -186,15 +164,15 @@ export default function CheckoutScreen() {
         <HookLoader label="Preparing checkout" />
       </View>
     );
-  if (!group)
+  if (!cartItems.length)
     return (
       <View className="flex-1 items-center justify-center bg-[#f4f4f5] px-8">
-        <Text className="text-xl font-black">State basket unavailable</Text>
+        <Text className="text-xl font-black">Your cart is empty</Text>
         <Pressable
           onPress={() => router.replace("/cart")}
           className="mt-5 rounded-full bg-hook px-6 py-3"
         >
-          <Text className="font-bold">Back to basket</Text>
+          <Text className="font-bold">Back to cart</Text>
         </Pressable>
       </View>
     );
@@ -221,8 +199,7 @@ export default function CheckoutScreen() {
           <View>
             <Text className="text-2xl font-black">Checkout</Text>
             <Text className="text-xs text-[#666]">
-              One State · {groupItems.length} product
-              {groupItems.length === 1 ? "" : "s"}
+              {cartItems.length} product{cartItems.length === 1 ? "" : "s"} · one order
             </Text>
           </View>
         </View>
@@ -294,7 +271,7 @@ export default function CheckoutScreen() {
           </View>
         </Section>
         <Section title="Order summary">
-          <Row label="Products" value={group.subtotalMinor} />
+          <Row label="Products" value={Number((cart.data as any)?.subtotalMinor || 0)} />
           <Text className="mt-3 text-xs leading-5 text-[#777]">
             Your exact delivery fee and total are locked in the secure preview
             before the Order is created.
@@ -330,7 +307,7 @@ export default function CheckoutScreen() {
               : "Operations review may apply"}
           </Text>
           <Text className="font-black">
-            ₦{(Number(group.subtotalMinor || 0) / 100).toLocaleString()}
+            ₦{(Number((cart.data as any)?.subtotalMinor || 0) / 100).toLocaleString()}
           </Text>
         </View>
         <Pressable

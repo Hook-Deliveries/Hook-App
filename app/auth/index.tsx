@@ -1,9 +1,5 @@
-import { AuthStart } from '@/components/auth/auth-start';
+import { Redirect } from "expo-router";
 
 export default function AuthScreen() {
-  return (
-    <>
-      <AuthStart />
-    </>
-  );
+  return <Redirect href="/(tabs)" />;
 }

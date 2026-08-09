@@ -13,7 +13,11 @@
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.biodun42.hook",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Hook uses Face ID to protect your account on this device."
+      }
     },
     "android": {
       "package": "com.biodun42.hook",
@@ -27,8 +31,8 @@
       "predictiveBackGestureEnabled": false
     },
     "androidStatusBar": {
-      "barStyle": "dark-content",
-      "backgroundColor": "#F1F1F3",
+      "barStyle": "light-content",
+      "backgroundColor": "#FFC809",
       "translucent": false
     },
     "web": {
@@ -38,6 +42,13 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-apple-authentication",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Hook to use Face ID to protect your account."
+        }
+      ],
       [
         "expo-notifications",
         {
@@ -51,9 +62,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#FFC809",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#FFC809"
           }
         }
       ]

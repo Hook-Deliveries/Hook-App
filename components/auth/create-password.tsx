@@ -19,7 +19,7 @@ import { AuthGlowBackground } from "@/components/shared/glow-background";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { toast } from "@/components/shared/toast";
 import { useStartSignupMutation } from "@/lib/auth-api";
-import { ensureGuestId, savePendingSignup } from "@/lib/session";
+import { savePendingSignup } from "@/lib/session";
 
 const MIN_LENGTH = 9;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -50,11 +50,9 @@ export function CreatePassword({ email }: { email: string }) {
     setTouched(true);
     if (!isValid) return;
     try {
-      const guestId = await ensureGuestId();
       const result = await startSignup.mutateAsync({
         email: normalizedEmail,
         password,
-        guestId,
       });
       await savePendingSignup({
         email: normalizedEmail,

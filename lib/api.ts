@@ -1,4 +1,4 @@
-import { getGuestSession, getSession, saveSession, type AuthSession } from '@/lib/session';
+import { getSession, saveSession, type AuthSession } from '@/lib/session';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -51,7 +51,6 @@ export function getApiErrorMessage(
 
 type ApiOptions = RequestInit & {
   auth?: boolean;
-  guest?: boolean;
 };
 
 const SENSITIVE_KEYS = /^(accessToken|refreshToken|authorization|password|token|idToken|otp|code|signupSessionToken)$/i;
@@ -114,11 +113,6 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
       session = await getSession();
       if (session?.accessToken) headers.set('Authorization', `Bearer ${session.accessToken}`);
     }
-    if (options.guest !== false && !session?.accessToken) {
-      const guestSession = await getGuestSession();
-      if (guestSession?.token) headers.set('X-Guest-Session', guestSession.token);
-    }
-
     let response: Response;
     logRequest(method, path, options.body);
     try {
@@ -168,7 +162,6 @@ export async function refreshSession(session: AuthSession) {
   try {
     const data = await apiRequest<AuthSession>('/auth/refresh', {
       auth: false,
-      guest: false,
       method: 'POST',
       body: JSON.stringify({ refreshToken: session.refreshToken }),
     });
