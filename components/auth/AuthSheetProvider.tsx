@@ -27,10 +27,11 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
   const sheet = useRef<BottomSheet>(null);
   const authOpen = useRef(false);
   const authRouteTransition = useRef(false);
+  const onboardingRouteShown = useRef(false);
   const intent = useRef<Href | undefined>(undefined);
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const isHomeRoute = pathname === "/" || pathname === "/(tabs)" || pathname === "/(tabs)/";
+  const isHomeRoute = pathname === "/" || pathname === "" || pathname === "/(tabs)" || pathname === "/(tabs)/" || pathname === "/(tabs)/index";
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const google = useHookGoogleAuth();
@@ -38,13 +39,20 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
   const snapPoints = useMemo(() => ["100%"], []);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    void getOnboardingComplete().then((complete) => {
-      if (!complete && isHomeRoute) timer = setTimeout(() => {
-        if (!authOpen.current && isHomeRoute) router.push("/onboarding");
-      }, 1200);
-    });
-    return () => { if (timer) clearTimeout(timer); };
+    if (!isHomeRoute) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      void getOnboardingComplete().then((complete) => {
+        if (active && !complete && isHomeRoute && !authOpen.current && !onboardingRouteShown.current) {
+          onboardingRouteShown.current = true;
+          router.push("/onboarding");
+        }
+      });
+    }, 450);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [isHomeRoute]);
 
   useEffect(() => onSessionChanged(() => {
@@ -115,7 +123,10 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
             return;
           }
           void getOnboardingComplete().then((complete) => {
-            if (!complete && isHomeRoute) setTimeout(() => router.push("/onboarding"), 250);
+            if (!complete && isHomeRoute && !onboardingRouteShown.current) {
+              onboardingRouteShown.current = true;
+              setTimeout(() => router.push("/onboarding"), 250);
+            }
           });
         }}
       >

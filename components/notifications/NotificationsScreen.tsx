@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import bellIcon from '@/assets/images/notification/bell.png';
 import { toast } from '@/components/shared/toast';
 import { HookLoader } from '@/components/shared/HookLoader';
+import { HookBackButton } from '@/components/shared/HookBackButton';
 import {
   useClearNotificationsMutation,
   useDeleteNotificationMutation,
@@ -88,22 +89,12 @@ export default function NotificationsScreen() {
           paddingHorizontal: 18,
           position: 'relative',
         }}>
-        <Pressable
-          accessibilityLabel="Go back"
-          accessibilityRole="button"
-          onPress={() => router.back()}
+        <HookBackButton
           style={{
-            alignItems: 'center',
-            backgroundColor: '#fff',
-            borderRadius: 22,
-            height: 44,
-            justifyContent: 'center',
             left: 18,
             position: 'absolute',
-            width: 44,
-          }}>
-          <Ionicons name="chevron-back" size={20} color="#111" />
-        </Pressable>
+          }}
+        />
         <Text style={{ color: '#000', fontSize: 18, fontWeight: '700' }}>Notifications</Text>
       </View>
 

@@ -21,6 +21,7 @@ export function CatalogProductCard({
   variant?: "default" | "figma";
 }) {
   const figma = variant === "figma";
+  const unavailable = product.isPurchasable === false;
   const session = useCustomerSessionQuery();
   const likes = useLikedProductsQuery();
   const toggleLike = useToggleProductLikeMutation();
@@ -63,7 +64,14 @@ export function CatalogProductCard({
           figma ? "rounded-t-[10px] rounded-b-[20px]" : "rounded-xl"
         }`}
       >
-        <RemoteImage uri={product.media?.[0]?.url} />
+        <View className={unavailable ? "flex-1 opacity-50" : "flex-1"}>
+          <RemoteImage uri={product.media?.[0]?.url} />
+        </View>
+        {unavailable ? (
+          <View className="absolute bottom-2 left-2 rounded-full bg-black px-2.5 py-1.5">
+            <Text className="text-[9px] font-bold text-white">Temporarily unavailable</Text>
+          </View>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
@@ -84,7 +92,7 @@ export function CatalogProductCard({
             color={isLiked ? "#FFC809" : "#777"}
           />
         </Pressable>
-        {product.market?.name ? (
+        {product.market?.name && !unavailable ? (
           <View className="absolute bottom-2 left-2 rounded-full bg-white/25 px-2 py-1">
             <Text numberOfLines={1} className="max-w-24 text-[8px] text-black">
               {product.market.name}
@@ -98,7 +106,7 @@ export function CatalogProductCard({
       >
         {product.title}
       </Text>
-      <View className="mt-1 flex-row items-center gap-2">
+      <View className={`mt-1 flex-row items-center gap-2 ${unavailable ? "opacity-45" : ""}`}>
         <Text className="text-[12px] font-black text-[#E7B200]">
           ₦{Math.round(product.effectivePriceMinor / 100).toLocaleString()}
         </Text>

@@ -53,14 +53,20 @@ export default function SplashScreen() {
   }, []);
 
   return (
-    <View className="flex-1 items-center justify-center bg-hook">
+    <View className="flex-1 items-center justify-center bg-hook px-6">
       <StatusBar style="light" />
-      <View className="h-full w-full items-center justify-center">
+      <View className="w-full flex-1 items-center justify-center">
         <Text className="text-[55px] font-bold leading-[66px] text-black">
           hook
           <Text className="text-[55px] font-bold leading-[66px] text-white">
             .
           </Text>
+        </Text>
+      </View>
+      <View className="w-full items-center pb-8">
+        <View className="mb-3 h-px w-8 bg-black/20" />
+        <Text className="text-center text-[11px] font-bold uppercase tracking-[1.6px] text-black/60">
+          Velaris Technologies Limited
         </Text>
       </View>
     </View>

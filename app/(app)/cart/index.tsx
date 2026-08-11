@@ -11,7 +11,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
-import { HookLoader } from "@/components/shared/HookLoader";
+import { HookPageLoading } from "@/components/shared/HookPageLoading";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
 import { resolveColor } from "@/components/marketplace/product-colors";
@@ -40,7 +41,18 @@ export default function CartScreen() {
   const quantityWorkers = useRef(new Map<string, Promise<void>>());
   const [confirmClear, setConfirmClear] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<{ item: any; id: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const data = cart.data as any;
+
+  async function refreshCart() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await cart.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function visibleSubtotal(groupItems: any[]) {
     return groupItems.reduce(
@@ -51,7 +63,7 @@ export default function CartScreen() {
 
   function change(item: any, quantity: number) {
     const itemId = cartItemIdentifier(item);
-    if (quantity < 1 || quantity > 99 || !itemId) return;
+    if (quantity < 1 || quantity > 99 || !itemId || item.checkoutEligible === false) return;
     quantityQueue.current.set(itemId, quantity);
     setPendingQuantities((current) => ({ ...current, [itemId]: quantity }));
     if (quantityWorkers.current.has(itemId)) return;
@@ -139,6 +151,10 @@ export default function CartScreen() {
     router.push("/(tabs)/discover" as never);
   }
   function checkout() {
+    if (getCartItems(data).some((item) => item.checkoutEligible === false)) {
+      toast.info("Some products need confirmation", "Remove unavailable products or check back after a Runner confirms them.");
+      return;
+    }
     if (!isCustomerSession(session.data)) {
       openAuth("/checkout" as never);
       return;
@@ -147,24 +163,16 @@ export default function CartScreen() {
   }
 
   if (cart.isLoading)
-    return (
-      <View className="flex-1 items-center justify-center bg-[#f4f4f5]">
-        <HookLoader label="Loading your cart" />
-      </View>
-    );
+    return <HookPageLoading title="Your cart" label="Loading your cart" />;
   if (cart.isError) return <CartError retry={() => cart.refetch()} />;
   const items = getCartItems(data);
+  const checkoutBlocked = items.some((item) => item.checkoutEligible === false);
   if (!items.length) return <EmptyCart />;
 
   return (
     <View className="flex-1 bg-[#f4f4f5]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          className="h-11 w-11 items-center justify-center rounded-full bg-white"
-        >
-          <Ionicons name="arrow-back" size={21} />
-        </Pressable>
+        <HookBackButton />
         <Text className="text-xl font-black">Your cart</Text>
         <Pressable
           onPress={() => setConfirmClear(true)}
@@ -176,8 +184,8 @@ export default function CartScreen() {
       <ScrollView
         refreshControl={
           <RefreshControl
-            refreshing={cart.isRefetching}
-            onRefresh={cart.refetch}
+            refreshing={refreshing}
+            onRefresh={() => void refreshCart()}
             tintColor="#111"
           />
         }
@@ -249,8 +257,8 @@ export default function CartScreen() {
         className="absolute inset-x-0 bottom-0 border-t border-black/5 bg-white px-4 pt-3"
         style={{ paddingBottom: insets.bottom + 10 }}
       >
-        <Pressable accessibilityRole="button" onPress={checkout} className="h-[54px] flex-row items-center justify-center rounded-2xl bg-hook">
-          <Text className="font-black text-black">Checkout</Text>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: checkoutBlocked }} onPress={checkout} className={`h-[54px] flex-row items-center justify-center rounded-2xl ${checkoutBlocked ? "bg-[#D5D5D8]" : "bg-hook"}`}>
+          <Text className="font-black text-black">{checkoutBlocked ? "Review unavailable products" : "Checkout"}</Text>
           <Ionicons name="arrow-forward" size={18} color="#111" style={{ marginLeft: 8 }} />
         </Pressable>
       </View>
@@ -351,9 +359,10 @@ function CartRow({
         </View>
         <View className="mt-2 flex-row items-center justify-between">
           {!item.checkoutEligible ? (
-            <Text className="text-xs font-bold text-red-500">
-              Review required
-            </Text>
+            <View className="flex-1 rounded-lg bg-[#FFF8DB] px-2.5 py-2">
+              <Text className="text-[11px] font-bold text-[#725A0A]">Runner confirmation required</Text>
+              <Text className="mt-0.5 text-[9px] text-[#8A7440]">Keep it here and check back soon.</Text>
+            </View>
           ) : (
             <View
               className="flex-row items-center rounded-full bg-[#f2f2f3] p-1"
@@ -411,23 +420,30 @@ function SummaryRow({
 function EmptyCart() {
   const insets = useSafeAreaInsets();
   return (
-    <View
-      className="flex-1 items-center justify-center bg-[#f4f4f5] px-8"
-      style={{ paddingTop: insets.top }}
-    >
-      <View className="h-20 w-20 items-center justify-center rounded-full bg-white">
-        <Ionicons name="bag-outline" size={36} color="#aaa" />
+    <View className="flex-1 bg-[#F4F4F5]" style={{ paddingTop: insets.top }}>
+      <View className="flex-row items-center justify-between px-4 py-3">
+        <HookBackButton />
+        <Text className="text-xl font-black text-black">Your cart</Text>
+        <View className="h-11 w-11" />
       </View>
-      <Text className="mt-5 text-xl font-black">Your cart is empty</Text>
-      <Text className="mt-2 text-center text-sm leading-5 text-[#777]">
-        Products you add from Hook’s commercial catalog will appear here.
-      </Text>
-      <Pressable
-        onPress={() => router.replace("/(tabs)/discover")}
-        className="mt-6 rounded-full bg-black px-5 py-3.5"
-      >
-        <Text className="font-black text-white">Discover products</Text>
-      </Pressable>
+      <View className="mx-4 mt-3 overflow-hidden rounded-[24px] bg-[#171717] p-5">
+        <View className="h-11 w-11 items-center justify-center rounded-[13px] bg-white/10">
+          <Ionicons name="bag-handle" size={22} color="#FFC809" />
+        </View>
+        <Text className="mt-5 text-[22px] font-black text-white">Ready when you are</Text>
+        <Text className="mt-2 text-[13px] leading-5 text-white/60">Your selected products, quantities and current Hook prices will be organized here.</Text>
+      </View>
+      <View className="flex-1 items-center justify-center px-8 pb-20">
+        <View className="h-24 w-24 items-center justify-center rounded-[28px] bg-white">
+          <Ionicons name="cart-outline" size={42} color="#B0B0B3" />
+          <View className="absolute -right-1 -top-1 h-8 w-8 items-center justify-center rounded-full bg-hook"><Ionicons name="add" size={18} color="#111" /></View>
+        </View>
+        <Text className="mt-6 text-[22px] font-black text-black">Your cart is empty</Text>
+        <Text className="mt-2 text-center text-[14px] leading-5 text-[#77777B]">Browse products from Hook Markets and add something you love.</Text>
+        <Pressable onPress={() => router.replace("/(tabs)/discover")} className="mt-7 h-[52px] w-full items-center justify-center rounded-full bg-hook">
+          <Text className="font-black text-black">Discover products</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

@@ -14,7 +14,8 @@ import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "../global.css";
 
-import { Text, TextInput } from "react-native";
+import { AppState, Text, TextInput, View } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ToastProvider } from "@/components/shared/toast";
@@ -22,6 +23,8 @@ import { AppQueryProvider } from "@/lib/query";
 import { HookLocationProvider } from "@/lib/location-context";
 import { AuthSheetProvider } from "@/components/auth/AuthSheetProvider";
 import { getBiometricEnabled, getSession } from "@/lib/session";
+import { checkHookHealth } from "@/lib/health";
+import { BackendUnavailableScreen } from "@/components/shared/BackendUnavailableScreen";
 
 export const unstable_settings = { anchor: "(tabs)" };
 
@@ -63,12 +66,18 @@ export default function RootLayout() {
     "NunitoSans-Black": require("@expo-google-fonts/nunito-sans/900Black/NunitoSans_900Black.ttf"),
   });
   const [launchReady, setLaunchReady] = useState(false);
+  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
+  const [healthRetrying, setHealthRetrying] = useState(false);
 
   useEffect(() => {
     if (!fontsLoaded) return;
     let active = true;
     void (async () => {
-      const [session, biometric] = await Promise.all([getSession(), getBiometricEnabled()]);
+      const [session, biometric, healthy] = await Promise.all([
+        getSession(),
+        getBiometricEnabled(),
+        checkHookHealth(),
+      ]);
       if (session && biometric) {
         await LocalAuthentication.authenticateAsync({
           promptMessage: "Unlock Hook",
@@ -77,6 +86,7 @@ export default function RootLayout() {
         });
       }
       if (active) {
+        setBackendAvailable(healthy);
         setLaunchReady(true);
         await SplashScreen.hideAsync();
       }
@@ -93,17 +103,63 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, []);
 
+  useEffect(() => {
+    if (!launchReady) return;
+    let active = true;
+    const verify = async () => {
+      const healthy = await checkHookHealth();
+      if (active) setBackendAvailable(healthy);
+    };
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void verify();
+    });
+    const intervalMs = backendAvailable === false ? 5_000 : 60_000;
+    const interval = setInterval(() => {
+      if (AppState.currentState === "active") void verify();
+    }, intervalMs);
+    return () => {
+      active = false;
+      subscription.remove();
+      clearInterval(interval);
+    };
+  }, [backendAvailable, launchReady]);
+
   if (!fontsLoaded || !launchReady) return null;
   applyNunitoDefaults();
 
+  const retryHealth = async () => {
+    setHealthRetrying(true);
+    const healthy = await checkHookHealth();
+    setBackendAvailable(healthy);
+    setHealthRetrying(false);
+  };
+
+  if (backendAvailable === false) {
+    return (
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#000" }}>
+          <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: "#000" }}>
+            <View style={{ flex: 1, backgroundColor: "#FFC809" }}>
+              <BackendUnavailableScreen retrying={healthRetrying} onRetry={() => void retryHealth()} />
+              <StatusBar backgroundColor="#FFC809" style="dark" translucent={false} />
+            </View>
+          </SafeAreaView>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <AppQueryProvider>
-        <HookLocationProvider>
-          <AuthSheetProvider>
-          <ThemeProvider
-            value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-          >
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#000" }}>
+        <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: "#000" }}>
+          <View style={{ flex: 1, backgroundColor: "#F1F1F3" }}>
+            <AppQueryProvider>
+              <HookLocationProvider>
+                <AuthSheetProvider>
+                  <ThemeProvider
+                    value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+                  >
             <Stack>
               <Stack.Screen
                 name="splash"
@@ -120,11 +176,11 @@ export default function RootLayout() {
               <Stack.Screen
                 name="onboarding"
                 options={{
-                  presentation: "modal",
+                  presentation: "card",
                   animation: "slide_from_bottom",
                   gestureDirection: "vertical",
-                  fullScreenGestureEnabled: true,
-                  gestureEnabled: true,
+                  fullScreenGestureEnabled: false,
+                  gestureEnabled: false,
                   headerShown: false,
                 }}
               />
@@ -154,6 +210,10 @@ export default function RootLayout() {
               />
               <Stack.Screen
                 name="(app)/cart/index"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="(app)/orders/index"
                 options={{ headerShown: false }}
               />
               <Stack.Screen
@@ -251,10 +311,13 @@ export default function RootLayout() {
               translucent={false}
             />
             <ToastProvider />
-          </ThemeProvider>
-          </AuthSheetProvider>
-        </HookLocationProvider>
-      </AppQueryProvider>
-    </GestureHandlerRootView>
+                  </ThemeProvider>
+                </AuthSheetProvider>
+              </HookLocationProvider>
+            </AppQueryProvider>
+          </View>
+        </SafeAreaView>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }

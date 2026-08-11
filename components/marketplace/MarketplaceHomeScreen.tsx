@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, RefreshControl, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getHookTabBarContentInset } from "@/components/tab-bar/layout";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -26,6 +27,7 @@ import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import { isCustomerSession } from "@/lib/session";
 import { MarketplaceSearch } from "./MarketplaceSearch";
 import { ScallopedEdge } from "./ScallopedEdge";
+import { ProfileAvatar } from "@/components/profile/ProfileComponents";
 
 const MARKET_ICON = require("../../assets/images/market-icon.png");
 
@@ -37,6 +39,7 @@ export function MarketplaceHomeScreen() {
   const categoriesQuery = useCategoriesQuery();
   const marketsQuery = useMarketsQuery(stateParams);
   const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(false);
   const [searchPinned, setSearchPinned] = useState(false);
   const scrollY = useSharedValue(0);
@@ -174,7 +177,20 @@ export function MarketplaceHomeScreen() {
     };
   });
 
-  const refreshing = categoriesQuery.isRefetching || marketsQuery.isRefetching;
+  async function refresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([categoriesQuery.refetch(), marketsQuery.refetch()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const customer = isCustomerSession(session.data) ? session.data?.user : null;
+  const customerName = customer
+    ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email
+    : "Hook customer";
 
   return (
     <View className="flex-1 bg-[#F1F1F3]">
@@ -189,13 +205,10 @@ export function MarketplaceHomeScreen() {
             colors={["transparent"]}
             progressBackgroundColor="transparent"
             progressViewOffset={insets.top + 8}
-            onRefresh={() => {
-              void categoriesQuery.refetch();
-              void marketsQuery.refetch();
-            }}
+            onRefresh={() => void refresh()}
           />
         }
-        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        contentContainerStyle={{ paddingBottom: getHookTabBarContentInset(insets.bottom) }}
       >
         <View className="relative bg-[#FFD93E]">
           <View
@@ -205,11 +218,11 @@ export function MarketplaceHomeScreen() {
             <HookYellowPattern />
             <View className="flex-row items-center justify-between">
               <Pressable
-                accessibilityLabel="Open orders"
-                onPress={() => router.push("/(tabs)/orders")}
+                accessibilityLabel="Open notifications"
+                onPress={() => isCustomerSession(session.data) ? router.push("/notifications" as never) : openAuth("/notifications" as never)}
                 className="h-11 w-11 items-center justify-center rounded-full bg-white"
               >
-                <Ionicons name="cube-outline" size={21} color="#E6B000" />
+                <Ionicons name="notifications-outline" size={20} color="#8B6D52" />
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -228,18 +241,17 @@ export function MarketplaceHomeScreen() {
               </Pressable>
               <View className="flex-row gap-2">
                 <Pressable
-                  accessibilityLabel="Open notifications"
-                  onPress={() => isCustomerSession(session.data) ? router.push("/notifications" as never) : openAuth("/notifications" as never)}
-                  className="h-11 w-11 items-center justify-center rounded-full bg-white"
-                >
-                  <Ionicons name="notifications-outline" size={20} color="#8B6D52" />
-                </Pressable>
-                <Pressable
                   accessibilityLabel="Open profile"
                   onPress={() => isCustomerSession(session.data) ? router.push("/(tabs)/profile") : openAuth("/(tabs)/profile")}
                   className="h-11 w-11 items-center justify-center rounded-full bg-white"
                 >
-                  <Ionicons name="person-outline" size={19} color="#8B6D52" />
+                  {customer ? (
+                    <View className="rounded-full border-2 border-white bg-hook">
+                      <ProfileAvatar name={customerName} uri={customer.avatarUrl} size={36} />
+                    </View>
+                  ) : (
+                    <Ionicons name="person-outline" size={19} color="#8B6D52" />
+                  )}
                 </Pressable>
               </View>
             </View>
@@ -348,7 +360,7 @@ export function MarketplaceHomeScreen() {
       </Animated.ScrollView>
 
       <HookRefreshIndicator
-        visible={refreshing}
+          visible={refreshing}
         top={insets.top + 8}
       />
 

@@ -73,21 +73,21 @@ export function HookConfirmSheet({
         />
         <Animated.View
           accessibilityViewIsModal
-          className="relative mt-auto min-h-[45vh] w-full rounded-t-[28px] bg-[#F1F1F3] px-5 pt-14"
+          className="relative mt-auto min-h-[35vh] w-full bg-[#F1F1F3] px-5 pt-14"
           entering={enterTransition}
           exiting={exitTransition}
           style={{
-            paddingBottom: Math.max(insets.bottom, 20),
+            paddingBottom: Math.max(insets.bottom, 8),
             overflow: "visible",
           }}
         >
           <ScallopedEdge color="#F1F1F3" count={16} edge="top" size={26} />
 
           <View
-            className="absolute -top-12 left-1/2 z-50 h-24 w-24 -translate-x-1/2 items-center justify-center rounded-full bg-white shadow-sm"
-            style={{ elevation: 12 }}
+            className="absolute -top-12 z-50 h-24 w-24 items-center justify-center rounded-full bg-[#F1F1F3] shadow-sm"
+            style={{ left: "50%", marginLeft: -48, elevation: 12 }}
           >
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-[#FFF1B8]">
+            <View className="h-14 w-14 items-center justify-center rounded-full bg-white">
               <Ionicons name={icon} size={27} color="#111" />
             </View>
           </View>

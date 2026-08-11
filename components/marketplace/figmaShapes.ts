@@ -6,6 +6,8 @@ export const marketCardFrameXml = `<svg preserveAspectRatio="none" overflow="vis
 
 export const popularBadgeTopXml = `<svg preserveAspectRatio="none" overflow="visible" width="75" height="25" viewBox="0 0 75 25" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M25 12.5C25 9.18479 23.683 6.00537 21.3388 3.66117C18.9946 1.31696 15.8152 2.50291e-7 12.5 0C9.18479 -2.50291e-7 6.00537 1.31696 3.66117 3.66116C1.31696 6.00537 5.00582e-7 9.18479 0 12.5L12.5 12.5H25Z" fill="#FFC809"/><path d="M50 12.5C50 9.18479 48.683 6.00537 46.3388 3.66117C43.9946 1.31696 40.8152 2.50291e-7 37.5 0C34.1848 -2.50291e-7 31.0054 1.31696 28.6612 3.66116C26.317 6.00537 25 9.18479 25 12.5L37.5 12.5H50Z" fill="#FFC809"/><path d="M75 12.5C75 9.18479 73.683 6.00537 71.3388 3.66117C68.9946 1.31696 65.8152 2.50291e-7 62.5 0C59.1848 -2.50291e-7 56.0054 1.31696 53.6612 3.66116C51.317 6.00537 50 9.18479 50 12.5L62.5 12.5H75Z" fill="#FFC809"/></svg>`;
 
+export const categoryVector3452Xml = `<svg preserveAspectRatio="none" width="411" height="209" viewBox="0 0 411 209" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.19664 204.136C3.19664 204.136 86.5491 144.533 146.697 147.636C189.697 149.854 207.882 193.597 250.197 185.636C314.336 173.569 370.673 89.4333 329.697 38.6358C295.125 -4.22217 219.732 -6.84896 188.697 38.6358C151.553 93.0731 246.669 160.645 312.197 153.636C359.014 148.628 406.197 78.1358 406.197 78.1358" stroke="#FFE07A" stroke-width="11" stroke-linecap="round"/></svg>`;
+
 export function replaceSvgColor(xml: string, color: string) {
   return xml.replace(/#FF5309|#FE9263/g, color);
 }

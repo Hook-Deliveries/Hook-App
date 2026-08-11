@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   Pressable,
@@ -14,6 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheetModal } from "@/components/shared/BottomSheetModal";
 import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
 import { HookLoader } from "@/components/shared/HookLoader";
+import { HookPageLoading } from "@/components/shared/HookPageLoading";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 import { toast } from "@/components/shared/toast";
 import { getApiErrorMessage } from "@/lib/api";
 import {
@@ -81,6 +82,7 @@ export default function AddressesScreen() {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<AddressDraft>(emptyDraft);
   const [addressError, setAddressError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const stateRows = useMemo(() => {
     const value = states.data as HookOperatingState[] | undefined;
@@ -93,6 +95,16 @@ export default function AddressesScreen() {
   const selectedState = stateRows.find((state) => state.publicId === draft.stateId);
   const addressRows = (Array.isArray(addresses.data) ? addresses.data : []) as AddressRecord[];
   const saving = create.isPending || update.isPending;
+
+  async function refreshAddresses() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await addresses.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function setDraftValue<K extends keyof AddressDraft>(key: K, value: AddressDraft[K]) {
     setAddressError(null);
@@ -230,15 +242,13 @@ export default function AddressesScreen() {
   }
 
   if (addresses.isLoading) {
-    return <View className="flex-1 items-center justify-center bg-[#f4f4f5]"><HookLoader label="Loading addresses" /></View>;
+    return <HookPageLoading title="Delivery addresses" label="Loading addresses" />;
   }
 
   return (
     <View className="flex-1 bg-[#f4f4f5]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 py-3">
-        <Pressable accessibilityLabel="Go back" accessibilityRole="button" onPress={() => router.back()} className="h-11 w-11 items-center justify-center rounded-full bg-white">
-          <Ionicons name="arrow-back" size={21} color="#111" />
-        </Pressable>
+        <HookBackButton />
         <Text className="text-xl font-black text-black">Delivery addresses</Text>
         <Pressable accessibilityLabel="Add delivery address" accessibilityRole="button" onPress={openNewWizard} className="h-11 w-11 items-center justify-center rounded-full bg-hook">
           <Ionicons name="add" size={23} color="#111" />
@@ -251,7 +261,7 @@ export default function AddressesScreen() {
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}
-        refreshControl={<RefreshControl refreshing={addresses.isRefetching} onRefresh={() => void addresses.refetch()} tintColor="#111111" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refreshAddresses()} tintColor="#111111" />}
         showsVerticalScrollIndicator={false}
       >
         <View className="gap-3">
@@ -277,7 +287,31 @@ export default function AddressesScreen() {
           ))}
         </View>
 
-        {!addresses.isError && !addressRows.length ? <View className="mt-24 items-center"><Ionicons name="location-outline" size={42} color="#aaa" /><Text className="mt-4 text-lg font-black text-black">No delivery address yet</Text><Text className="mt-2 text-center text-sm text-[#777]">Add an address for delivery anywhere Hook currently covers.</Text><Pressable onPress={openNewWizard} className="mt-6 h-12 items-center justify-center rounded-full bg-hook px-6"><Text className="font-bold text-black">Add delivery address</Text></Pressable></View> : null}
+        {!addresses.isError && !addressRows.length ? (
+          <View className="overflow-hidden rounded-[24px] bg-white">
+            <View className="bg-hook px-5 py-6">
+              <View className="h-11 w-11 items-center justify-center rounded-2xl bg-black">
+                <Ionicons name="navigate-outline" size={22} color="#FFC809" />
+              </View>
+              <Text className="mt-5 text-[23px] font-black text-black">Delivery, made clearer</Text>
+              <Text className="mt-2 text-sm leading-5 text-black/60">
+                Save where orders should arrive and choose a default address for faster checkout.
+              </Text>
+            </View>
+            <View className="items-center px-6 py-10">
+              <View className="h-16 w-16 items-center justify-center rounded-full bg-[#FFF4C7]">
+                <Ionicons name="location-outline" size={30} color="#111" />
+              </View>
+              <Text className="mt-4 text-lg font-black text-black">No delivery address yet</Text>
+              <Text className="mt-2 text-center text-sm leading-5 text-[#777]">
+                Add a recipient and delivery location. You can update it whenever you need to.
+              </Text>
+              <Pressable onPress={openNewWizard} className="mt-6 h-12 items-center justify-center rounded-full bg-hook px-6">
+                <Text className="font-black text-black">Add delivery address</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
         {addresses.isError ? <View className="mt-10 items-center rounded-[22px] bg-white p-6"><Ionicons name="cloud-offline-outline" size={30} color="#777" /><Text className="mt-3 font-bold text-black">Addresses could not be refreshed</Text><Pressable onPress={() => void addresses.refetch()} className="mt-4 rounded-full bg-hook px-5 py-2.5"><Text className="font-bold text-black">Try again</Text></Pressable></View> : null}
       </ScrollView>
 

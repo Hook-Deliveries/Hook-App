@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HookLoader } from "@/components/shared/HookLoader";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 import { HookRefreshIndicator } from "@/components/shared/HookRefreshIndicator";
 import {
   ALL_STATES,
@@ -28,6 +29,7 @@ export function StateSelectionScreen() {
   const query = useOperatingStatesQuery();
   const { selectedState, selectState } = useHookLocation();
   const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [compactHeaderVisible, setCompactHeaderVisible] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   const states = useMemo(() => {
@@ -46,6 +48,16 @@ export function StateSelectionScreen() {
   async function choose(state: HookOperatingState) {
     await selectState(state);
     router.back();
+  }
+
+  async function refresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await query.refetch();
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   const compactHeaderOpacity = scrollY.interpolate({
@@ -67,13 +79,7 @@ export function StateSelectionScreen() {
       >
         <HookYellowPattern />
         <View className="relative z-10 flex-row items-center justify-between">
-          <Pressable
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            className="h-11 w-11 items-center justify-center rounded-full border border-black/5 bg-white/80"
-          >
-            <Ionicons name="chevron-back" size={21} color="#111" />
-          </Pressable>
+          <HookBackButton />
           <Text className="text-[18px] font-black text-black">
             Select state
           </Text>
@@ -134,12 +140,12 @@ export function StateSelectionScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={query.isRefetching}
+            refreshing={refreshing}
             tintColor="transparent"
             colors={["transparent"]}
             progressBackgroundColor="transparent"
             progressViewOffset={insets.top + 8}
-            onRefresh={() => void query.refetch()}
+            onRefresh={() => void refresh()}
           />
         }
         ListHeaderComponent={hero}
@@ -204,7 +210,7 @@ export function StateSelectionScreen() {
       />
 
       <HookRefreshIndicator
-        visible={query.isRefetching}
+        visible={refreshing}
         top={insets.top + 8}
       />
 
@@ -225,13 +231,7 @@ export function StateSelectionScreen() {
       >
         <HookYellowPattern opacity={0.72} />
         <View className="relative z-10 h-11 flex-row items-center justify-between">
-          <Pressable
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            className="h-10 w-10 items-center justify-center rounded-full border border-black/5 bg-white/80"
-          >
-            <Ionicons name="chevron-back" size={20} color="#111" />
-          </Pressable>
+          <HookBackButton className="h-10 w-10" />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Current state: ${selectedState.name}`}

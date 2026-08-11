@@ -20,6 +20,8 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HookLoader } from "@/components/shared/HookLoader";
+import { HookPageLoading } from "@/components/shared/HookPageLoading";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 import { HookRefreshIndicator } from "@/components/shared/HookRefreshIndicator";
 import { useHookLocation } from "@/lib/location-context";
 import {
@@ -53,6 +55,7 @@ export function CategoryStorefrontScreen() {
   );
   const [marketId, setMarketId] = useState("all");
   const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [marketSheetVisible, setMarketSheetVisible] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(false);
   const [searchPinned, setSearchPinned] = useState(false);
@@ -185,12 +188,23 @@ export function CategoryStorefrontScreen() {
     router.setParams({ categoryId: nextCategoryId });
   }
 
+  async function refresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        productsQuery.refetch(),
+        categoriesQuery.refetch(),
+        marketsQuery.refetch(),
+        homeFeedQuery.refetch(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   if (categoriesQuery.isLoading && !category) {
-    return (
-      <View className="flex-1 items-center justify-center bg-[#F1F1F3]">
-        <HookLoader label="Opening category" />
-      </View>
-    );
+    return <HookPageLoading label="Opening category" />;
   }
 
   return (
@@ -206,18 +220,12 @@ export function CategoryStorefrontScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={
-              productsQuery.isRefetching || categoriesQuery.isRefetching
-            }
+            refreshing={refreshing}
             tintColor="transparent"
             colors={["transparent"]}
             progressBackgroundColor="transparent"
             progressViewOffset={insets.top + 8}
-            onRefresh={() => {
-              void productsQuery.refetch();
-              void categoriesQuery.refetch();
-              void marketsQuery.refetch();
-            }}
+            onRefresh={() => void refresh()}
           />
         }
         ListHeaderComponent={
@@ -233,13 +241,7 @@ export function CategoryStorefrontScreen() {
 
               <View className="relative z-10 flex-1">
                 <View className="absolute left-0 top-0 z-10 w-[170px]">
-                  <Pressable
-                    accessibilityLabel="Go back"
-                    onPress={() => router.back()}
-                    className="h-11 w-11 items-center justify-center rounded-full bg-white"
-                  >
-                    <Ionicons name="chevron-back" size={21} color="#111" />
-                  </Pressable>
+                  <HookBackButton />
 
                   <Pressable
                     accessibilityRole="button"
@@ -395,9 +397,7 @@ export function CategoryStorefrontScreen() {
 
       <HookRefreshIndicator
         visible={
-          productsQuery.isRefetching ||
-          categoriesQuery.isRefetching ||
-          marketsQuery.isRefetching
+          refreshing
         }
         top={insets.top + 8}
       />

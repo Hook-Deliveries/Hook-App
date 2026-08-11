@@ -9,6 +9,8 @@ import { HookYellowPattern } from "./HookYellowPattern";
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import { useCustomerSessionQuery } from "@/lib/mobile-api";
 import { isCustomerSession } from "@/lib/session";
+import { ProfileAvatar } from "@/components/profile/ProfileComponents";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 
 type MarketplaceCompactHeaderProps = {
   title?: string;
@@ -19,6 +21,7 @@ type MarketplaceCompactHeaderProps = {
   titleAccessibilityLabel?: string;
   showActions?: boolean;
   visible?: boolean;
+  plain?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -31,6 +34,7 @@ export function MarketplaceCompactHeader({
   titleAccessibilityLabel,
   showActions = true,
   visible = true,
+  plain = false,
   style,
 }: MarketplaceCompactHeaderProps) {
   const insets = useSafeAreaInsets();
@@ -38,6 +42,10 @@ export function MarketplaceCompactHeader({
   const { openAuth } = useAuthSheet();
   const hasBack = Boolean(onBack);
   const isHomeHeader = Boolean(stateName) && !hasBack;
+  const customer = isCustomerSession(session.data) ? session.data?.user : null;
+  const customerName = customer
+    ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email
+    : "Hook customer";
 
   return (
     <Animated.View
@@ -64,27 +72,21 @@ export function MarketplaceCompactHeader({
         style,
       ]}
     >
-      <HookYellowPattern opacity={0.62} />
+      {!plain ? <HookYellowPattern opacity={0.62} /> : null}
 
       <ScallopedEdge color="#FFD93E" count={14} size={30} />
 
       <View className="relative z-10 w-full flex-1 flex-row items-center justify-between">
         <View className="flex-row items-center">
           {hasBack ? (
-            <Pressable
-              accessibilityLabel="Go back"
-              onPress={onBack}
-              className="h-11 w-11 items-center justify-center rounded-full bg-white"
-            >
-              <Ionicons name="chevron-back" size={20} color="#111" />
-            </Pressable>
+            <HookBackButton onPress={onBack} />
           ) : (
             <Pressable
-              accessibilityLabel="Open orders"
-              onPress={() => router.push("/(tabs)/orders")}
+              accessibilityLabel="Open notifications"
+              onPress={() => isCustomerSession(session.data) ? router.push("/notifications" as never) : openAuth("/notifications" as never)}
               className="h-11 w-11 items-center justify-center rounded-full bg-white"
             >
-              <Ionicons name="cube-outline" size={21} color="#E6B000" />
+              <Ionicons name="notifications-outline" size={20} color="#8B6D52" />
             </Pressable>
           )}
         </View>
@@ -136,13 +138,13 @@ export function MarketplaceCompactHeader({
             {!isHomeHeader ? (
               <Pressable
                 accessibilityLabel="Open orders"
-                onPress={() => router.push("/(tabs)/orders")}
+                onPress={() => router.push("/orders" as never)}
                 className="h-11 w-11 items-center justify-center rounded-full bg-white"
               >
                 <Ionicons name="cube-outline" size={21} color="#E6B000" />
               </Pressable>
             ) : null}
-            <Pressable
+            {!isHomeHeader ? <Pressable
               accessibilityLabel="Open notifications"
               onPress={() => isCustomerSession(session.data) ? router.push("/notifications" as never) : openAuth("/notifications" as never)}
               className="h-11 w-11 items-center justify-center rounded-full bg-white"
@@ -152,14 +154,18 @@ export function MarketplaceCompactHeader({
                 size={20}
                 color="#8B6D52"
               />
-            </Pressable>
+            </Pressable> : null}
             {isHomeHeader ? (
               <Pressable
                 accessibilityLabel="Open profile"
                 onPress={() => isCustomerSession(session.data) ? router.push("/(tabs)/profile") : openAuth("/(tabs)/profile")}
                 className="h-11 w-11 items-center justify-center rounded-full bg-white"
               >
-                <Ionicons name="person-outline" size={19} color="#8B6D52" />
+                {customer ? (
+                  <ProfileAvatar name={customerName} uri={customer.avatarUrl} size={36} />
+                ) : (
+                  <Ionicons name="person-outline" size={19} color="#8B6D52" />
+                )}
               </Pressable>
             ) : null}
           </View>

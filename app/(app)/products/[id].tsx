@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CartButton } from "@/components/cart/CartButton";
 import { NegotiationPrompt } from "@/components/marketplace/NegotiationPrompt";
 import { HookLoader } from "@/components/shared/HookLoader";
+import { HookPageLoading } from "@/components/shared/HookPageLoading";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
 import { resolveColor } from "@/components/marketplace/product-colors";
@@ -122,7 +124,7 @@ export default function ProductDetailScreen() {
   }
 
   function addToCart(redirectToCart = false) {
-    if (!product || add.isPending || addLock.current) return;
+    if (!product || !product.isPurchasable || add.isPending || addLock.current) return;
     addLock.current = true;
     if (addedFeedbackTimer.current) {
       clearTimeout(addedFeedbackTimer.current);
@@ -179,11 +181,7 @@ export default function ProductDetailScreen() {
   }
 
   if (query.isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-[#F1F1F3]">
-        <HookLoader label="Loading product" />
-      </View>
-    );
+    return <HookPageLoading title="Product details" label="Loading product" />;
   }
 
   if (!product) {
@@ -203,6 +201,7 @@ export default function ProductDetailScreen() {
   }
 
   const selectedColor = variantColor(selectedVariant || ({} as ProductVariant));
+  const unavailable = product.isPurchasable === false;
 
   return (
     <View className="flex-1 bg-[#F1F1F3]">
@@ -251,6 +250,17 @@ export default function ProductDetailScreen() {
         </View>
 
         <View className="gap-7 px-3 pb-4">
+          {unavailable ? (
+            <View className="flex-row items-start rounded-[16px] border border-amber-200 bg-[#FFF8DB] p-4">
+              <Ionicons name="time-outline" size={21} color="#8A6500" />
+              <View className="ml-3 flex-1">
+                <Text className="font-black text-[#4D3A00]">Temporarily unavailable</Text>
+                <Text className="mt-1 text-[12px] leading-5 text-[#725A0A]">
+                  {product.availabilityNote || "A Hook Runner is confirming availability. Keep it saved and check back soon."}
+                </Text>
+              </View>
+            </View>
+          ) : null}
           <View className="flex-row items-start justify-between gap-3">
             <View className="flex-1">
               <Text
@@ -294,7 +304,7 @@ export default function ProductDetailScreen() {
             </View>
           </View>
 
-          {product.negotiationAvailable ? (
+          {product.negotiationAvailable && !unavailable ? (
             <NegotiationPrompt
               onPress={() =>
                 toast.info(
@@ -367,7 +377,9 @@ export default function ProductDetailScreen() {
           ) : null}
 
           <Text className="text-xs text-black/55">
-            {product.market?.name
+            {unavailable
+              ? "Purchase actions will return after Runner confirmation."
+              : product.market?.name
               ? `Available from ${product.market.name}`
               : "Available from a verified Hook Market"}
           </Text>
@@ -378,13 +390,7 @@ export default function ProductDetailScreen() {
         pointerEvents="box-none"
         style={{ top: insets.top + 10, height: 44, elevation: 20 }}
       >
-        <Pressable
-          accessibilityLabel="Go back"
-          onPress={() => router.back()}
-          className="h-11 w-11 items-center justify-center rounded-full bg-white/90"
-        >
-          <Ionicons name="chevron-back" size={21} color="#111" />
-        </Pressable>
+        <HookBackButton />
         <View className="flex-row items-center gap-2">
           <Pressable
             accessibilityRole="button"
@@ -414,9 +420,9 @@ export default function ProductDetailScreen() {
         style={{ paddingBottom: insets.bottom + 8 }}
       >
         <Pressable
-          disabled={add.isPending}
+          disabled={add.isPending || unavailable}
           onPress={() => void addToCart(false)}
-          className="h-14 flex-1 items-center justify-center rounded-full bg-[#F1F1F3]"
+          className={`h-14 flex-1 items-center justify-center rounded-full ${unavailable ? "bg-[#E4E4E6] opacity-60" : "bg-[#F1F1F3]"}`}
         >
           {addedToCart ? (
             <View className="flex-row items-center gap-1.5">
@@ -424,18 +430,18 @@ export default function ProductDetailScreen() {
               <Text className="font-semibold text-black">Added</Text>
             </View>
           ) : (
-            <Text className="font-semibold text-black">Add to cart</Text>
+            <Text className="font-semibold text-black">{unavailable ? "Unavailable" : "Add to cart"}</Text>
           )}
         </Pressable>
         <Pressable
-          disabled={add.isPending}
+          disabled={add.isPending || unavailable}
           onPress={() => void addToCart(true)}
-          className="h-14 flex-[1.2] items-center justify-center rounded-full bg-[#FFC809]"
+          className={`h-14 flex-[1.2] items-center justify-center rounded-full ${unavailable ? "bg-[#D5D5D8] opacity-60" : "bg-[#FFC809]"}`}
         >
           {add.isPending ? (
             <HookLoader size="button" />
           ) : (
-            <Text className="font-semibold text-black">Buy now</Text>
+            <Text className="font-semibold text-black">{unavailable ? "Check back soon" : "Buy now"}</Text>
           )}
         </Pressable>
       </View>

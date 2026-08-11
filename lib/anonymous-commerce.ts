@@ -149,8 +149,20 @@ export async function clearImportedAnonymousCommerce(cartLineIds: string[], like
   }));
 }
 
-export function anonymousCartResponse(value: AnonymousCommerce) {
+export function anonymousCartResponse(value: AnonymousCommerce, products: PublicCatalogProduct[] = []) {
+  const productMap = new Map(products.map((product) => [product.publicId, product]));
   const items = value.cartItems.map((item) => ({
+    ...(() => {
+      const product = productMap.get(item.productId);
+      const checkoutEligible = product ? product.isPurchasable : false;
+      return {
+        checkoutEligible,
+        blockingReasons: checkoutEligible ? [] : ["RUNNER_CONFIRMATION_REQUIRED"],
+        product: product
+          ? { ...product, id: product.publicId, imageUrl: product.media?.[0]?.url }
+          : { id: item.productId, title: item.productSnapshot.title, imageUrl: item.productSnapshot.imageUrl },
+      };
+    })(),
     id: item.clientLineId,
     publicId: item.clientLineId,
     productId: item.productId,
@@ -162,9 +174,6 @@ export function anonymousCartResponse(value: AnonymousCommerce) {
     currency: item.productSnapshot.currency,
     stateId: item.productSnapshot.sourceStateId,
     marketId: item.productSnapshot.marketId,
-    checkoutEligible: true,
-    blockingReasons: [],
-    product: { id: item.productId, title: item.productSnapshot.title, imageUrl: item.productSnapshot.imageUrl },
   }));
   return {
     id: "local-cart",

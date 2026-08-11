@@ -1,4 +1,5 @@
 import { AppState, AppStateStatus } from "react-native";
+import { router } from "expo-router";
 import { io, Socket } from "socket.io-client";
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -6,12 +7,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL, refreshSession } from "@/lib/api";
 import {
   getSession,
+  clearSession,
   onSessionChanged,
   type AuthSession,
 } from "@/lib/session";
 
 type RealtimePayload = {
   type?: string;
+  entityType?: string;
   entityId?: string;
   version?: number;
 };
@@ -42,7 +45,14 @@ export class HookRealtimeClient {
       this.socket.onAny((event, payload) => {
         this.listeners.forEach((listener) => listener(event, payload || {}));
       });
-      this.socket.on("connect_error", async () => {
+      this.socket.on("connect_error", async (error) => {
+        const revoked = /session is no longer active|account is not active/i.test(error?.message || "");
+        if (revoked) {
+          await clearSession();
+          this.listeners.forEach((listener) => listener("session.revoked", { type: "session.revoked" }));
+          this.socket?.disconnect();
+          return;
+        }
         if (this.refreshAttempted) return;
         this.refreshAttempted = true;
         const current = await getSession();
@@ -92,14 +102,18 @@ function invalidateForEvent(queryClient: ReturnType<typeof useQueryClient>, even
     queryClient.invalidateQueries({ queryKey: ["mobile", "notifications"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "orders"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "cart"] });
+    queryClient.invalidateQueries({ queryKey: ["mobile", "likes"] });
     return;
   }
   if (event === "home.updated" || event === "catalog.updated") {
     queryClient.invalidateQueries({ queryKey: ["mobile", "feed"] });
+    queryClient.invalidateQueries({ queryKey: ["mobile", "discover"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "products"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "search"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "categories"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "public"] });
+    queryClient.invalidateQueries({ queryKey: ["mobile", "likes"] });
+    queryClient.invalidateQueries({ queryKey: ["mobile", "cart"] });
   }
   if (event === "cart.updated") queryClient.invalidateQueries({ queryKey: ["mobile", "cart"] });
   if (event === "notification.created" || event === "notification.updated") {
@@ -118,7 +132,18 @@ export function MobileRealtimeBridge() {
   useEffect(() => {
     const client = clientRef.current || new HookRealtimeClient();
     clientRef.current = client;
-    const stopEvents = client.on((event) => invalidateForEvent(queryClient, event));
+    const stopEvents = client.on((event) => {
+      if (event === "session.revoked") {
+        void (async () => {
+          await clearSession();
+          client.disconnect();
+          queryClient.clear();
+          router.replace("/(tabs)");
+        })();
+        return;
+      }
+      invalidateForEvent(queryClient, event);
+    });
     const stopSession = onSessionChanged(() => void client.connect());
     const handleAppState = (nextState: AppStateStatus) => {
       if (nextState === "active") void client.connect();

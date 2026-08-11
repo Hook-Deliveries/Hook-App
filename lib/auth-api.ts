@@ -1,7 +1,8 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
-import { apiRequest } from '@/lib/api';
-import { getSession, type AuthSession } from '@/lib/session';
+import { API_BASE_URL, apiRequest } from '@/lib/api';
+import { getSession, onSessionChanged, type AuthSession } from '@/lib/session';
 
 function compactBody<T extends Record<string, unknown>>(input: T) {
   return Object.fromEntries(
@@ -136,6 +137,27 @@ export function updateProfile(input: { firstName: string; lastName: string; phon
   return apiRequest<AuthSession['user']>('/auth/profile', { method: 'PATCH', body: JSON.stringify(compactBody(input)) });
 }
 
+export async function uploadProfileImage(asset: { uri: string; fileName?: string | null; mimeType?: string | null }) {
+  const session = await getSession();
+  if (!session?.accessToken) throw new Error('Sign in to update your profile photo.');
+  const body = new FormData();
+  body.append('image', {
+    uri: asset.uri,
+    name: asset.fileName || `hook-profile-${Date.now()}.jpg`,
+    type: asset.mimeType || 'image/jpeg',
+  } as unknown as Blob);
+  const response = await fetch(`${API_BASE_URL}/upload/image`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${session.accessToken}` },
+    body,
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || payload?.success === false) {
+    throw new Error(payload?.error?.message || 'Profile photo could not be uploaded.');
+  }
+  return String(payload?.data?.secureUrl || payload?.data?.url || '');
+}
+
 export function changePassword(input: { currentPassword: string; newPassword: string }) {
   return apiRequest('/auth/password/change', { method: 'POST', body: JSON.stringify(input) });
 }
@@ -195,6 +217,10 @@ export function useLogoutMutation() {
 }
 
 export function useLocalSessionQuery() {
+  const queryClient = useQueryClient();
+  useEffect(() => onSessionChanged(() => {
+    void queryClient.invalidateQueries({ queryKey: ['auth', 'local-session'] });
+  }), [queryClient]);
   return useQuery({
     queryKey: ['auth', 'local-session'],
     queryFn: getLocalSessionState,

@@ -10,7 +10,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -19,6 +18,10 @@ import Animated, {
 import { getCartItems, useCartQuery } from "@/lib/mobile-api";
 import { useLocalSessionQuery } from "@/lib/auth-api";
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
+import {
+  HOOK_TAB_BAR_BOTTOM_GAP,
+  HOOK_TAB_BAR_HEIGHT,
+} from "@/components/tab-bar/layout";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -31,7 +34,7 @@ type TabItemConfig = {
 const tabs: Record<string, TabItemConfig> = {
   index: { label: "Home", icon: "home-outline", active: "home" },
   discover: { label: "Discover", icon: "search-outline", active: "search" },
-  orders: { label: "Orders", icon: "cube-outline", active: "cube" },
+  messages: { label: "Messages", icon: "chatbubble-ellipses-outline", active: "chatbubble-ellipses" },
   profile: { label: "Profile", icon: "person-outline", active: "person" },
 };
 
@@ -55,13 +58,15 @@ function AnimatedTabItem({
   accessibilityLabel?: string;
 }) {
   const scale = useSharedValue(1);
+  const lift = useSharedValue(0);
 
   useEffect(() => {
     scale.value = withSpring(selected ? 1.03 : 1, spring);
-  }, [scale, selected]);
+    lift.value = withSpring(selected ? -1 : 0, spring);
+  }, [lift, scale, selected]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ translateY: lift.value }, { scale: scale.value }],
   }));
 
   return (
@@ -71,6 +76,12 @@ function AnimatedTabItem({
       accessibilityLabel={accessibilityLabel || item.label}
       onLongPress={onLongPress}
       onPress={onPress}
+      onPressIn={() => {
+        scale.value = withSpring(0.94, spring);
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(selected ? 1.03 : 1, spring);
+      }}
       className="z-10 flex-1 items-center justify-center"
     >
       <Animated.View style={animatedStyle} className="items-center">
@@ -124,21 +135,20 @@ export function HookTabBar({
   };
 
   return (
-    <SafeAreaView
-      edges={["bottom"]}
+    <View
       pointerEvents="box-none"
       style={styles.safeArea}
     >
-      <View className="flex-row items-center gap-2 px-3 pb-1">
+      <View pointerEvents="box-none" className="flex-row items-center gap-2 px-3">
         <View
           onLayout={measure}
-          className="relative h-[62px] flex-1 flex-row overflow-hidden rounded-[31px] bg-white px-1"
-          style={styles.shadow}
+          className="relative flex-1 flex-row overflow-hidden rounded-[31px] bg-white px-1"
+          style={[styles.navigation, styles.shadow]}
         >
           {slot ? (
             <Animated.View
               pointerEvents="none"
-              className="absolute bottom-1.5 top-1.5 rounded-[25px] bg-[#FFC809]"
+              className="absolute bottom-1 top-1 rounded-[25px] bg-[#FFC809]"
               style={[{ width: activeWidth }, indicatorStyle]}
             />
           ) : null}
@@ -180,8 +190,8 @@ export function HookTabBar({
           accessibilityLabel={`Open cart${cartCount ? `, ${cartCount} items` : ""}`}
           accessibilityRole="button"
           onPress={() => router.push("/cart" as never)}
-          className="h-[62px] w-[62px] items-center justify-center rounded-full bg-white"
-          style={styles.shadow}
+          className="items-center justify-center rounded-full bg-white"
+          style={[styles.cartButton, styles.shadow]}
         >
           <Ionicons name="bag-handle-outline" size={23} color="#111" />
           {cartCount > 0 ? (
@@ -193,17 +203,30 @@ export function HookTabBar({
           ) : null}
         </Pressable>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { position: "absolute", bottom: 0, left: 0, right: 0 },
+  safeArea: {
+    position: "absolute",
+    bottom: HOOK_TAB_BAR_BOTTOM_GAP,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    elevation: 30,
+  },
+  navigation: { height: HOOK_TAB_BAR_HEIGHT },
+  cartButton: {
+    width: HOOK_TAB_BAR_HEIGHT,
+    height: HOOK_TAB_BAR_HEIGHT,
+    borderRadius: HOOK_TAB_BAR_HEIGHT / 2,
+  },
   shadow: {
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 14,
   },
 });

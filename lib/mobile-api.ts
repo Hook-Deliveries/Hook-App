@@ -38,12 +38,12 @@ export interface PublicCatalogProduct {
     slug: string;
     iconUrl?: string;
   } | null;
-  variants: Array<{
+  variants: {
     publicId: string;
     size?: string;
     colour?: string;
     attributes: Record<string, string>;
-  }>;
+  }[];
   currency: string;
   sellingPriceMinor: number;
   effectivePriceMinor: number;
@@ -51,6 +51,7 @@ export interface PublicCatalogProduct {
   negotiationAvailable: boolean;
   availabilityStatus: string;
   availabilityNote?: string;
+  isPurchasable: boolean;
   publishedAt?: string;
 }
 
@@ -93,6 +94,12 @@ export interface PublicHomeFeed {
   markets: PublicMarket[];
 }
 
+export interface PublicDiscoverFeed {
+  categories: PublicCategory[];
+  products: PublicCatalogProduct[];
+  resultCount: number;
+}
+
 export interface HookOperatingState {
   publicId: string;
   name: string;
@@ -110,11 +117,11 @@ export interface PublicLocalGovernment {
 
 export interface ProductLikesResponse {
   productIds: string[];
-  items: Array<{
+  items: {
     productId: string;
     createdAt: string;
     product?: PublicCatalogProduct | null;
-  }>;
+  }[];
 }
 
 function toQueryString(params?: QueryParams) {
@@ -148,7 +155,9 @@ function remove<TData>(path: string) {
 
 export const mobileQueryKeys = {
   feed: (params?: QueryParams) => ["mobile", "feed", params ?? {}] as const,
+  discover: (params?: QueryParams) => ["mobile", "discover", params ?? {}] as const,
   search: (params?: QueryParams) => ["mobile", "search", params ?? {}] as const,
+  searchSuggestions: (params?: QueryParams) => ["mobile", "search-suggestions", params ?? {}] as const,
   products: (params?: QueryParams) =>
     ["mobile", "products", params ?? {}] as const,
   product: (id: string) => ["mobile", "products", id] as const,
@@ -187,6 +196,35 @@ export function useHomeFeedQuery(params?: QueryParams) {
   });
 }
 
+export function useDiscoverQuery(params?: QueryParams) {
+  return useQuery({
+    queryKey: mobileQueryKeys.discover(params),
+    queryFn: () =>
+      apiRequest<PublicDiscoverFeed>(
+        `/public/discover${toQueryString(params)}`,
+        { auth: false },
+      ),
+    staleTime: 20_000,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useSearchSuggestionsQuery(query?: string, params?: QueryParams) {
+  const value = query?.trim() || "";
+  const requestParams = { ...params, q: value };
+  return useQuery({
+    enabled: value.length > 0,
+    queryKey: mobileQueryKeys.searchSuggestions(requestParams),
+    queryFn: () =>
+      apiRequest<string[]>(`/public/search/suggestions${toQueryString(requestParams)}`, {
+        auth: false,
+      }),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    retry: false,
+  });
+}
+
 export function useSearchQuery(params?: QueryParams) {
   return useQuery({
     enabled: Boolean(params?.q),
@@ -195,6 +233,7 @@ export function useSearchQuery(params?: QueryParams) {
       apiRequest<PublicProductPage>(`/public/search${toQueryString(params)}`, {
         auth: false,
       }),
+    placeholderData: (previous) => previous,
   });
 }
 
@@ -206,6 +245,7 @@ export function useProductsQuery(params?: QueryParams) {
         `/public/products${toQueryString(params)}`,
         { auth: false },
       ),
+    placeholderData: (previous) => previous,
   });
 }
 
@@ -328,12 +368,17 @@ export function useLikedProductsQuery() {
     queryFn: async () => {
       if (isCustomerSession(await getSession())) return apiRequest<ProductLikesResponse>("/likes");
       const local = await getAnonymousCommerce();
+      const ids = local.likedProducts.map((item) => item.productId);
+      const currentProducts = ids.length
+        ? await apiRequest<PublicCatalogProduct[]>(`/public/products/status${toQueryString({ ids: ids.join(",") })}`, { auth: false }).catch(() => [])
+        : [];
+      const productMap = new Map(currentProducts.map((product) => [product.publicId, product]));
       return {
         productIds: local.likedProducts.map((item) => item.productId),
         items: local.likedProducts.map((item) => ({
           productId: item.productId,
           createdAt: item.updatedAt,
-          product: {
+          product: productMap.get(item.productId) || {
             publicId: item.productId,
             title: item.title,
             slug: item.productId,
@@ -348,6 +393,7 @@ export function useLikedProductsQuery() {
             discountMinor: 0,
             negotiationAvailable: false,
             availabilityStatus: "local",
+            isPurchasable: true,
           },
         })),
       };
@@ -413,9 +459,15 @@ export function useCartQuery() {
   }), [queryClient]);
   return useQuery({
     queryKey: mobileQueryKeys.cart(),
-    queryFn: async () => isCustomerSession(await getSession())
-      ? apiRequest("/cart")
-      : anonymousCartResponse(await getAnonymousCommerce()),
+    queryFn: async () => {
+      if (isCustomerSession(await getSession())) return apiRequest("/cart");
+      const local = await getAnonymousCommerce();
+      const ids = [...new Set(local.cartItems.map((item) => item.productId))];
+      const products = ids.length
+        ? await apiRequest<PublicCatalogProduct[]>(`/public/products/status${toQueryString({ ids: ids.join(",") })}`, { auth: false }).catch(() => [])
+        : [];
+      return anonymousCartResponse(local, products);
+    },
     staleTime: 15_000,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,

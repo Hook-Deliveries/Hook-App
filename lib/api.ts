@@ -1,4 +1,4 @@
-import { getSession, saveSession, type AuthSession } from '@/lib/session';
+import { clearSession, getSession, saveSession, type AuthSession } from '@/lib/session';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -150,6 +150,7 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
       ) {
         refreshAttempted = true;
         if (await refreshSessionOnce(session)) continue;
+        await clearSession();
       }
       throw requestError;
     }

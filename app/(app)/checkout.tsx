@@ -9,6 +9,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheetModal } from "@/components/shared/BottomSheetModal";
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import { HookLoader } from "@/components/shared/HookLoader";
+import { HookPageLoading } from "@/components/shared/HookPageLoading";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 import { toast } from "@/components/shared/toast";
 import { apiRequest } from "@/lib/api";
 import {
@@ -159,11 +161,7 @@ export default function CheckoutScreen() {
   }
 
   if (cart.isLoading || addresses.isLoading || config.isLoading)
-    return (
-      <View className="flex-1 items-center justify-center bg-[#f4f4f5]">
-        <HookLoader label="Preparing checkout" />
-      </View>
-    );
+    return <HookPageLoading title="Checkout" label="Preparing checkout" />;
   if (!cartItems.length)
     return (
       <View className="flex-1 items-center justify-center bg-[#f4f4f5] px-8">
@@ -190,12 +188,7 @@ export default function CheckoutScreen() {
         }}
       >
         <View className="flex-row items-center gap-3">
-          <Pressable
-            onPress={() => router.back()}
-            className="h-11 w-11 items-center justify-center rounded-full bg-white"
-          >
-            <Ionicons name="arrow-back" size={21} />
-          </Pressable>
+          <HookBackButton />
           <View>
             <Text className="text-2xl font-black">Checkout</Text>
             <Text className="text-xs text-[#666]">

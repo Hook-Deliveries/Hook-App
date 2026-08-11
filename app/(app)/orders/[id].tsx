@@ -1,10 +1,10 @@
 import React from "react";
-import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { HookLoader } from "@/components/shared/HookLoader";
+import { HookPageLoading } from "@/components/shared/HookPageLoading";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
 import { useCreateReturnMutation, useInitializePaymentMutation, useOrderFulfilmentQuery, useOrderQuery, usePaymentStatusQuery } from "@/lib/mobile-api";
@@ -24,11 +24,7 @@ export default function OrderDetailScreen() {
   const [paymentBusy, setPaymentBusy] = React.useState(false);
   const order = query.data as any;
   if (query.isLoading)
-    return (
-      <View className="flex-1 items-center justify-center bg-[#f4f4f5]">
-        <HookLoader label="Loading Order" />
-      </View>
-    );
+    return <HookPageLoading title="Order details" label="Loading order" />;
   if (!order)
     return (
       <View className="flex-1 items-center justify-center">
@@ -72,12 +68,7 @@ export default function OrderDetailScreen() {
   return (
     <View className="flex-1 bg-[#f4f4f5]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center gap-3 px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          className="h-11 w-11 items-center justify-center rounded-full bg-white"
-        >
-          <Ionicons name="arrow-back" size={21} />
-        </Pressable>
+        <HookBackButton />
         <View>
           <Text className="text-xl font-black">{order.id}</Text>
           <Text className="text-xs text-[#777]">

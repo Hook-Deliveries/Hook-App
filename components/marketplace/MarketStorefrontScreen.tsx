@@ -20,6 +20,8 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { HookLoader } from "@/components/shared/HookLoader";
+import { HookPageLoading } from "@/components/shared/HookPageLoading";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 import { HookRefreshIndicator } from "@/components/shared/HookRefreshIndicator";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import {
@@ -51,6 +53,7 @@ export function MarketStorefrontScreen() {
   const markets = useMarketsQuery();
   const [categoryId, setCategoryId] = useState("all");
   const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [marketSheetVisible, setMarketSheetVisible] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(false);
   const [searchPinned, setSearchPinned] = useState(false);
@@ -78,6 +81,21 @@ export function MarketStorefrontScreen() {
       pathname: "/(app)/markets/[id]",
       params: { id: nextMarketId },
     } as never);
+  }
+
+  async function refresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        products.refetch(),
+        market.refetch(),
+        categories.refetch(),
+        markets.refetch(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   const onScroll = useAnimatedScrollHandler({
@@ -168,11 +186,7 @@ export function MarketStorefrontScreen() {
   });
 
   if (market.isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-[#F1F1F3]">
-        <HookLoader label="Opening market" />
-      </View>
-    );
+    return <HookPageLoading label="Opening market" />;
   }
 
   if (!market.data) {
@@ -206,13 +220,7 @@ export function MarketStorefrontScreen() {
             className="absolute left-5 right-5"
             style={{ top: insets.top + 8 }}
           >
-            <Pressable
-              accessibilityLabel="Go back"
-              onPress={() => router.back()}
-              className="h-11 w-11 items-center justify-center rounded-full bg-white"
-            >
-              <Ionicons name="chevron-back" size={20} color="#111" />
-            </Pressable>
+            <HookBackButton />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Choose market, currently ${marketName}`}
@@ -327,12 +335,12 @@ export function MarketStorefrontScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 36, gap: 16 }}
         refreshControl={
           <RefreshControl
-            refreshing={products.isRefetching}
+            refreshing={refreshing}
             tintColor="transparent"
             colors={["transparent"]}
             progressBackgroundColor="transparent"
             progressViewOffset={insets.top + 8}
-            onRefresh={() => void products.refetch()}
+            onRefresh={() => void refresh()}
           />
         }
         ListHeaderComponent={listHeader}
@@ -354,7 +362,7 @@ export function MarketStorefrontScreen() {
       />
 
       <HookRefreshIndicator
-        visible={products.isRefetching}
+        visible={refreshing}
         top={insets.top + 8}
       />
 

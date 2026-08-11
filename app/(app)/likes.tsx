@@ -4,7 +4,8 @@ import { FlatList, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CatalogProductCard } from "@/components/marketplace/CatalogProductCard";
-import { HookLoader } from "@/components/shared/HookLoader";
+import { HookPageLoading } from "@/components/shared/HookPageLoading";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 import {
   useCustomerSessionQuery,
   useLikedProductsQuery,
@@ -18,11 +19,7 @@ export default function LikesScreen() {
     likes.data?.items.map((item) => item.product).filter(Boolean) || [];
 
   if (session.isPending || likes.isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-[#F1F1F3]">
-        <HookLoader label="Loading your likes" />
-      </View>
-    );
+    return <HookPageLoading title="Saved products" label="Loading your saved products" />;
   }
 
   if (session.data?.user.accountType !== "customer") {
@@ -53,12 +50,7 @@ export default function LikesScreen() {
   return (
     <View className="flex-1 bg-[#F1F1F3]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          className="h-11 w-11 items-center justify-center rounded-full bg-white"
-        >
-          <Ionicons name="chevron-back" size={21} color="#111" />
-        </Pressable>
+        <HookBackButton />
         <Text className="text-xl font-black text-black">Your likes</Text>
         <View className="w-11" />
       </View>
