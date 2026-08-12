@@ -21,6 +21,7 @@
     },
     "android": {
       "package": "com.biodun42.hook",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#FFC809",
         "foregroundImage": "./assets/images/app-icon.png"
@@ -36,8 +37,7 @@
     "androidNavigationBar": {
       "backgroundColor": "#000000",
       "barStyle": "light-content",
-      "enforceContrast": false,
-      "visible": "visible"
+      "enforceContrast": false
     },
     "web": {
       "output": "static",
@@ -63,9 +63,6 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-market.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
           "backgroundColor": "#FFC809",
           "dark": {
             "backgroundColor": "#FFC809"

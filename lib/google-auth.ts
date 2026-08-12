@@ -1,6 +1,5 @@
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
@@ -45,7 +44,6 @@ export function useHookGoogleAuth() {
         await saveSession(session);
         await Promise.allSettled([syncAnonymousCommerce(), registerPushToken({ sendWelcome: true })]);
         toast.success('Welcome to Hook', 'Google sign-in completed.');
-        router.replace('/(tabs)');
       } catch (error) {
         handledTokenRef.current = null;
         if (error instanceof ApiError && error.status === 0) {

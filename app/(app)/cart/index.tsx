@@ -310,13 +310,29 @@ function CartRow({
     ? resolveColor(selectedColorValue)
     : undefined;
   const lineTotalMinor = Number(item.unitPriceMinor || 0) * quantity;
+  const productId = product?.publicId || product?.id || item.productId;
+
+  function openProduct() {
+    if (!productId) return;
+    router.push({
+      pathname: "/(app)/products/[id]",
+      params: { id: String(productId), returnTo: "/(app)/cart" },
+    });
+  }
+
   return (
     <View
       className={`flex-row gap-3 rounded-[18px] bg-[#fafafa] p-3 ${item.checkoutEligible ? "" : "border border-red-100"}`}
     >
-      <View className="h-24 w-24 overflow-hidden rounded-[16px] bg-[#f1f1f3]">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`View ${product?.title || "product"} details`}
+        disabled={!productId}
+        onPress={openProduct}
+        className="h-24 w-24 overflow-hidden rounded-[16px] bg-[#f1f1f3] active:opacity-80"
+      >
         <RemoteImage uri={product?.imageUrl || product?.media?.[0]?.url || product?.images?.[0]} />
-      </View>
+      </Pressable>
       <View className="min-w-0 flex-1">
         <View className="flex-row items-start justify-between gap-2">
           <Text
@@ -350,9 +366,10 @@ function CartRow({
           </View>
         ) : null}
         <View className="mt-2 flex-row items-center justify-between">
-          <Text className="text-xs text-[#777]">
-            ₦{(Number(item.unitPriceMinor || 0) / 100).toLocaleString()} each
-          </Text>
+          <View>
+            <Text className="text-xs text-[#777]">₦{(Number(item.unitPriceMinor || 0) / 100).toLocaleString()} each</Text>
+            {item.negotiatedQuote ? <View className="mt-1 flex-row items-center gap-1.5"><Text className="text-[10px] font-black text-[#8A6500]">Negotiated price</Text><Text className="text-[10px] text-[#999] line-through">₦{(Number(item.negotiatedQuote.originalPriceMinor || 0) / 100).toLocaleString()}</Text></View> : null}
+          </View>
           <Text className="text-sm font-black">
             ₦{(lineTotalMinor / 100).toLocaleString()}
           </Text>

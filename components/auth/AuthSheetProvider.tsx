@@ -14,7 +14,11 @@ import { useHookAppleAuth } from "@/lib/apple-auth";
 import authStartGif from "@/assets/images/onboarding/auth-start.gif";
 import { getOnboardingComplete, getSession, isCustomerSession, onSessionChanged } from "@/lib/session";
 
-type ContextValue = { openAuth: (intent?: Href) => void; closeAuth: () => void };
+type ContextValue = {
+  openAuth: (intent?: Href) => void;
+  closeAuth: () => void;
+  hasPendingIntent: () => boolean;
+};
 const Context = createContext<ContextValue | null>(null);
 
 export function useAuthSheet() {
@@ -61,7 +65,7 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
         sheet.current?.close();
         const destination = intent.current;
         intent.current = undefined;
-        if (destination) router.push(destination);
+        if (destination) router.replace(destination);
       }
     });
   }), []);
@@ -70,11 +74,12 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
     Keyboard.dismiss();
   }, []);
   const closeAuth = useCallback(() => { authOpen.current = false; sheet.current?.close(); reset(); }, [reset]);
+  const hasPendingIntent = useCallback(() => Boolean(intent.current), []);
   const openAuth = useCallback((next?: Href) => {
     authOpen.current = true;
-    intent.current = next;
+    intent.current = next || (pathname as Href);
     sheet.current?.expand();
-  }, []);
+  }, [pathname]);
 
   async function submit() {
     setBusy(true);
@@ -100,7 +105,7 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
   }
 
   return (
-    <Context.Provider value={{ openAuth, closeAuth }}>
+    <Context.Provider value={{ openAuth, closeAuth, hasPendingIntent }}>
       {children}
       <BottomSheet
         ref={sheet}

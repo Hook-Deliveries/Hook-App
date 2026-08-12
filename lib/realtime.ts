@@ -103,6 +103,7 @@ function invalidateForEvent(queryClient: ReturnType<typeof useQueryClient>, even
     queryClient.invalidateQueries({ queryKey: ["mobile", "orders"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "cart"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "likes"] });
+    queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] });
     return;
   }
   if (event === "home.updated" || event === "catalog.updated") {
@@ -116,6 +117,7 @@ function invalidateForEvent(queryClient: ReturnType<typeof useQueryClient>, even
     queryClient.invalidateQueries({ queryKey: ["mobile", "cart"] });
   }
   if (event === "cart.updated") queryClient.invalidateQueries({ queryKey: ["mobile", "cart"] });
+  if (event === "negotiation.updated") queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] });
   if (event === "notification.created" || event === "notification.updated") {
     queryClient.invalidateQueries({ queryKey: ["mobile", "notifications"] });
   }

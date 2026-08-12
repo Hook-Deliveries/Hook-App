@@ -4,7 +4,6 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { Stack, usePathname } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as LocalAuthentication from "expo-local-authentication";
@@ -12,6 +11,7 @@ import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import "../global.css";
 
 import { AppState, Text, TextInput, View } from "react-native";
@@ -27,8 +27,6 @@ import { checkHookHealth } from "@/lib/health";
 import { BackendUnavailableScreen } from "@/components/shared/BackendUnavailableScreen";
 
 export const unstable_settings = { anchor: "(tabs)" };
-
-void SplashScreen.preventAutoHideAsync();
 
 function applyNunitoDefaults() {
   const TextWithDefaults = Text as typeof Text & {
@@ -56,6 +54,7 @@ function applyNunitoDefaults() {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const pathname = usePathname();
+  const isLaunchSplash = pathname === "/" || pathname === "/splash";
   const isMarketHero = pathname.includes("/markets/");
   const [fontsLoaded] = useFonts({
     "NunitoSans-Regular": require("@expo-google-fonts/nunito-sans/400Regular/NunitoSans_400Regular.ttf"),
@@ -88,7 +87,6 @@ export default function RootLayout() {
       if (active) {
         setBackendAvailable(healthy);
         setLaunchReady(true);
-        await SplashScreen.hideAsync();
       }
     })();
     return () => { active = false; };
@@ -124,8 +122,7 @@ export default function RootLayout() {
     };
   }, [backendAvailable, launchReady]);
 
-  if (!fontsLoaded || !launchReady) return null;
-  applyNunitoDefaults();
+  if (fontsLoaded) applyNunitoDefaults();
 
   const retryHealth = async () => {
     setHealthRetrying(true);
@@ -134,7 +131,7 @@ export default function RootLayout() {
     setHealthRetrying(false);
   };
 
-  if (backendAvailable === false) {
+  if (backendAvailable === false && !isLaunchSplash) {
     return (
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#000" }}>
@@ -152,6 +149,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#000" }}>
+        <KeyboardProvider>
         <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: "#000" }}>
           <View style={{ flex: 1, backgroundColor: "#F1F1F3" }}>
             <AppQueryProvider>
@@ -248,6 +246,10 @@ export default function RootLayout() {
                 options={{ headerShown: false }}
               />
               <Stack.Screen
+                name="(app)/negotiations/new"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
                 name="(app)/shop/[categoryId]"
                 options={{ headerShown: false }}
               />
@@ -306,7 +308,7 @@ export default function RootLayout() {
             </Stack>
             <StatusBar
               animated
-              backgroundColor={isMarketHero ? "#111111" : "#F1F1F3"}
+              backgroundColor={isLaunchSplash ? "#FFC809" : isMarketHero ? "#111111" : "#F1F1F3"}
               style={isMarketHero ? "light" : "dark"}
               translucent={false}
             />
@@ -317,6 +319,7 @@ export default function RootLayout() {
             </AppQueryProvider>
           </View>
         </SafeAreaView>
+        </KeyboardProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

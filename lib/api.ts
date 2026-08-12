@@ -152,6 +152,14 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
         if (await refreshSessionOnce(session)) continue;
         await clearSession();
       }
+
+      if (
+        response.status === 403
+        && options.auth !== false
+        && payload?.error?.message === 'Customer account required'
+      ) {
+        await clearSession();
+      }
       throw requestError;
     }
     return payload?.data as T;

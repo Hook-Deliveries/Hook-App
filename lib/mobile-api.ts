@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import * as Crypto from "expo-crypto";
 
 import { apiRequest } from "@/lib/api";
 import { getSession, isCustomerSession, onSessionChanged } from "@/lib/session";
@@ -177,6 +178,8 @@ export const mobileQueryKeys = {
   negotiations: (params?: QueryParams) =>
     ["mobile", "negotiations", params ?? {}] as const,
   negotiation: (id: string) => ["mobile", "negotiations", id] as const,
+  activeNegotiation: (productId: string, variantId: string, quantity: number) =>
+    ["mobile", "negotiations", "active", productId, variantId, quantity] as const,
   paymentStatus: (orderId: string) =>
     ["mobile", "payments", orderId, "status"] as const,
   addresses: () => ["mobile", "addresses"] as const,
@@ -1047,6 +1050,14 @@ export function useNegotiationQuery(id?: string) {
   });
 }
 
+export function useActiveNegotiationQuery(productId?: string, variantId?: string, quantity = 1) {
+  return useQuery({
+    enabled: Boolean(productId && variantId),
+    queryKey: mobileQueryKeys.activeNegotiation(productId || "", variantId || "", quantity),
+    queryFn: () => apiRequest(`/negotiations-active${toQueryString({ productId, variantId, quantity })}`),
+  });
+}
+
 export function useStartNegotiationMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1054,6 +1065,7 @@ export function useStartNegotiationMutation() {
       productId: string;
       variantId: string;
       quantity: number;
+      message?: string;
     }) => post("/negotiations", input),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] }),
@@ -1065,13 +1077,13 @@ export function useCounterNegotiationMutation() {
   return useMutation({
     mutationFn: (input: {
       negotiationId: string;
-      offeredPrice: number;
-      message?: string;
+      offeredPrice?: number;
+      message: string;
     }) =>
       apiRequest(`/negotiations/${input.negotiationId}/offers`, {
         method: "POST",
-        headers: { "Idempotency-Key": `${input.negotiationId}-${Date.now()}` },
-        body: JSON.stringify({ offeredPriceMinor: input.offeredPrice }),
+        headers: { "Idempotency-Key": Crypto.randomUUID() },
+        body: JSON.stringify({ ...(input.offeredPrice ? { offeredPriceMinor: input.offeredPrice } : {}), message: input.message }),
       }),
     onSuccess: (_data, input) => {
       queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] });
@@ -1094,6 +1106,14 @@ export function useAcceptNegotiationMutation() {
       });
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() });
     },
+  });
+}
+
+export function useCloseNegotiationMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (negotiationId: string) => post(`/negotiations/${negotiationId}/close`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] }),
   });
 }
 

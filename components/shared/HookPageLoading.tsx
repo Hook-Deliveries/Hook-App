@@ -7,15 +7,21 @@ type HookPageLoadingProps = {
   title?: string;
   label?: string;
   showBack?: boolean;
+  onBack?: () => void;
 };
 
-export function HookPageLoading({ label = "Loading", showBack = true }: HookPageLoadingProps) {
+export function HookPageLoading({
+  label = "Loading",
+  showBack = true,
+  onBack,
+}: HookPageLoadingProps) {
   const insets = useSafeAreaInsets();
 
   return (
     <View className="flex-1 bg-[#F1F1F3]">
       {showBack ? (
         <HookBackButton
+          onPress={onBack}
           className="absolute left-4 z-10"
           style={{ top: insets.top + 10 }}
         />

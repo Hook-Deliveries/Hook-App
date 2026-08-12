@@ -18,9 +18,12 @@ import { HookBackButton } from "@/components/shared/HookBackButton";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
 import { resolveColor } from "@/components/marketplace/product-colors";
+import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
+import { isCustomerSession } from "@/lib/session";
 import { ApiError } from "@/lib/api";
 import {
   useAddCartItemMutation,
+  useActiveNegotiationQuery,
   useCustomerSessionQuery,
   useLikedProductsQuery,
   useProductQuery,
@@ -40,7 +43,10 @@ function variantColor(variant: ProductVariant) {
 }
 
 export default function ProductDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, returnTo } = useLocalSearchParams<{
+    id: string;
+    returnTo?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const query = useProductQuery(id);
@@ -49,6 +55,7 @@ export default function ProductDetailScreen() {
   const session = useCustomerSessionQuery();
   const likes = useLikedProductsQuery();
   const toggleLike = useToggleProductLikeMutation();
+  const { openAuth } = useAuthSheet();
   const product = query.data;
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
@@ -56,9 +63,31 @@ export default function ProductDetailScreen() {
   const [addedToCart, setAddedToCart] = useState(false);
   const addedFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  function goBack() {
+    if (returnTo === "/(app)/cart") {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace("/(app)/cart");
+      }
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
+  }
+
   const variants = useMemo(() => product?.variants || [], [product?.variants]);
   const selectedVariant =
     variants.find((item) => item.publicId === selectedVariantId) || variants[0];
+  const negotiated = useActiveNegotiationQuery(
+    isCustomerSession(session.data) ? product?.publicId : undefined,
+    selectedVariant?.publicId,
+    quantity,
+  );
+  const quote = (negotiated.data as any)?.quote;
+  const negotiatedPriceMinor = Number(quote?.agreedPriceMinor || 0);
+  const displayPriceMinor = negotiatedPriceMinor || Number(product?.effectivePriceMinor || 0);
   const colorOptions = useMemo(() => {
     const values = new Map<string, string>();
     variants.forEach((variant) => {
@@ -139,6 +168,7 @@ export default function ProductDetailScreen() {
           variantColor(selectedVariant || ({} as ProductVariant)) || undefined,
         size: selectedVariant?.size,
       },
+      ...(quote?.id ? { quoteId: quote.id } : {}),
       optimisticProduct: product,
     };
 
@@ -181,7 +211,7 @@ export default function ProductDetailScreen() {
   }
 
   if (query.isLoading) {
-    return <HookPageLoading title="Product details" label="Loading product" />;
+    return <HookPageLoading title="Product details" label="Loading product" onBack={goBack} />;
   }
 
   if (!product) {
@@ -191,7 +221,7 @@ export default function ProductDetailScreen() {
           Product unavailable
         </Text>
         <Pressable
-          onPress={() => router.back()}
+          onPress={goBack}
           className="mt-4 rounded-full bg-[#FFC809] px-6 py-3"
         >
           <Text className="font-bold text-black">Go back</Text>
@@ -271,14 +301,25 @@ export default function ProductDetailScreen() {
               </Text>
               <View className="mt-2 flex-row items-center gap-2">
                 <Text className="text-[20px] font-black text-[#FFC809]">
-                  ₦{(product.effectivePriceMinor / 100).toLocaleString()}
+                  ₦{(displayPriceMinor / 100).toLocaleString()}
                 </Text>
-                {product.discountMinor > 0 ? (
+                {negotiatedPriceMinor > 0 ? (
+                  <Text className="text-[13px] text-black/50 line-through">
+                    ₦{(product.effectivePriceMinor / 100).toLocaleString()}
+                  </Text>
+                ) : product.discountMinor > 0 ? (
                   <Text className="text-[13px] text-black/50 line-through">
                     ₦{(product.sellingPriceMinor / 100).toLocaleString()}
                   </Text>
                 ) : null}
               </View>
+              {negotiatedPriceMinor > 0 ? (
+                <View className="mt-2 self-start rounded-full bg-[#FFF2B8] px-3 py-1.5">
+                  <Text className="text-[11px] font-black text-[#765700]">
+                    Your negotiated price applies to each item
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             <View className="flex-row items-center rounded-full bg-[#E2E2E2] px-1 py-1">
@@ -306,12 +347,11 @@ export default function ProductDetailScreen() {
 
           {product.negotiationAvailable && !unavailable ? (
             <NegotiationPrompt
-              onPress={() =>
-                toast.info(
-                  "Negotiation is coming soon",
-                  "We are polishing the Hook negotiation experience.",
-                )
-              }
+              onPress={() => {
+                const destination = `/negotiations/new?productId=${encodeURIComponent(product.publicId)}&variantId=${encodeURIComponent(selectedVariant?.publicId || "")}&quantity=${quantity}` as never;
+                if (!isCustomerSession(session.data)) return openAuth(destination);
+                router.push(destination);
+              }}
             />
           ) : null}
 
@@ -390,7 +430,7 @@ export default function ProductDetailScreen() {
         pointerEvents="box-none"
         style={{ top: insets.top + 10, height: 44, elevation: 20 }}
       >
-        <HookBackButton />
+        <HookBackButton onPress={goBack} />
         <View className="flex-row items-center gap-2">
           <Pressable
             accessibilityRole="button"

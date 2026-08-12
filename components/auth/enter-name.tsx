@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import chatIcon from "@/assets/images/auth/chat-icon.png";
 import { AuthBackButton } from "@/components/auth/auth-screen-shell";
+import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import { AuthGlowBackground } from "@/components/shared/glow-background";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { toast } from "@/components/shared/toast";
@@ -29,6 +30,7 @@ export function EnterName({ email }: { email: string }) {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
   const completeSignup = useCompleteSignupMutation();
+  const { hasPendingIntent } = useAuthSheet();
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
@@ -51,6 +53,7 @@ export function EnterName({ email }: { email: string }) {
       return;
     }
     try {
+      const shouldResume = hasPendingIntent();
       const [firstName, ...rest] = name.trim().split(/\s+/);
       const session = await completeSignup.mutateAsync({
         signupSessionToken: pending.signupSessionToken,
@@ -60,7 +63,7 @@ export function EnterName({ email }: { email: string }) {
       await saveSession(session);
       await clearPendingSignup();
       await registerPushToken({ sendWelcome: true });
-      router.replace("/auth/congratulations");
+      if (!shouldResume) router.replace("/auth/congratulations");
     } catch (error) {
       toast.error(
         "Could not create account",
