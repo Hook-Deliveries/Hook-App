@@ -1,8 +1,10 @@
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 
+import { BackendUnavailableScreen } from "@/components/shared/BackendUnavailableScreen";
+import { checkHookHealth } from "@/lib/health";
 import { refreshSession } from "@/lib/api";
 import { getPendingSignup, getSession } from "@/lib/session";
 
@@ -10,6 +12,8 @@ const SPLASH_DELAY = 900;
 
 export default function SplashScreen() {
   const routed = useRef(false);
+  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -21,8 +25,13 @@ export default function SplashScreen() {
     }
 
     async function route() {
-      await new Promise((resolve) => setTimeout(resolve, SPLASH_DELAY));
+      const [, healthy] = await Promise.all([
+        new Promise((resolve) => setTimeout(resolve, SPLASH_DELAY)),
+        checkHookHealth(),
+      ]);
       if (!mounted) return;
+      setBackendAvailable(healthy);
+      if (!healthy) return;
 
       const session = await getSession();
       if (session && (await refreshSession(session))) {
@@ -51,6 +60,56 @@ export default function SplashScreen() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (backendAvailable !== false) return;
+
+    let active = true;
+    const recover = async () => {
+      if (routed.current) return;
+      const healthy = await checkHookHealth();
+      if (!active || !healthy || routed.current) return;
+
+      setBackendAvailable(true);
+      const session = await getSession();
+      if (!active || routed.current) return;
+      routed.current = true;
+      if (session) await refreshSession(session);
+      router.replace("/(tabs)");
+    };
+
+    const interval = setInterval(() => void recover(), 5_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [backendAvailable]);
+
+  const retryHealth = async () => {
+    setRetrying(true);
+    const healthy = await checkHookHealth();
+    if (healthy) {
+      setBackendAvailable(true);
+      const session = await getSession();
+      if (session && (await refreshSession(session))) {
+        router.replace("/(tabs)");
+      } else {
+        router.replace("/(tabs)");
+      }
+    } else {
+      setBackendAvailable(false);
+    }
+    setRetrying(false);
+  };
+
+  if (backendAvailable === false) {
+    return (
+      <View className="flex-1 bg-hook">
+        <StatusBar style="dark" backgroundColor="#FFC809" translucent={false} />
+        <BackendUnavailableScreen retrying={retrying} onRetry={() => void retryHealth()} />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 items-center justify-center bg-hook px-6">

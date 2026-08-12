@@ -77,6 +77,7 @@ export function login(input: { email: string; password: string }) {
   return apiRequest<AuthSession>('/auth/login', {
     auth: false,
     method: 'POST',
+    headers: { 'X-Hook-Portal': 'customer' },
     body: JSON.stringify(compactBody(body)),
   });
 }

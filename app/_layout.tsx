@@ -54,7 +54,9 @@ function applyNunitoDefaults() {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const pathname = usePathname();
-  const isLaunchSplash = pathname === "/" || pathname === "/splash";
+  // The Home tab resolves to "/", so only the real splash route may bypass outage gating.
+  const isLaunchSplash = pathname === "/splash";
+  const isHomeRoute = pathname === "/" || pathname === "" || pathname === "/(tabs)" || pathname === "/(tabs)/" || pathname === "/(tabs)/index";
   const isMarketHero = pathname.includes("/markets/");
   const [fontsLoaded] = useFonts({
     "NunitoSans-Regular": require("@expo-google-fonts/nunito-sans/400Regular/NunitoSans_400Regular.ttf"),
@@ -308,7 +310,7 @@ export default function RootLayout() {
             </Stack>
             <StatusBar
               animated
-              backgroundColor={isLaunchSplash ? "#FFC809" : isMarketHero ? "#111111" : "#F1F1F3"}
+              backgroundColor={isLaunchSplash ? "#FFC809" : isHomeRoute ? "#FFD93E" : isMarketHero ? "#111111" : "#F1F1F3"}
               style={isMarketHero ? "light" : "dark"}
               translucent={false}
             />

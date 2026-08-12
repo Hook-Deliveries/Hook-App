@@ -8,6 +8,7 @@ export async function checkHookHealth(timeoutMs = 6000) {
   try {
     const response = await fetch(HEALTH_URL, {
       headers: { Accept: 'application/json' },
+      cache: 'no-store',
       signal: controller.signal,
     });
     if (!response.ok) return false;
