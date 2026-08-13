@@ -1,13 +1,13 @@
 import React from "react";
 import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams } from "expo-router";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
 import { HookBackButton } from "@/components/shared/HookBackButton";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
-import { useCreateReturnMutation, useInitializePaymentMutation, useOrderFulfilmentQuery, useOrderQuery, usePaymentStatusQuery } from "@/lib/mobile-api";
+import { useCreatePaymentLinkMutation, useCreateReturnMutation, useOrderFulfilmentQuery, useOrderQuery, usePaymentStatusQuery } from "@/lib/mobile-api";
 
 const label = (value?: string) => String(value || "-").replaceAll("_", " ");
 const money = (minor?: number) => `₦${(Number(minor || 0) / 100).toLocaleString()}`;
@@ -18,7 +18,7 @@ export default function OrderDetailScreen() {
   const query = useOrderQuery(id);
   const fulfilment = useOrderFulfilmentQuery(id);
   const payment = usePaymentStatusQuery(id);
-  const initializePayment = useInitializePaymentMutation();
+  const createPaymentLink = useCreatePaymentLinkMutation();
   const createReturn = useCreateReturnMutation();
   const [returnReason, setReturnReason] = React.useState("");
   const [paymentBusy, setPaymentBusy] = React.useState(false);
@@ -43,9 +43,11 @@ export default function OrderDetailScreen() {
     if (!id || paymentBusy) return;
     setPaymentBusy(true);
     try {
-      const initialized = await initializePayment.mutateAsync({ orderId: id, fulfilmentGroupId });
-      if (!initialized?.authorizationUrl) throw new Error("Secure payment checkout is unavailable");
-      const result = await WebBrowser.openAuthSessionAsync(initialized.authorizationUrl, "hook://payments/return");
+      const link = await createPaymentLink.mutateAsync({ orderId: id, fulfilmentGroupId });
+      if (!link?.url) throw new Error("Secure payment checkout is unavailable");
+      const checkoutUrl = new URL(link.url);
+      checkoutUrl.searchParams.set("appReturn", "1");
+      const result = await WebBrowser.openAuthSessionAsync(checkoutUrl.toString(), "hook://payments/return");
       await WebBrowser.dismissBrowser();
       if (result.type === "cancel" || result.type === "dismiss") return;
       for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -63,6 +65,17 @@ export default function OrderDetailScreen() {
     } finally {
       setPaymentBusy(false);
     }
+  }
+
+  async function sharePayment(fulfilmentGroupId?: string) {
+    if (!id || paymentBusy) return;
+    setPaymentBusy(true);
+    try {
+      const link = await createPaymentLink.mutateAsync({ orderId: id, fulfilmentGroupId });
+      await Share.share({ message: `Pay securely for Hook Order ${order.id}: ${link.url}`, url: link.url, title: "Hook payment link" });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Payment link could not be shared");
+    } finally { setPaymentBusy(false); }
   }
 
   return (
@@ -100,7 +113,7 @@ export default function OrderDetailScreen() {
             return <View key={group.publicId || groupIndex} className="rounded-[22px] bg-white p-3">
               <View className="mb-3 flex-row items-center justify-between gap-3 px-1">
                 <View><Text className="font-black">Delivery {groupIndex + 1}</Text><Text className="text-xs text-[#777]">{label(group.status)} · {group.sourceStateId || "Source state"}</Text></View>
-                {order.commercePaymentMethod === "PAY_AT_HANDOVER" && groupPayment && String(groupPayment.commerceStatus || groupPayment.status).toUpperCase() !== "CONFIRMED" ? <Pressable onPress={() => void resumePayment(group.publicId)} disabled={paymentBusy} className="rounded-full bg-hook px-4 py-2"><Text className="text-xs font-black">Pay for delivery</Text></Pressable> : null}
+                {order.commercePaymentMethod === "PAY_AT_HANDOVER" && groupPayment && String(groupPayment.commerceStatus || groupPayment.status).toUpperCase() !== "CONFIRMED" ? <View className="flex-row gap-2"><Pressable onPress={() => void sharePayment(group.publicId)} disabled={paymentBusy} className="rounded-full border border-black/10 bg-white px-3 py-2"><Text className="text-xs font-black">Share</Text></Pressable><Pressable onPress={() => void resumePayment(group.publicId)} disabled={paymentBusy} className="rounded-full bg-hook px-3 py-2"><Text className="text-xs font-black">Pay</Text></Pressable></View> : null}
               </View>
               <View className="gap-3">
           {groupItems.map((item: any) => (
@@ -137,7 +150,7 @@ export default function OrderDetailScreen() {
               <Text className="text-base font-black">Payment</Text>
               <Text className="mt-1 text-xs text-[#777]">{label(order.commercePaymentMethod)} · {label(paymentStatus || "pending")}</Text>
             </View>
-            {canPay ? <Pressable onPress={() => void resumePayment()} disabled={paymentBusy} className="rounded-full bg-hook px-4 py-2"><Text className="text-xs font-black">{paymentBusy ? "Opening..." : "Pay securely"}</Text></Pressable> : null}
+            {canPay && order.commercePaymentMethod === "PREPAID" ? <View className="flex-row gap-2"><Pressable onPress={() => void sharePayment()} disabled={paymentBusy} className="rounded-full border border-black/10 bg-white px-4 py-2"><Text className="text-xs font-black">Share link</Text></Pressable><Pressable onPress={() => void resumePayment()} disabled={paymentBusy} className="rounded-full bg-hook px-4 py-2"><Text className="text-xs font-black">{paymentBusy ? "Opening..." : "Pay securely"}</Text></Pressable></View> : null}
           </View>
           {order.commercePaymentMethod === "PAY_AT_HANDOVER" && paymentStatus !== "CONFIRMED" ? <Text className="mt-3 text-xs leading-5 text-[#777]">Payment is required before a Pay-at-Handover parcel can be released.</Text> : null}
         </View>

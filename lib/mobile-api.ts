@@ -1124,6 +1124,13 @@ export function useInitializePaymentMutation() {
   });
 }
 
+export function useCreatePaymentLinkMutation() {
+  return useMutation({
+    mutationFn: (input: { orderId: string; fulfilmentGroupId?: string }) =>
+      post<{ id: string; url: string; token: string; expiresAt: string; status: string }, typeof input>("/payments/links", input),
+  });
+}
+
 export function usePaymentStatusQuery(orderId?: string) {
   return useQuery({
     enabled: Boolean(orderId),

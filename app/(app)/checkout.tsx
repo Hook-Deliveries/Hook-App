@@ -20,7 +20,7 @@ import {
   useCheckoutConfirmMutation,
   useCheckoutPreviewMutation,
   useCommerceConfigQuery,
-  useInitializePaymentMutation,
+  useCreatePaymentLinkMutation,
   useCustomerSessionQuery,
 } from "@/lib/mobile-api";
 import { isCustomerSession } from "@/lib/session";
@@ -36,7 +36,7 @@ export default function CheckoutScreen() {
   const config = useCommerceConfigQuery();
   const preview = useCheckoutPreviewMutation();
   const confirm = useCheckoutConfirmMutation();
-  const initialize = useInitializePaymentMutation();
+  const createPaymentLink = useCreatePaymentLinkMutation();
   const [addressId, setAddressId] = useState<string>();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("PREPAID");
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
@@ -47,7 +47,7 @@ export default function CheckoutScreen() {
     addressRows.find((item) => item.isDefault)?.publicId ||
     addressRows[0]?.publicId;
   const cartItems = getCartItems(cart.data);
-  const busy = preview.isPending || confirm.isPending || initialize.isPending;
+  const busy = preview.isPending || confirm.isPending || createPaymentLink.isPending;
 
   if (!session.isLoading && !isCustomerSession(session.data)) {
     return (
@@ -119,11 +119,13 @@ export default function CheckoutScreen() {
         } as never);
         return;
       }
-      const payment = await initialize.mutateAsync({ orderId: order.id });
-      if (!payment.authorizationUrl)
+      const paymentLink = await createPaymentLink.mutateAsync({ orderId: order.id });
+      if (!paymentLink.url)
         throw new Error("Secure payment checkout is unavailable");
+      const checkoutUrl = new URL(paymentLink.url);
+      checkoutUrl.searchParams.set("appReturn", "1");
       const browserResult = await WebBrowser.openAuthSessionAsync(
-        payment.authorizationUrl,
+        checkoutUrl.toString(),
         "hook://payments/return",
       );
       await WebBrowser.dismissBrowser();

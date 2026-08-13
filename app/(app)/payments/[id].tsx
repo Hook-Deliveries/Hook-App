@@ -31,7 +31,7 @@ export default function PaymentStatusScreen() {
           <Text className="mt-3 text-center text-sm leading-5 text-[#777]">
             {status === "CONFIRMED"
               ? "Your payment was confirmed and your Order is now moving forward."
-              : "We only confirm payments after verified Paystack evidence."}
+              : "We only confirm payments after verified evidence from the selected provider."}
           </Text>
           <Pressable
             onPress={() =>
