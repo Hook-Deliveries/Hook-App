@@ -1,4 +1,3 @@
-import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
@@ -6,8 +5,6 @@ import type { PublicMarket } from "@/lib/mobile-api";
 
 import { HookSheet } from "../shared/HookSheet";
 import { MarketplaceSearch } from "./MarketplaceSearch";
-
-const MARKET_ICON = require("../../assets/images/market-icon.png");
 
 type MarketSelectionSheetProps = {
   visible: boolean;
@@ -50,17 +47,10 @@ export function MarketSelectionSheet({
       visible={visible}
       onClose={onClose}
       accessibilityLabel="Choose a market"
+      title="Choose a market"
       minHeight="54%"
       maxHeight="80%"
-      contentClassName="mt-0 flex-1"
-      badge={
-        <Image
-          source={MARKET_ICON}
-          contentFit="contain"
-          accessibilityLabel="Market"
-          style={{ width: 60, height: 60 }}
-        />
-      }
+      contentClassName="mt-4 flex-1"
     >
       <MarketplaceSearch
         value={search}

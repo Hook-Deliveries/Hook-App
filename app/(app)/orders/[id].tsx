@@ -94,9 +94,10 @@ export default function OrderDetailScreen() {
   }
 
   return <View className="flex-1 bg-[#f3f3f5]" style={{ paddingTop: insets.top }}>
-    <View className="h-14 flex-row items-center border-b border-black/5 bg-white px-4">
+    <View className="flex-row items-center justify-between px-4 py-3">
       <HookBackButton />
-      <Text className="absolute left-20 right-20 text-center text-[17px] font-black">Order Details</Text>
+      <Text className="text-xl font-black">Order Details</Text>
+      <View className="h-11 w-11" />
     </View>
 
     {query.isLoading ? <View className="flex-1 items-center justify-center"><HookLoader size="page" /><Text className="mt-3 text-sm font-semibold text-[#777]">Loading your order</Text></View> : query.isError || !order ? <View className="flex-1 items-center justify-center px-8"><View className="h-16 w-16 items-center justify-center rounded-full bg-white"><Ionicons name="receipt-outline" size={28} color="#777" /></View><Text className="mt-5 text-center text-xl font-black">Order unavailable</Text><Text className="mt-2 text-center text-sm leading-6 text-[#777]">We could not load this order right now.</Text><Pressable onPress={() => query.refetch()} className="mt-5 rounded-full bg-hook px-6 py-3"><Text className="font-black">Try again</Text></Pressable></View> : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false}>
@@ -123,6 +124,6 @@ export default function OrderDetailScreen() {
       {order.canCancel ? <Pressable onPress={() => setCancelOpen(true)} className="mt-5 items-center py-3"><Text className="font-black text-red-600">Cancel unpaid order</Text></Pressable> : null}
     </ScrollView>}
 
-    <HookConfirmSheet visible={cancelOpen} title="Cancel this order?" message="This will cancel the unpaid order and deactivate every payment link created for it." icon="close-circle-outline" confirmLabel="Cancel order" cancelLabel="Keep order" destructive busy={cancelOrder.isPending} onClose={() => setCancelOpen(false)} onConfirm={async () => { if (!id) return; try { await cancelOrder.mutateAsync({ orderId: id, reason: "Cancelled by customer before payment" }); setCancelOpen(false); toast.success("Order cancelled"); } catch (error) { toast.error(error instanceof Error ? error.message : "Order could not be cancelled"); } }} />
+    <HookConfirmSheet visible={cancelOpen} title="Cancel this order?" message="This will cancel the unpaid order and deactivate every payment link created for it." confirmLabel="Cancel order" cancelLabel="Keep order" destructive busy={cancelOrder.isPending} onClose={() => setCancelOpen(false)} onConfirm={async () => { if (!id) return; try { await cancelOrder.mutateAsync({ orderId: id, reason: "Cancelled by customer before payment" }); setCancelOpen(false); toast.success("Order cancelled"); } catch (error) { toast.error(error instanceof Error ? error.message : "Order could not be cancelled"); } }} />
   </View>;
 }

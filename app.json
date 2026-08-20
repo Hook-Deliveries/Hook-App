@@ -24,7 +24,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#FFC809",
-        "foregroundImage": "./assets/images/app-icon.png"
+        "foregroundImage": "./assets/images/adaptive-icon.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -82,6 +82,6 @@
         "projectId": "232e0943-0dff-4d12-b34d-096be84e5dbb"
       }
     },
-    "owner": "biodun42"
+    "owner": "biodundevv"
   }
 }

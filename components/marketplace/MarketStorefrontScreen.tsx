@@ -38,6 +38,7 @@ import { HookYellowPattern } from "./HookYellowPattern";
 import { MarketSelectionSheet } from "./MarketSelectionSheet";
 import { MarketplaceCompactHeader } from "./MarketplaceCompactHeader";
 import { MarketplaceSearch } from "./MarketplaceSearch";
+import { ProductLayoutToggle, type ProductLayout } from "./ProductLayoutToggle";
 import { ScallopedEdge } from "./ScallopedEdge";
 
 const HERO_HEIGHT = 326;
@@ -53,6 +54,7 @@ export function MarketStorefrontScreen() {
   const markets = useMarketsQuery();
   const [categoryId, setCategoryId] = useState("all");
   const [search, setSearch] = useState("");
+  const [layout, setLayout] = useState<ProductLayout>("grid");
   const [refreshing, setRefreshing] = useState(false);
   const [marketSheetVisible, setMarketSheetVisible] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(false);
@@ -307,9 +309,7 @@ export function MarketStorefrontScreen() {
       <View className="px-4 pt-6">
         <View className="mb-4 mt-5 flex-row items-center justify-between">
           <Text className="text-base font-bold">Explore</Text>
-          <View className="h-9 w-9 items-center justify-center rounded-lg bg-[#FFC809]">
-            <Ionicons name="grid" size={19} color="#111" />
-          </View>
+          <ProductLayoutToggle value={layout} onChange={setLayout} />
         </View>
         {products.isLoading ? (
           <HookLoader label="Loading market products" />
@@ -321,6 +321,7 @@ export function MarketStorefrontScreen() {
   return (
     <View className="flex-1 bg-[#F1F1F3]">
       <Animated.FlatList<PublicCatalogProduct>
+        key={layout}
         data={products.data?.data || []}
         contentInsetAdjustmentBehavior="never"
         keyboardDismissMode="on-drag"
@@ -329,10 +330,10 @@ export function MarketStorefrontScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        numColumns={2}
+        numColumns={layout === "grid" ? 2 : 1}
         keyExtractor={(product) => product.publicId}
-        columnWrapperStyle={{ gap: 12, paddingHorizontal: 10 }}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 36, gap: 16 }}
+        columnWrapperStyle={layout === "grid" ? { gap: 12, paddingHorizontal: 16, justifyContent: "flex-start" } : undefined}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 36, gap: layout === "grid" ? 16 : 12 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -345,8 +346,11 @@ export function MarketStorefrontScreen() {
         }
         ListHeaderComponent={listHeader}
         renderItem={({ item: product }) => (
-          <View className="flex-1 px-1">
-            <CatalogProductCard product={product} />
+          <View
+            className={layout === "list" ? "px-4" : ""}
+            style={layout === "grid" ? { flexGrow: 1, flexBasis: 0, maxWidth: "48.5%" } : { width: "100%" }}
+          >
+            <CatalogProductCard product={product} displayMode={layout} />
           </View>
         )}
         ListEmptyComponent={

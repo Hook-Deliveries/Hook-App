@@ -25,6 +25,13 @@ export interface PublicCatalogMedia {
   alt: string;
 }
 
+export type SizingGuide = {
+  summary?: string;
+  howToMeasure?: string;
+  presetGroups: ("clothing" | "shoes" | "general")[];
+  chart?: { size: string; measurements: Record<string, string> }[];
+};
+
 export interface PublicCatalogProduct {
   publicId: string;
   title: string;
@@ -38,6 +45,7 @@ export interface PublicCatalogProduct {
     name: string;
     slug: string;
     iconUrl?: string;
+    sizingGuide?: SizingGuide | null;
   } | null;
   variants: {
     publicId: string;
@@ -199,8 +207,9 @@ export function useHomeFeedQuery(params?: QueryParams) {
   });
 }
 
-export function useDiscoverQuery(params?: QueryParams) {
+export function useDiscoverQuery(params?: QueryParams, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: mobileQueryKeys.discover(params),
     queryFn: () =>
       apiRequest<PublicDiscoverFeed>(
@@ -240,8 +249,9 @@ export function useSearchQuery(params?: QueryParams) {
   });
 }
 
-export function useProductsQuery(params?: QueryParams) {
+export function useProductsQuery(params?: QueryParams, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: mobileQueryKeys.products(params),
     queryFn: () =>
       apiRequest<PublicProductPage>(

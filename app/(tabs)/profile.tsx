@@ -163,7 +163,6 @@ export default function ProfileScreen() {
         visible={logoutOpen}
         title="Log out of Hook?"
         message="You can sign back in anytime. This ends the current session on this device."
-        icon="log-out-outline"
         confirmLabel="Log out"
         destructive
         busy={logoutBusy}

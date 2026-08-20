@@ -11,7 +11,6 @@ import frame96 from "@/assets/images/onboarding/step-2/frame96.jpg";
 import onboardingDelivery from "@/assets/images/onboarding/step-3/delivery.gif";
 
 import { DESIGN_WIDTH } from "./data";
-import { AuthGlowBackground } from "@/components/shared/glow-background";
 
 export function OnboardingVisual({
   activeIndex,
@@ -34,7 +33,6 @@ export function OnboardingVisual({
 function MarketVisual({ scale }: { scale: number }) {
   return (
     <>
-      <AuthGlowBackground />
       <Image
         source={onboardingMarket}
         resizeMode="contain"
@@ -189,7 +187,6 @@ function MessageBubble({
 function PriceVisual({ scale }: { scale: number }) {
   return (
     <>
-      <AuthGlowBackground />
       <View
         style={{
           height: 430 * scale,
@@ -240,7 +237,6 @@ function PriceVisual({ scale }: { scale: number }) {
 function DeliveryVisual({ scale }: { scale: number }) {
   return (
     <>
-      <AuthGlowBackground />
       <ExpoImage
         source={onboardingDelivery}
         contentFit="cover"

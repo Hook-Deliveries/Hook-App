@@ -17,7 +17,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BottomSheetModal } from "@/components/shared/BottomSheetModal";
+import { HookSheet } from "@/components/shared/HookSheet";
 import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
@@ -329,7 +329,7 @@ export default function AddressesScreen() {
         {addresses.isError ? <View className="mt-10 items-center rounded-[22px] bg-white p-6"><Ionicons name="cloud-offline-outline" size={30} color="#777" /><Text className="mt-3 font-bold text-black">Addresses could not be refreshed</Text><Pressable onPress={() => void addresses.refetch()} className="mt-4 rounded-full bg-hook px-5 py-2.5"><Text className="font-bold text-black">Try again</Text></Pressable></View> : null}
       </ScrollView>
 
-      <BottomSheetModal visible={wizardOpen} onClose={() => setWizardOpen(false)} title={editingId ? "Edit delivery address" : "Add delivery address"} height="78%" maxHeight="78%" accessibilityLabel="Delivery address wizard">
+      <HookSheet visible={wizardOpen} onClose={() => setWizardOpen(false)} title={editingId ? "Edit delivery address" : "Add delivery address"} height="78%" maxHeight="78%" accessibilityLabel="Delivery address wizard" contentClassName="mt-2 flex-1">
         <View className="flex-1">
           <View className="mb-4">
             <View className="mb-2 flex-row items-center justify-between"><Text className="text-xs font-bold uppercase tracking-wider text-black/45">Step {step + 1} of 3</Text><Text className="text-xs font-semibold text-black/45">{step === 0 ? "State & capital" : step === 1 ? "Local government" : "Delivery details"}</Text></View>
@@ -352,12 +352,11 @@ export default function AddressesScreen() {
           </ScrollView>
           {step === 2 ? <View className="border-t border-black/5 pt-3" style={{ paddingBottom: 8 }}><View className="flex-row items-center gap-3"><Pressable accessibilityLabel="Previous address step" accessibilityRole="button" onPress={() => setStep(1)} className="h-14 w-14 items-center justify-center rounded-2xl border border-black/10 bg-white"><Ionicons name="arrow-back" size={20} color="#111" /></Pressable><Pressable accessibilityLabel="Save delivery address" accessibilityRole="button" accessibilityState={{ busy: saving, disabled: saving }} disabled={saving} onPress={() => void saveAddress()} className="h-14 flex-1 items-center justify-center rounded-2xl bg-hook" style={{ opacity: saving ? 0.65 : 1 }}>{saving ? <View className="flex-row items-center gap-2"><HookLoader size="button" variant="dark" /><Text className="font-black text-black">Saving address</Text></View> : <Text className="font-black text-black">Save address</Text>}</Pressable></View></View> : step === 1 ? <View className="border-t border-black/5 pt-3" style={{ paddingBottom: 8 }}><Pressable accessibilityLabel="Previous address step" accessibilityRole="button" onPress={() => setStep(0)} className="h-14 items-center justify-center rounded-2xl border border-black/10 bg-white"><View className="flex-row items-center"><Ionicons name="arrow-back" size={20} color="#111" /><Text className="ml-2 font-black text-black">Back to states</Text></View></Pressable></View> : null}
         </View>
-      </BottomSheetModal>
+      </HookSheet>
       <HookConfirmSheet
         visible={Boolean(addressToRemove)}
         title="Remove address?"
         message={addressToRemove ? `${addressToRemove.label} will no longer be available at checkout.` : ""}
-        icon="location-outline"
         confirmLabel="Remove"
         cancelLabel="Keep address"
         destructive

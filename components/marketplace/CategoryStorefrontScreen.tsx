@@ -37,6 +37,7 @@ import { MarketSelectionSheet } from "./MarketSelectionSheet";
 import { HookYellowPattern } from "./HookYellowPattern";
 import { MarketplaceCompactHeader } from "./MarketplaceCompactHeader";
 import { MarketplaceSearch } from "./MarketplaceSearch";
+import { ProductLayoutToggle, type ProductLayout } from "./ProductLayoutToggle";
 import { ScallopedEdge } from "./ScallopedEdge";
 
 const FIGMA_CATEGORY_VECTOR = require("../../assets/images/figma/category-vector-3452.svg");
@@ -55,6 +56,7 @@ export function CategoryStorefrontScreen() {
   );
   const [marketId, setMarketId] = useState("all");
   const [search, setSearch] = useState("");
+  const [layout, setLayout] = useState<ProductLayout>("grid");
   const [refreshing, setRefreshing] = useState(false);
   const [marketSheetVisible, setMarketSheetVisible] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(false);
@@ -210,13 +212,14 @@ export function CategoryStorefrontScreen() {
   return (
     <View className="flex-1 bg-[#F1F1F3]">
       <Animated.FlatList<PublicCatalogProduct>
+        key={layout}
         data={products}
-        numColumns={2}
+        numColumns={layout === "grid" ? 2 : 1}
         keyExtractor={(item) => item.publicId}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 36, gap: 18 }}
+        columnWrapperStyle={layout === "grid" ? { gap: 12, paddingHorizontal: 16, justifyContent: "flex-start" } : undefined}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 36, gap: layout === "grid" ? 18 : 12 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -358,9 +361,7 @@ export function CategoryStorefrontScreen() {
                   </Text>
                   <Ionicons name="chevron-down" size={13} color="#777" />
                 </Pressable>
-                <View className="h-9 w-9 items-center justify-center rounded-lg bg-[#FFC809]">
-                  <Ionicons name="grid" size={18} color="#111" />
-                </View>
+                <ProductLayoutToggle value={layout} onChange={setLayout} />
               </View>
             </View>
 
@@ -376,8 +377,11 @@ export function CategoryStorefrontScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <View className="flex-1">
-            <CatalogProductCard product={item} variant="figma" />
+          <View
+            className={layout === "list" ? "px-4" : ""}
+            style={layout === "grid" ? { flexGrow: 1, flexBasis: 0, maxWidth: "48.5%" } : { width: "100%" }}
+          >
+            <CatalogProductCard product={item} variant="figma" displayMode={layout} />
           </View>
         )}
         ListEmptyComponent={

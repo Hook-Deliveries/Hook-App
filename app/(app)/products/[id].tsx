@@ -11,10 +11,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CartButton } from "@/components/cart/CartButton";
+import { CatalogProductCard } from "@/components/marketplace/CatalogProductCard";
 import { NegotiationPrompt } from "@/components/marketplace/NegotiationPrompt";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
 import { HookBackButton } from "@/components/shared/HookBackButton";
+import { HookSheet } from "@/components/shared/HookSheet";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
 import { resolveColor } from "@/components/marketplace/product-colors";
@@ -27,6 +29,7 @@ import {
   useCustomerSessionQuery,
   useLikedProductsQuery,
   useProductQuery,
+  useProductsQuery,
   useToggleProductLikeMutation,
   type PublicCatalogProduct,
 } from "@/lib/mobile-api";
@@ -61,6 +64,7 @@ export default function ProductDetailScreen() {
   const [activeImage, setActiveImage] = useState(0);
   const [selectedVariantId, setSelectedVariantId] = useState<string>();
   const [addedToCart, setAddedToCart] = useState(false);
+  const [sizeGuideVisible, setSizeGuideVisible] = useState(false);
   const addedFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function goBack() {
@@ -97,6 +101,32 @@ export default function ProductDetailScreen() {
     });
     return [...values.values()];
   }, [variants]);
+  const relatedByMarket = useProductsQuery(
+    { marketId: product?.market?.publicId, limit: 10 },
+    Boolean(product?.market?.publicId),
+  );
+  const relatedByCategory = useProductsQuery(
+    { categoryId: product?.category?.publicId, limit: 10 },
+    Boolean(product?.category?.publicId),
+  );
+  const suggestions = useMemo(() => {
+    const currentId = product?.publicId;
+    const seen = new Set<string>();
+    const result: PublicCatalogProduct[] = [];
+    for (const item of relatedByMarket.data?.data || []) {
+      if (item.publicId === currentId || seen.has(item.publicId)) continue;
+      seen.add(item.publicId);
+      result.push(item);
+    }
+    if (result.length < 4) {
+      for (const item of relatedByCategory.data?.data || []) {
+        if (item.publicId === currentId || seen.has(item.publicId)) continue;
+        seen.add(item.publicId);
+        result.push(item);
+      }
+    }
+    return result.slice(0, 8);
+  }, [relatedByMarket.data, relatedByCategory.data, product?.publicId]);
   const sizeOptions = useMemo(() => {
     const values = new Set<string>();
     variants.forEach((variant) => {
@@ -397,7 +427,20 @@ export default function ProductDetailScreen() {
 
           {sizeOptions.length ? (
             <View>
-              <Text className="text-sm text-black">Size</Text>
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-black">Size</Text>
+                {product.category?.sizingGuide?.summary ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Open size guide"
+                    onPress={() => setSizeGuideVisible(true)}
+                    className="flex-row items-center gap-1"
+                  >
+                    <Ionicons name="information-circle-outline" size={16} color="#555" />
+                    <Text className="text-xs font-semibold text-black/60">Size guide</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <View className="mt-3 flex-row flex-wrap gap-2">
                 {sizeOptions.map((size) => (
                   <Pressable
@@ -424,6 +467,25 @@ export default function ProductDetailScreen() {
               : "Available from a verified Hook Market"}
           </Text>
         </View>
+
+        {suggestions.length ? (
+          <View className="mt-2">
+            <Text className="px-3 text-base font-medium text-black">
+              You might also like
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 12, paddingHorizontal: 12, paddingTop: 12 }}
+            >
+              {suggestions.map((item) => (
+                <View key={item.publicId} style={{ width: 150 }}>
+                  <CatalogProductCard product={item} variant="figma" />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
       </ScrollView>
       <View
         className="absolute inset-x-0 z-50 flex-row items-center justify-between px-4"
@@ -485,6 +547,43 @@ export default function ProductDetailScreen() {
           )}
         </Pressable>
       </View>
+
+      <HookSheet
+        visible={sizeGuideVisible}
+        onClose={() => setSizeGuideVisible(false)}
+        title="Size guide"
+        maxHeight="80%"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {product.category?.sizingGuide?.summary ? (
+            <Text className="text-[14px] leading-6 text-black">{product.category.sizingGuide.summary}</Text>
+          ) : null}
+          {product.category?.sizingGuide?.howToMeasure ? (
+            <Text className="mt-3 text-[13px] leading-6 text-black/70">
+              {product.category.sizingGuide.howToMeasure}
+            </Text>
+          ) : null}
+          {product.category?.sizingGuide?.chart?.length ? (
+            <View className="mt-4 overflow-hidden rounded-2xl bg-[#f4f4f5]">
+              {product.category.sizingGuide.chart.map((row, index) => (
+                <View
+                  key={row.size}
+                  className={`px-4 py-3 ${index ? "border-t border-black/5" : ""}`}
+                >
+                  <Text className="text-[13px] font-black text-black">{row.size}</Text>
+                  <View className="mt-1 flex-row flex-wrap gap-x-4 gap-y-1">
+                    {Object.entries(row.measurements).map(([label, value]) => (
+                      <Text key={label} className="text-[12px] text-black/60">
+                        {label}: {value}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </ScrollView>
+      </HookSheet>
     </View>
   );
 }

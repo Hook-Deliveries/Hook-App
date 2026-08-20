@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, RefreshControl, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getHookTabBarContentInset } from "@/components/tab-bar/layout";
@@ -16,11 +16,12 @@ import Animated, {
 
 import { HookLoader } from "@/components/shared/HookLoader";
 import { HookRefreshIndicator } from "@/components/shared/HookRefreshIndicator";
-import { useCategoriesQuery, useCustomerSessionQuery, useMarketsQuery, type PublicCategory } from "@/lib/mobile-api";
+import { useCategoriesQuery, useCustomerSessionQuery, useDiscoverQuery, useMarketsQuery, type PublicCategory } from "@/lib/mobile-api";
 import { useHookLocation } from "@/lib/location-context";
 
 import { MarketDiscoveryCard } from "./MarketDiscoveryCard";
 import { CategoryCircle } from "./CategoryCircle";
+import { HomeSearchOverlay } from "./HomeSearchOverlay";
 import { HookYellowPattern } from "./HookYellowPattern";
 import { MarketplaceCompactHeader } from "./MarketplaceCompactHeader";
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
@@ -39,6 +40,7 @@ export function MarketplaceHomeScreen() {
   const categoriesQuery = useCategoriesQuery();
   const marketsQuery = useMarketsQuery(stateParams);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(false);
   const [searchPinned, setSearchPinned] = useState(false);
@@ -68,6 +70,38 @@ export function MarketplaceHomeScreen() {
         `${market.name} ${market.address || ""}`.toLowerCase().includes(value),
     );
   }, [marketsQuery.data, search]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 280);
+    return () => clearTimeout(timeout);
+  }, [search]);
+
+  const searchActive = search.trim().length > 0;
+  const discoverQuery = useDiscoverQuery(
+    { q: debouncedSearch, ...stateParams, limit: 24 },
+    Boolean(debouncedSearch),
+  );
+
+  const matchedMarkets = useMemo(() => {
+    const value = search.trim().toLowerCase();
+    if (!value) return [];
+    return (marketsQuery.data || [])
+      .filter((market) => `${market.name} ${market.address || ""}`.toLowerCase().includes(value))
+      .slice(0, 4);
+  }, [marketsQuery.data, search]);
+
+  const matchedProducts = useMemo(
+    () => (discoverQuery.data?.products || []).slice(0, 6),
+    [discoverQuery.data],
+  );
+
+  const matchedCategories = useMemo(() => {
+    const value = search.trim().toLowerCase();
+    if (!value) return [];
+    return (categoriesQuery.data || [])
+      .filter((category) => category.name.toLowerCase().includes(value))
+      .slice(0, 4);
+  }, [categoriesQuery.data, search]);
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -326,8 +360,17 @@ export function MarketplaceHomeScreen() {
             <MarketplaceSearch
               value={search}
               onChangeText={setSearch}
+              onClear={() => setSearch("")}
               placeholder="What are you looking for"
               returnKeyType="search"
+            />
+            <HomeSearchOverlay
+              visible={searchActive}
+              query={debouncedSearch || search.trim()}
+              loading={discoverQuery.isFetching}
+              markets={matchedMarkets}
+              products={matchedProducts}
+              categories={matchedCategories}
             />
           </Animated.View>
           <View className="mt-4 gap-4">
@@ -393,6 +436,7 @@ export function MarketplaceHomeScreen() {
         <MarketplaceSearch
           value={search}
           onChangeText={setSearch}
+          onClear={() => setSearch("")}
           placeholder="What are you looking for"
           returnKeyType="search"
         />

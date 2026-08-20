@@ -6,7 +6,7 @@ import { Text, View } from "react-native";
 import { BackendUnavailableScreen } from "@/components/shared/BackendUnavailableScreen";
 import { checkHookHealth } from "@/lib/health";
 import { refreshSession } from "@/lib/api";
-import { getPendingSignup, getSession } from "@/lib/session";
+import { getOnboardingComplete, getPendingSignup, getSession } from "@/lib/session";
 
 const SPLASH_DELAY = 900;
 
@@ -51,6 +51,11 @@ export default function SplashScreen() {
         return;
       }
 
+      if (!(await getOnboardingComplete())) {
+        replace("/onboarding");
+        return;
+      }
+
       replace("/(tabs)");
     }
 
@@ -75,7 +80,7 @@ export default function SplashScreen() {
       if (!active || routed.current) return;
       routed.current = true;
       if (session) await refreshSession(session);
-      router.replace("/(tabs)");
+      router.replace((await getOnboardingComplete()) ? "/(tabs)" : "/onboarding");
     };
 
     const interval = setInterval(() => void recover(), 5_000);
@@ -91,11 +96,8 @@ export default function SplashScreen() {
     if (healthy) {
       setBackendAvailable(true);
       const session = await getSession();
-      if (session && (await refreshSession(session))) {
-        router.replace("/(tabs)");
-      } else {
-        router.replace("/(tabs)");
-      }
+      if (session) await refreshSession(session);
+      router.replace((await getOnboardingComplete()) ? "/(tabs)" : "/onboarding");
     } else {
       setBackendAvailable(false);
     }

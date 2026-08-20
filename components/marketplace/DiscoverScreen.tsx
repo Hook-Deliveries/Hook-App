@@ -37,6 +37,7 @@ import {
 import { useHookLocation } from "@/lib/location-context";
 import { categoryVector3452Xml } from "@/components/marketplace/figmaShapes";
 import { MarketplaceCompactHeader } from "@/components/marketplace/MarketplaceCompactHeader";
+import { ProductLayoutToggle } from "@/components/marketplace/ProductLayoutToggle";
 import { getHookTabBarContentInset } from "@/components/tab-bar/layout";
 
 const ALL_CATEGORY_IMAGE = require("../../assets/images/discover/all-category.png");
@@ -297,19 +298,7 @@ export function DiscoverScreen() {
               {discover.data?.resultCount ?? products.length} products
             </Text>
           </View>
-          <View className="flex-row rounded-full bg-white p-1">
-            {(["grid", "list"] as const).map((mode) => (
-              <Pressable
-                key={mode}
-                accessibilityLabel={`${mode} view`}
-                accessibilityState={{ selected: layout === mode }}
-                onPress={() => setLayout(mode)}
-                className={`h-9 w-9 items-center justify-center rounded-full ${layout === mode ? "bg-black" : ""}`}
-              >
-                <Ionicons name={mode === "grid" ? "grid-outline" : "list-outline"} size={17} color={layout === mode ? "#FFC809" : "#777"} />
-              </Pressable>
-            ))}
-          </View>
+          <ProductLayoutToggle value={layout} onChange={setLayout} />
         </View>
 
         {discover.isLoading ? <HookLoader label="Finding products" className="py-20" /> : null}
@@ -332,10 +321,10 @@ export function DiscoverScreen() {
           </View>
         ) : null}
         {products.length ? (
-          <View className={`mt-4 px-4 ${layout === "grid" ? "flex-row flex-wrap justify-between gap-y-5" : "gap-5"}`}>
+          <View className={`mt-4 px-4 ${layout === "grid" ? "flex-row flex-wrap gap-x-[3.2%] gap-y-5" : "gap-3"}`}>
             {products.map((product) => (
               <View key={product.publicId} style={{ width: layout === "grid" ? "48.4%" : "100%" }}>
-                <CatalogProductCard product={product} variant="figma" />
+                <CatalogProductCard product={product} variant="figma" displayMode={layout} />
               </View>
             ))}
           </View>

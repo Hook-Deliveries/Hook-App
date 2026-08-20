@@ -12,7 +12,7 @@ import { lookupEmail } from "@/lib/auth-api";
 import { useHookGoogleAuth } from "@/lib/google-auth";
 import { useHookAppleAuth } from "@/lib/apple-auth";
 import authStartGif from "@/assets/images/onboarding/auth-start.gif";
-import { getOnboardingComplete, getSession, isCustomerSession, onSessionChanged } from "@/lib/session";
+import { getSession, isCustomerSession, onSessionChanged } from "@/lib/session";
 
 type ContextValue = {
   openAuth: (intent?: Href) => void;
@@ -31,33 +31,14 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
   const sheet = useRef<BottomSheet>(null);
   const authOpen = useRef(false);
   const authRouteTransition = useRef(false);
-  const onboardingRouteShown = useRef(false);
   const intent = useRef<Href | undefined>(undefined);
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const isHomeRoute = pathname === "/" || pathname === "" || pathname === "/(tabs)" || pathname === "/(tabs)/" || pathname === "/(tabs)/index";
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const google = useHookGoogleAuth();
   const apple = useHookAppleAuth();
   const snapPoints = useMemo(() => ["100%"], []);
-
-  useEffect(() => {
-    if (!isHomeRoute) return;
-    let active = true;
-    const timer = setTimeout(() => {
-      void getOnboardingComplete().then((complete) => {
-        if (active && !complete && isHomeRoute && !authOpen.current && !onboardingRouteShown.current) {
-          onboardingRouteShown.current = true;
-          router.push("/onboarding");
-        }
-      });
-    }, 450);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [isHomeRoute]);
 
   useEffect(() => onSessionChanged(() => {
     void getSession().then((session) => {
@@ -127,12 +108,6 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
             authRouteTransition.current = false;
             return;
           }
-          void getOnboardingComplete().then((complete) => {
-            if (!complete && isHomeRoute && !onboardingRouteShown.current) {
-              onboardingRouteShown.current = true;
-              setTimeout(() => router.push("/onboarding"), 250);
-            }
-          });
         }}
       >
         <BottomSheetScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 24 }}>

@@ -6,7 +6,7 @@ import { KeyboardStickyView, useKeyboardState } from "react-native-keyboard-cont
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
-import { BottomSheetModal } from "@/components/shared/BottomSheetModal";
+import { HookSheet } from "@/components/shared/HookSheet";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { HookBackButton } from "@/components/shared/HookBackButton";
 import { RemoteImage } from "@/components/shared/RemoteImage";
@@ -300,12 +300,13 @@ export default function NegotiationChatScreen() {
 
       <HookConfirmSheet visible={replacePrompt} title="Continue this negotiation?" message="You already have an active negotiation for this product option. Continue it, or close it and start fresh." confirmLabel="Start new" cancelLabel="Continue" busy={close.isPending} onClose={() => setReplacePrompt(false)} onConfirm={replaceSession} />
       <HookConfirmSheet visible={closePrompt} title="Close this negotiation?" message={standingPrice ? `Your standing price of ${money(standingPrice)} will not be saved if you close this negotiation.` : "This conversation will end and you can start a new negotiation later."} confirmLabel="Close negotiation" cancelLabel="Keep negotiating" busy={close.isPending} onClose={() => setClosePrompt(false)} onConfirm={closeSession} />
-      <BottomSheetModal
+      <HookSheet
         visible={previewOpen}
         onClose={() => setPreviewOpen(false)}
         title="Product preview"
         height="72%"
         maxHeight="72%"
+        contentClassName="mt-2 flex-1"
       >
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 12 }}>
           <View className="aspect-square w-full overflow-hidden rounded-[24px] bg-[#F1F1F3]">
@@ -336,7 +337,7 @@ export default function NegotiationChatScreen() {
             </Pressable>
           </View>
         </ScrollView>
-      </BottomSheetModal>
+      </HookSheet>
     </View>
   );
 }

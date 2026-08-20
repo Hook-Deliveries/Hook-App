@@ -15,10 +15,12 @@ export function CatalogProductCard({
   product,
   compact,
   variant = "default",
+  displayMode = "grid",
 }: {
   product: PublicCatalogProduct;
   compact?: boolean;
   variant?: "default" | "figma";
+  displayMode?: "grid" | "list";
 }) {
   const figma = variant === "figma";
   const unavailable = product.isPurchasable === false;
@@ -49,14 +51,55 @@ export function CatalogProductCard({
     }
   }
 
+  function openProduct() {
+    router.push({ pathname: "/products/[id]", params: { id: product.publicId } } as never);
+  }
+
+  if (displayMode === "list") {
+    return (
+      <Pressable
+        onPress={openProduct}
+        className="h-[116px] w-full flex-row overflow-hidden rounded-[14px] bg-white p-2.5"
+      >
+        <View className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[11px] bg-[#FAFAFA]">
+          <View className={unavailable ? "flex-1 opacity-50" : "flex-1"}>
+            <RemoteImage uri={product.media?.[0]?.url} />
+          </View>
+        </View>
+        <View className="min-w-0 flex-1 justify-center px-3">
+          <Text className="text-[14px] font-bold leading-5 text-black" numberOfLines={2}>{product.title}</Text>
+          {product.market?.name ? (
+            <Text className="mt-1 text-[10px] text-black/45" numberOfLines={1}>{product.market.name}</Text>
+          ) : null}
+          <View className={`mt-2 flex-row items-center gap-2 ${unavailable ? "opacity-45" : ""}`}>
+            <Text className="text-[14px] font-black text-[#D9A700]">
+              ₦{Math.round(product.effectivePriceMinor / 100).toLocaleString()}
+            </Text>
+            {product.discountMinor > 0 ? (
+              <Text className="text-[10px] text-[#888] line-through">
+                ₦{Math.round(product.sellingPriceMinor / 100).toLocaleString()}
+              </Text>
+            ) : null}
+          </View>
+          {unavailable ? <Text className="mt-1 text-[10px] font-bold text-black/45">Temporarily unavailable</Text> : null}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isLiked ? `Remove ${product.title} from likes` : `Save ${product.title} to likes`}
+          accessibilityState={{ selected: isLiked, disabled: likePending }}
+          disabled={likePending}
+          onPress={handleLike}
+          className="h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F1F1F3]"
+        >
+          <Ionicons name={isLiked ? "heart" : "heart-outline"} size={18} color={isLiked ? "#FFC809" : "#777"} />
+        </Pressable>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
-      onPress={() =>
-        router.push({
-          pathname: "/products/[id]",
-          params: { id: product.publicId },
-        } as never)
-      }
+      onPress={openProduct}
       className="flex-1"
     >
       <View

@@ -64,8 +64,8 @@ export default function DevicesScreen() {
         )}
         {otherDevices.length ? <Pressable disabled={revokeOthers.isPending} onPress={() => setAllOthersOpen(true)} className="mt-5 h-[52px] items-center justify-center rounded-full bg-black"><Text className="font-bold text-white">Sign out all other devices</Text></Pressable> : null}
       </ScrollView>
-      <HookConfirmSheet visible={Boolean(selectedDevice)} title="Sign out this device?" message={`${selectedDevice?.deviceName || 'This device'} will lose access to your Hook account immediately.`} icon="phone-portrait-outline" confirmLabel="Sign out" destructive busy={revoke.isPending} onClose={() => setSelectedDevice(null)} onConfirm={() => { if (selectedDevice?.id) revoke.mutate(selectedDevice.id); }} />
-      <HookConfirmSheet visible={allOthersOpen} title="Sign out other devices?" message="Every other active device will be disconnected. This device will remain signed in." icon="shield-outline" confirmLabel="Sign out all" destructive busy={revokeOthers.isPending} onClose={() => setAllOthersOpen(false)} onConfirm={() => revokeOthers.mutate()} />
+      <HookConfirmSheet visible={Boolean(selectedDevice)} title="Sign out this device?" message={`${selectedDevice?.deviceName || 'This device'} will lose access to your Hook account immediately.`} confirmLabel="Sign out" destructive busy={revoke.isPending} onClose={() => setSelectedDevice(null)} onConfirm={() => { if (selectedDevice?.id) revoke.mutate(selectedDevice.id); }} />
+      <HookConfirmSheet visible={allOthersOpen} title="Sign out other devices?" message="Every other active device will be disconnected. This device will remain signed in." confirmLabel="Sign out all" destructive busy={revokeOthers.isPending} onClose={() => setAllOthersOpen(false)} onConfirm={() => revokeOthers.mutate()} />
     </View>
   );
 }

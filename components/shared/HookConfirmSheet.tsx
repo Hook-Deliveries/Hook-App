@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "react-native";
 
 import { HookLoader } from "./HookLoader";
@@ -8,7 +7,6 @@ type HookConfirmSheetProps = {
   visible: boolean;
   title: string;
   message: string;
-  icon?: React.ComponentProps<typeof Ionicons>["name"];
   confirmLabel: string;
   cancelLabel?: string;
   destructive?: boolean;
@@ -21,7 +19,6 @@ export function HookConfirmSheet({
   visible,
   title,
   message,
-  icon = "help-circle-outline",
   confirmLabel,
   cancelLabel = "Cancel",
   destructive = false,
@@ -34,12 +31,10 @@ export function HookConfirmSheet({
       visible={visible}
       onClose={onClose}
       busy={busy}
-      minHeight="35%"
       maxHeight="70%"
       accessibilityLabel={title}
       title={title}
       message={message}
-      badge={<Ionicons name={icon} size={30} color="#111" />}
     >
       <View className="flex-row gap-3">
         <Pressable

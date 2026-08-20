@@ -266,7 +266,6 @@ export default function CartScreen() {
         visible={confirmClear}
         title="Clear your cart?"
         message="This removes every item currently saved in your cart."
-        icon="trash-outline"
         confirmLabel="Clear cart"
         cancelLabel="Keep items"
         destructive
@@ -278,7 +277,6 @@ export default function CartScreen() {
         visible={Boolean(pendingRemoval)}
         title="Remove item?"
         message={pendingRemoval ? `Remove ${pendingRemoval.item.product?.title || "this product"} from your cart?` : ""}
-        icon="trash-outline"
         confirmLabel="Remove"
         cancelLabel="Keep item"
         destructive

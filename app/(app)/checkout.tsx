@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BottomSheetModal } from "@/components/shared/BottomSheetModal";
+import { HookSheet } from "@/components/shared/HookSheet";
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
@@ -323,24 +323,15 @@ export default function CheckoutScreen() {
           )}
         </Pressable>
       </View>
-      <BottomSheetModal
+      <HookSheet
         visible={addressPromptVisible}
         onClose={() => setAddressPromptVisible(false)}
-        title="Add a delivery address"
         accessibilityLabel="Delivery address required"
+        maxHeight="70%"
+        title="We need your delivery address first"
+        message="Add a verified Nigerian address so Hook can calculate delivery and continue with Paystack or pay-at-handover checkout."
       >
-        <View className="items-center">
-          <View className="h-14 w-14 items-center justify-center rounded-full bg-hook">
-            <Ionicons name="location-outline" size={27} color="#111" />
-          </View>
-          <Text className="mt-4 text-center text-base font-black text-black">
-            We need your delivery address first
-          </Text>
-          <Text className="mt-2 max-w-[320px] text-center text-sm leading-6 text-[#666]">
-            Add a verified Nigerian address so Hook can calculate delivery and continue with Paystack or pay-at-handover checkout.
-          </Text>
-        </View>
-        <View className="mt-6 gap-3">
+        <View className="gap-3">
           <Pressable
             accessibilityRole="button"
             onPress={openAddresses}
@@ -358,7 +349,7 @@ export default function CheckoutScreen() {
             <Text className="text-sm font-bold text-black">Not now</Text>
           </Pressable>
         </View>
-      </BottomSheetModal>
+      </HookSheet>
     </View>
   );
 }
