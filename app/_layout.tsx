@@ -56,7 +56,6 @@ export default function RootLayout() {
   const pathname = usePathname();
   // The Home tab resolves to "/", so only the real splash route may bypass outage gating.
   const isLaunchSplash = pathname === "/splash";
-  const isHomeRoute = pathname === "/" || pathname === "" || pathname === "/(tabs)" || pathname === "/(tabs)/" || pathname === "/(tabs)/index";
   const isMarketHero = pathname.includes("/markets/");
   const [fontsLoaded] = useFonts({
     "NunitoSans-Regular": require("@expo-google-fonts/nunito-sans/400Regular/NunitoSans_400Regular.ttf"),
@@ -136,12 +135,11 @@ export default function RootLayout() {
   if (backendAvailable === false && !isLaunchSplash) {
     return (
       <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#000" }}>
-          <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: "#000" }}>
-            <View style={{ flex: 1, backgroundColor: "#FFC809" }}>
-              <BackendUnavailableScreen retrying={healthRetrying} onRetry={() => void retryHealth()} />
-              <StatusBar backgroundColor="#FFC809" style="dark" translucent={false} />
-            </View>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#FFC809" }}>
+          {/* This screen has no padded header of its own, so it insets on all edges. */}
+          <SafeAreaView style={{ flex: 1, backgroundColor: "#FFC809" }}>
+            <BackendUnavailableScreen retrying={healthRetrying} onRetry={() => void retryHealth()} />
+            <StatusBar style="dark" translucent />
           </SafeAreaView>
         </GestureHandlerRootView>
       </SafeAreaProvider>
@@ -308,12 +306,13 @@ export default function RootLayout() {
                 }}
               />
             </Stack>
-            <StatusBar
-              animated
-              backgroundColor={isLaunchSplash ? "#FFC809" : isHomeRoute ? "#FFD93E" : isMarketHero ? "#111111" : "#F1F1F3"}
-              style={isMarketHero ? "light" : "dark"}
-              translucent={false}
-            />
+            {/*
+              Android is edge-to-edge (app.json android.edgeToEdgeEnabled), so the
+              app draws *under* the status bar and each screen pads by insets.top.
+              An opaque bar would sit on top of that padded header and clip it, so
+              the bar stays translucent and screens supply their own colour.
+            */}
+            <StatusBar animated style={isMarketHero ? "light" : "dark"} translucent />
             <ToastProvider />
                   </ThemeProvider>
                 </AuthSheetProvider>

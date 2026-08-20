@@ -1,10 +1,12 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
 import { Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { usePaymentStatusQuery } from "@/lib/mobile-api";
 export default function PaymentStatusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
   const query = usePaymentStatusQuery(id);
   const status = String((query.data as any)?.payment?.status || "").toUpperCase();
   const { refetch } = query;
@@ -16,7 +18,10 @@ export default function PaymentStatusScreen() {
   }, [id, refetch, status]);
 
   return (
-    <View className="flex-1 items-center justify-center bg-[#f4f4f5] px-8">
+    <View
+      className="flex-1 items-center justify-center bg-[#f4f4f5] px-8"
+      style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
+    >
       {query.isLoading ? (
         <HookLoader label="Checking payment" />
       ) : (

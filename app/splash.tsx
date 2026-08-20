@@ -105,7 +105,7 @@ export default function SplashScreen() {
   if (backendAvailable === false) {
     return (
       <View className="flex-1 bg-hook">
-        <StatusBar style="dark" backgroundColor="#FFC809" translucent={false} />
+        <StatusBar style="dark" translucent />
         <BackendUnavailableScreen retrying={retrying} onRetry={() => void retryHealth()} />
       </View>
     );

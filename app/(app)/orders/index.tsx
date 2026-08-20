@@ -71,25 +71,20 @@ export default function OrdersScreen() {
             className="rounded-[22px] bg-white p-4"
           >
             <View className="flex-row items-center justify-between">
-              <Text className="font-black">{item.id}</Text>
+              <Text className="font-black">{item.displayNumber || item.id}</Text>
               <View className="rounded-full bg-hook/20 px-3 py-1.5">
                 <Text className="text-[10px] font-bold uppercase">
-                  {String(item.commerceStatus || item.status).replaceAll(
-                    "_",
-                    " ",
-                  )}
+                  {item.statusLabel || String(item.status || "").replaceAll("_", " ")}
                 </Text>
               </View>
             </View>
             <View className="mt-4 flex-row items-end justify-between">
               <View>
                 <Text className="text-xs text-[#888]">
-                  {item.channel === "PARTNER_ASSISTED"
-                    ? "Partner assisted"
-                    : "Shopper App"}
+                  {item.itemCount || 0} item{item.itemCount === 1 ? "" : "s"}
                 </Text>
                 <Text className="mt-1 text-xs text-[#888]">
-                  {item.commercePaymentMethod === "PAY_AT_HANDOVER"
+                  {item.paymentMethod === "PAY_AT_HANDOVER"
                     ? "Pay at handover"
                     : "Prepaid"}
                 </Text>

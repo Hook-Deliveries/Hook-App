@@ -1,43 +1,60 @@
-import React from "react";
+import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams } from "expo-router";
-import { Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
+import React from "react";
+import { Pressable, ScrollView, Share, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { HookPageLoading } from "@/components/shared/HookPageLoading";
+
 import { HookBackButton } from "@/components/shared/HookBackButton";
+import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
+import { HookLoader } from "@/components/shared/HookLoader";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
-import { useCreatePaymentLinkMutation, useCreateReturnMutation, useOrderFulfilmentQuery, useOrderQuery, usePaymentStatusQuery } from "@/lib/mobile-api";
+import {
+  useCancelOrderMutation,
+  useCreatePaymentLinkMutation,
+  useOrderQuery,
+  usePaymentStatusQuery,
+} from "@/lib/mobile-api";
 
-const label = (value?: string) => String(value || "-").replaceAll("_", " ");
-const money = (minor?: number) => `₦${(Number(minor || 0) / 100).toLocaleString()}`;
+const money = (minor?: number) => `₦${(Number(minor || 0) / 100).toLocaleString("en-NG")}`;
+const date = (value?: string) => value ? new Date(value).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : "Not available yet";
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return <View className="rounded-[22px] bg-white p-4"><Text className="mb-4 text-[17px] font-black text-[#171717]">{title}</Text>{children}</View>;
+}
+
+function Timeline({ events = [] }: { events?: any[] }) {
+  return <View>{events.map((event, index) => {
+    const completed = event.status === "completed";
+    const current = event.status === "current";
+    return <View key={event.key || `${event.label}-${index}`} className="flex-row gap-3">
+      <View className="items-center">
+        <View className={`h-6 w-6 items-center justify-center rounded-full ${completed || current ? "bg-hook" : "bg-[#ececee]"}`}>
+          <Ionicons name={completed ? "checkmark" : current ? "ellipse" : "ellipse-outline"} size={completed ? 14 : 9} color={completed || current ? "#111" : "#aaa"} />
+        </View>
+        {index < events.length - 1 ? <View className={`min-h-8 w-0.5 flex-1 ${completed ? "bg-hook" : "bg-[#ececee]"}`} /> : null}
+      </View>
+      <View className="min-h-14 flex-1 pb-3">
+        <Text className={`text-sm ${current ? "font-black text-black" : completed ? "font-bold text-[#333]" : "font-semibold text-[#aaa]"}`}>{event.label}</Text>
+        {event.occurredAt ? <Text className="mt-1 text-[11px] text-[#888]">{date(event.occurredAt)}</Text> : current ? <Text className="mt-1 text-[11px] font-bold text-[#947000]">In progress</Text> : null}
+      </View>
+    </View>;
+  })}</View>;
+}
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const query = useOrderQuery(id);
-  const fulfilment = useOrderFulfilmentQuery(id);
   const payment = usePaymentStatusQuery(id);
   const createPaymentLink = useCreatePaymentLinkMutation();
-  const createReturn = useCreateReturnMutation();
-  const [returnReason, setReturnReason] = React.useState("");
+  const cancelOrder = useCancelOrderMutation();
   const [paymentBusy, setPaymentBusy] = React.useState(false);
+  const [cancelOpen, setCancelOpen] = React.useState(false);
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const order = query.data as any;
-  if (query.isLoading)
-    return <HookPageLoading title="Order details" label="Loading order" />;
-  if (!order)
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="font-black">Order unavailable</Text>
-      </View>
-    );
-
-  const paymentRecord = (payment.data as any)?.payment;
-  const paymentStatus = String(paymentRecord?.status || order.commercePaymentStatus || "").toUpperCase();
-  const shipment = fulfilment.data?.shipment as any;
-  const handoverPaymentDue = order.commercePaymentMethod === "PAY_AT_HANDOVER" && shipment?.status === "AWAITING_HANDOVER_PAYMENT";
-  const canPay = !["CONFIRMED", "REFUNDED", "CANCELLED"].includes(paymentStatus)
-    && (order.commercePaymentMethod === "PREPAID" || handoverPaymentDue);
 
   async function resumePayment(fulfilmentGroupId?: string) {
     if (!id || paymentBusy) return;
@@ -54,7 +71,7 @@ export default function OrderDetailScreen() {
         const refreshed = await payment.refetch();
         if (String((refreshed.data as any)?.payment?.status || "").toUpperCase() === "CONFIRMED") {
           toast.success("Payment confirmed");
-          await Promise.all([query.refetch(), fulfilment.refetch()]);
+          await query.refetch();
           return;
         }
         await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -62,9 +79,7 @@ export default function OrderDetailScreen() {
       toast.info("Payment confirmation is still processing");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Payment could not be started");
-    } finally {
-      setPaymentBusy(false);
-    }
+    } finally { setPaymentBusy(false); }
   }
 
   async function sharePayment(fulfilmentGroupId?: string) {
@@ -72,114 +87,42 @@ export default function OrderDetailScreen() {
     setPaymentBusy(true);
     try {
       const link = await createPaymentLink.mutateAsync({ orderId: id, fulfilmentGroupId });
-      await Share.share({ message: `Pay securely for Hook Order ${order.id}: ${link.url}`, url: link.url, title: "Hook payment link" });
+      await Share.share({ message: `Pay securely for ${order.displayNumber}: ${link.url}`, url: link.url, title: "Hook payment link" });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Payment link could not be shared");
     } finally { setPaymentBusy(false); }
   }
 
-  return (
-    <View className="flex-1 bg-[#f4f4f5]" style={{ paddingTop: insets.top }}>
-      <View className="flex-row items-center gap-3 px-4 py-3">
-        <HookBackButton />
-        <View>
-          <Text className="text-xl font-black">{order.id}</Text>
-          <Text className="text-xs text-[#777]">
-            {String(order.commerceStatus || order.status).replaceAll("_", " ")}
-          </Text>
-        </View>
-      </View>
-      <ScrollView
-        contentContainerStyle={{
-          padding: 16,
-          paddingBottom: insets.bottom + 30,
-        }}
-      >
-        <View className="rounded-[22px] bg-black p-5">
-          <Text className="text-xs font-bold uppercase text-white/50">
-            Total
-          </Text>
-          <Text className="mt-2 text-3xl font-black text-white">
-            ₦{(Number(order.totalMinor || 0) / 100).toLocaleString()}
-          </Text>
-          <Text className="mt-2 text-sm text-hook">
-            {String(order.commercePaymentStatus || "").replaceAll("_", " ")}
-          </Text>
-        </View>
-        <View className="mt-4 gap-3">
-          {(order.fulfilmentGroups?.length ? order.fulfilmentGroups : [{ publicId: "legacy", sourceStateId: order.sourceStateId, status: order.commerceStatus }]).map((group: any, groupIndex: number) => {
-            const groupItems = (order.items || []).filter((item: any) => !item.fulfilmentGroupId || item.fulfilmentGroupId === group.publicId);
-            const groupPayment = (order.payments || []).find((entry: any) => entry.fulfilmentGroupId === group.publicId);
-            return <View key={group.publicId || groupIndex} className="rounded-[22px] bg-white p-3">
-              <View className="mb-3 flex-row items-center justify-between gap-3 px-1">
-                <View><Text className="font-black">Delivery {groupIndex + 1}</Text><Text className="text-xs text-[#777]">{label(group.status)} · {group.sourceStateId || "Source state"}</Text></View>
-                {order.commercePaymentMethod === "PAY_AT_HANDOVER" && groupPayment && String(groupPayment.commerceStatus || groupPayment.status).toUpperCase() !== "CONFIRMED" ? <View className="flex-row gap-2"><Pressable onPress={() => void sharePayment(group.publicId)} disabled={paymentBusy} className="rounded-full border border-black/10 bg-white px-3 py-2"><Text className="text-xs font-black">Share</Text></Pressable><Pressable onPress={() => void resumePayment(group.publicId)} disabled={paymentBusy} className="rounded-full bg-hook px-3 py-2"><Text className="text-xs font-black">Pay</Text></Pressable></View> : null}
-              </View>
-              <View className="gap-3">
-          {groupItems.map((item: any) => (
-            <View
-              key={item.id || item.publicId}
-              className="flex-row gap-3 rounded-[18px] bg-[#f7f7f8] p-3"
-            >
-              <View className="h-20 w-20 overflow-hidden rounded-2xl bg-[#eee]">
-                <RemoteImage
-                  uri={item.productSnapshot?.image || item.productImage}
-                />
-              </View>
-              <View className="flex-1">
-                <Text className="font-black">
-                  {item.productSnapshot?.title || item.productTitle}
-                </Text>
-                <Text className="mt-1 text-xs text-[#777]">
-                  Quantity {item.quantity}
-                </Text>
-                <Text className="mt-2 font-black">
-                  {money(item.totalPriceMinor)}
-                </Text>
-                <Text className="mt-1 text-[11px] font-bold uppercase text-[#777]">{label(item.deliveryStatus || "processing")}</Text>
-              </View>
-            </View>
-          ))}
-              </View>
-            </View>;
-          })}
-        </View>
-        <View className="mt-4 rounded-[20px] bg-white p-4">
-          <View className="flex-row items-center justify-between gap-3">
-            <View className="flex-1">
-              <Text className="text-base font-black">Payment</Text>
-              <Text className="mt-1 text-xs text-[#777]">{label(order.commercePaymentMethod)} · {label(paymentStatus || "pending")}</Text>
-            </View>
-            {canPay && order.commercePaymentMethod === "PREPAID" ? <View className="flex-row gap-2"><Pressable onPress={() => void sharePayment()} disabled={paymentBusy} className="rounded-full border border-black/10 bg-white px-4 py-2"><Text className="text-xs font-black">Share link</Text></Pressable><Pressable onPress={() => void resumePayment()} disabled={paymentBusy} className="rounded-full bg-hook px-4 py-2"><Text className="text-xs font-black">{paymentBusy ? "Opening..." : "Pay securely"}</Text></Pressable></View> : null}
-          </View>
-          {order.commercePaymentMethod === "PAY_AT_HANDOVER" && paymentStatus !== "CONFIRMED" ? <Text className="mt-3 text-xs leading-5 text-[#777]">Payment is required before a Pay-at-Handover parcel can be released.</Text> : null}
-        </View>
-        {fulfilment.data ? (
-          <View className="mt-4 rounded-[20px] bg-white p-4">
-            <Text className="text-base font-black">Delivery progress</Text>
-            <Text className="mt-1 text-xs text-[#777]">Live updates from Runner, Hub, shipment, and collection operations.</Text>
-            <View className="mt-4 gap-3">
-              {(fulfilment.data.tasks || []).map((task: any, index: number) => (
-                <View key={task.publicId || task.id || index} className="flex-row items-center gap-3">
-                  <View className="h-2.5 w-2.5 rounded-full bg-hook" />
-                  <View className="flex-1"><Text className="text-sm font-bold">{String(task.status || "pending").replaceAll("_", " ")}</Text><Text className="text-xs text-[#777]">Market {task.marketId || "-"}</Text></View>
-                </View>
-              ))}
-              {shipment ? <View className="flex-row items-start gap-3"><View className="mt-1 h-2.5 w-2.5 rounded-full bg-hook" /><View className="flex-1"><Text className="text-sm font-bold">{label(shipment.status)}</Text><Text className="text-xs text-[#777]">{shipment.provider || "Approved logistics provider"}{shipment.trackingNumber ? ` · ${shipment.trackingNumber}` : ""}</Text>{shipment.trackingEvents?.slice(-3).map((event: any, index: number) => <Text key={`${event.status || "event"}-${index}`} className="mt-1 text-[11px] text-[#999]">{label(event.status)} · {event.at ? new Date(event.at).toLocaleString() : ""}</Text>)}</View></View> : null}
-              {fulfilment.data.custody ? <View className="flex-row items-start gap-3"><View className="mt-1 h-2.5 w-2.5 rounded-full bg-hook" /><View><Text className="text-sm font-bold">Partner collection</Text><Text className="text-xs text-[#777]">Collection is available at the initiating Partner.</Text>{fulfilment.data.custody.collectionCodeHint ? <Text className="mt-1 text-xs font-bold text-[#777]">Code ending {fulfilment.data.custody.collectionCodeHint}</Text> : null}</View></View> : null}
-            </View>
-          </View>
-        ) : null}
-        {fulfilment.data?.returns?.length || fulfilment.data?.refunds?.length ? <View className="mt-4 rounded-[20px] bg-white p-4"><Text className="text-base font-black">Returns and refunds</Text><View className="mt-3 gap-2">{fulfilment.data.returns?.map((item: any, index: number) => <View key={item.publicId || item.id || `return-${index}`} className="flex-row items-center justify-between gap-3"><Text className="text-sm">Return request</Text><Text className="text-xs font-bold text-[#777]">{label(item.status)}</Text></View>)}{fulfilment.data.refunds?.map((item: any, index: number) => <View key={item.publicId || item.id || `refund-${index}`} className="flex-row items-center justify-between gap-3"><Text className="text-sm">Refund {money(item.amountMinor)}</Text><Text className="text-xs font-bold text-[#777]">{label(item.status)}</Text></View>)}</View></View> : null}
-        {String(order.commerceStatus || order.status) === "DELIVERED" || String(order.commerceStatus || order.status) === "COLLECTED" ? (
-          <View className="mt-4 rounded-[20px] bg-white p-4">
-            <Text className="text-base font-black">Report an issue</Text>
-            <Text className="mt-1 text-xs text-[#777]">Issues must be reported within 24 hours of delivery or collection.</Text>
-            <TextInput value={returnReason} onChangeText={setReturnReason} placeholder="Describe the issue" multiline className="mt-3 min-h-20 rounded-2xl border border-[#e5e5e5] px-3 py-3 text-sm" />
-            <Pressable disabled={!returnReason.trim() || createReturn.isPending} onPress={() => createReturn.mutate({ orderId: id || "", orderItemIds: (order.items || []).map((item: any) => item.id || item._id), reasonType: "OTHER", reason: returnReason.trim() })} className="mt-3 items-center rounded-full bg-black px-4 py-3"><Text className="font-bold text-white">{createReturn.isPending ? "Sending..." : "Submit issue"}</Text></Pressable>
-          </View>
-        ) : null}
-      </ScrollView>
+  return <View className="flex-1 bg-[#f3f3f5]" style={{ paddingTop: insets.top }}>
+    <View className="h-14 flex-row items-center border-b border-black/5 bg-white px-4">
+      <HookBackButton />
+      <Text className="absolute left-20 right-20 text-center text-[17px] font-black">Order Details</Text>
     </View>
-  );
+
+    {query.isLoading ? <View className="flex-1 items-center justify-center"><HookLoader size="page" /><Text className="mt-3 text-sm font-semibold text-[#777]">Loading your order</Text></View> : query.isError || !order ? <View className="flex-1 items-center justify-center px-8"><View className="h-16 w-16 items-center justify-center rounded-full bg-white"><Ionicons name="receipt-outline" size={28} color="#777" /></View><Text className="mt-5 text-center text-xl font-black">Order unavailable</Text><Text className="mt-2 text-center text-sm leading-6 text-[#777]">We could not load this order right now.</Text><Pressable onPress={() => query.refetch()} className="mt-5 rounded-full bg-hook px-6 py-3"><Text className="font-black">Try again</Text></Pressable></View> : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false}>
+      <View className="rounded-[24px] bg-black p-5">
+        <View className="flex-row items-start justify-between gap-4"><View className="flex-1"><Text className="text-[22px] font-black text-white">{order.displayNumber}</Text><Text className="mt-1 text-xs text-white/60">{date(order.createdAt)}</Text></View><View className="rounded-full bg-hook px-3 py-2"><Text className="text-xs font-black text-black">{order.statusLabel}</Text></View></View>
+        <View className="mt-6 flex-row border-t border-white/15 pt-4"><View className="flex-1"><Text className="text-[11px] font-bold uppercase text-white/50">Items</Text><Text className="mt-1 text-lg font-black text-white">{order.itemCount}</Text></View><View className="flex-1"><Text className="text-[11px] font-bold uppercase text-white/50">Total</Text><Text className="mt-1 text-lg font-black text-white">{money(order.totalMinor)}</Text></View><View className="flex-1"><Text className="text-[11px] font-bold uppercase text-white/50">Payment</Text><Text className="mt-1 text-sm font-black text-white">{String(order.paymentMethod || "").replaceAll("_", " ")}</Text></View></View>
+      </View>
+
+      <View className="mt-4"><Section title="Delivery information"><View className="flex-row items-start gap-3"><View className="h-10 w-10 items-center justify-center rounded-full bg-[#fff4c7]"><Ionicons name="location-outline" size={21} color="#d29b00" /></View><View className="flex-1"><Text className="text-xs font-bold uppercase text-[#d29b00]">Delivery address</Text><Text className="mt-1 text-sm font-semibold leading-6 text-[#333]">{order.address?.formattedAddress || "Address is being confirmed"}</Text></View></View>{order.deliveries?.some((delivery: any) => delivery.eta) ? <View className="mt-4 flex-row items-start gap-3"><View className="h-10 w-10 items-center justify-center rounded-full bg-[#fff4c7]"><Ionicons name="calendar-outline" size={20} color="#d29b00" /></View><View><Text className="text-xs font-bold uppercase text-[#d29b00]">Estimated arrival</Text><Text className="mt-1 text-sm font-semibold">{date(order.deliveries.find((delivery: any) => delivery.eta)?.eta)}</Text></View></View> : null}</Section></View>
+
+      <View className="mt-4"><Section title="Items">{order.items?.map((item: any) => <View key={item.id || item.title} className="mb-3 flex-row gap-3 last:mb-0"><View className="h-20 w-20 overflow-hidden rounded-2xl bg-[#f1f1f2]"><RemoteImage uri={item.imageUrl} /></View><View className="flex-1"><View className="flex-row justify-between gap-3"><Text className="flex-1 text-sm font-black leading-5">{item.title}</Text><Text className="text-sm font-black">{money(item.lineTotalMinor)}</Text></View><Text className="mt-1 text-xs text-[#777]">{Object.values(item.variants || {}).filter(Boolean).join(" · ") || "Standard"}</Text><Text className="mt-2 text-xs font-bold text-[#555]">{money(item.unitPriceMinor)} × {item.quantity}</Text></View></View>)}</Section></View>
+
+      <View className="mt-4"><Section title="Order summary"><View className="gap-3"><View className="flex-row justify-between"><Text className="text-sm text-[#666]">Products</Text><Text className="text-sm font-bold">{money(order.subtotalMinor)}</Text></View><View className="flex-row justify-between"><Text className="text-sm text-[#666]">VAT {order.vatRate ? `(${Number(order.vatRate) * 100}%)` : ""}</Text><Text className="text-sm font-bold">{money(order.vatMinor)}</Text></View><View className="flex-row justify-between"><Text className="text-sm text-[#666]">Delivery</Text><Text className="text-sm font-bold">{money(order.deliveryFeeMinor)}</Text></View>{order.discountMinor > 0 ? <View className="flex-row justify-between"><Text className="text-sm text-[#666]">Discount</Text><Text className="text-sm font-bold text-emerald-600">−{money(order.discountMinor)}</Text></View> : null}<View className="mt-1 flex-row justify-between border-t border-black/10 pt-4"><Text className="text-base font-black">Total</Text><Text className="text-xl font-black">{money(order.totalMinor)}</Text></View></View></Section></View>
+
+      <View className="mt-4"><Section title="Order progress"><Timeline events={order.timeline} /></Section></View>
+
+      <Text className="mb-3 mt-6 text-[17px] font-black">Your deliveries</Text>
+      <View className="gap-3">{order.deliveries?.map((delivery: any) => {
+        const open = expanded[delivery.id] ?? order.deliveries.length === 1;
+        return <View key={delivery.id} className="overflow-hidden rounded-[22px] bg-white"><Pressable onPress={() => setExpanded((state) => ({ ...state, [delivery.id]: !open }))} className="flex-row items-center gap-3 p-4"><View className="h-11 w-11 items-center justify-center rounded-full bg-[#fff4c7]"><Ionicons name="cube-outline" size={22} color="#b78200" /></View><View className="flex-1"><Text className="font-black">{delivery.label}</Text><Text className="mt-1 text-xs text-[#777]">{delivery.statusLabel} · {delivery.items?.length || 0} product{delivery.items?.length === 1 ? "" : "s"}</Text></View><Ionicons name={open ? "chevron-up" : "chevron-down"} size={20} color="#555" /></Pressable>{open ? <View className="border-t border-black/5 px-4 pb-4 pt-4"><Timeline events={delivery.timeline} />{delivery.shipment?.trackingReference ? <Pressable onPress={async () => { await Clipboard.setStringAsync(delivery.shipment.trackingReference); toast.success("Tracking reference copied"); }} className="mt-2 flex-row items-center justify-between rounded-2xl bg-[#f4f4f5] p-3"><View><Text className="text-[11px] font-bold uppercase text-[#777]">Tracking reference</Text><Text className="mt-1 font-black">{delivery.shipment.trackingReference}</Text></View><Ionicons name="copy-outline" size={20} color="#111" /></Pressable> : <View className="mt-2 rounded-2xl bg-[#f4f4f5] p-3"><Text className="text-xs font-semibold text-[#666]">Tracking will appear here after this delivery leaves Hook Hub.</Text></View>}{order.paymentMethod === "PAY_AT_HANDOVER" && !["CONFIRMED", "PAID"].includes(String(delivery.payment?.status || "").toUpperCase()) ? <View className="mt-3 flex-row gap-2"><Pressable disabled={paymentBusy} onPress={() => sharePayment(delivery.id)} className="h-12 flex-1 items-center justify-center rounded-2xl border border-black/10"><Text className="font-black">Share link</Text></Pressable><Pressable disabled={paymentBusy} onPress={() => resumePayment(delivery.id)} className="h-12 flex-1 items-center justify-center rounded-2xl bg-hook"><Text className="font-black">Pay now</Text></Pressable></View> : null}</View> : null}</View>;
+      })}</View>
+
+      {order.paymentMethod === "PREPAID" && !["CONFIRMED", "PAID"].includes(String(order.paymentStatus || "").toUpperCase()) ? <View className="mt-4 flex-row gap-2"><Pressable disabled={paymentBusy} onPress={() => sharePayment()} className="h-[52px] flex-1 items-center justify-center rounded-2xl border border-black/10 bg-white"><Text className="font-black">Share payment</Text></Pressable><Pressable disabled={paymentBusy} onPress={() => resumePayment()} className="h-[52px] flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-hook">{paymentBusy ? <HookLoader size="button" /> : <Ionicons name="card-outline" size={19} color="#111" />}<Text className="font-black">Pay securely</Text></Pressable></View> : null}
+      {order.canCancel ? <Pressable onPress={() => setCancelOpen(true)} className="mt-5 items-center py-3"><Text className="font-black text-red-600">Cancel unpaid order</Text></Pressable> : null}
+    </ScrollView>}
+
+    <HookConfirmSheet visible={cancelOpen} title="Cancel this order?" message="This will cancel the unpaid order and deactivate every payment link created for it." icon="close-circle-outline" confirmLabel="Cancel order" cancelLabel="Keep order" destructive busy={cancelOrder.isPending} onClose={() => setCancelOpen(false)} onConfirm={async () => { if (!id) return; try { await cancelOrder.mutateAsync({ orderId: id, reason: "Cancelled by customer before payment" }); setCancelOpen(false); toast.success("Order cancelled"); } catch (error) { toast.error(error instanceof Error ? error.message : "Order could not be cancelled"); } }} />
+  </View>;
 }
