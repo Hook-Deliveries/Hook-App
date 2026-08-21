@@ -30,7 +30,7 @@ import { MarketplaceSearch } from "./MarketplaceSearch";
 import { ScallopedEdge } from "./ScallopedEdge";
 import { ProfileAvatar } from "@/components/profile/ProfileComponents";
 
-const MARKET_ICON = require("../../assets/images/market-icon.png");
+const HOOK_APP_ICON = require("../../assets/images/app-icon.png");
 
 export function MarketplaceHomeScreen() {
   const session = useCustomerSessionQuery();
@@ -350,10 +350,10 @@ export function MarketplaceHomeScreen() {
               </Text>
             </View>
             <Image
-              source={MARKET_ICON}
+              source={HOOK_APP_ICON}
               contentFit="contain"
-              accessibilityLabel="Market"
-              style={{ width: 76, height: 76, flexShrink: 0 }}
+              accessibilityLabel="Hook"
+              style={{ width: 76, height: 76, borderRadius: 18, flexShrink: 0 }}
             />
           </View>
           <Animated.View style={originalSearchStyle}>

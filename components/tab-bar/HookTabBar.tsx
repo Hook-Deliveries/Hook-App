@@ -83,16 +83,17 @@ function AnimatedTabItem({
         scale.value = withSpring(selected ? 1.03 : 1, spring);
       }}
       className="z-10 flex-1 items-center justify-center"
+      style={styles.tabSlot}
     >
-      <Animated.View style={animatedStyle} className="items-center">
+      <Animated.View style={[styles.tabContent, animatedStyle]}>
         <Ionicons
           name={selected ? item.active : item.icon}
           size={21}
           color={selected ? "#111" : "#B2B2B5"}
         />
         <Text
-          numberOfLines={1}
-          className={`mt-0.5 text-[9px] font-semibold ${selected ? "text-black" : "text-[#B2B2B5]"}`}
+          allowFontScaling={false}
+          style={[styles.tabLabel, { color: selected ? "#111" : "#B2B2B5" }]}
         >
           {item.label}
         </Text>
@@ -217,6 +218,23 @@ const styles = StyleSheet.create({
     elevation: 30,
   },
   navigation: { height: HOOK_TAB_BAR_HEIGHT },
+  tabSlot: {
+    minWidth: 0,
+  },
+  tabContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 76,
+  },
+  tabLabel: {
+    fontFamily: "NunitoSans-SemiBold",
+    fontSize: 10,
+    lineHeight: 14,
+    marginTop: 2,
+    textAlign: "center",
+    includeFontPadding: false,
+    flexShrink: 0,
+  },
   cartButton: {
     width: HOOK_TAB_BAR_HEIGHT,
     height: HOOK_TAB_BAR_HEIGHT,
