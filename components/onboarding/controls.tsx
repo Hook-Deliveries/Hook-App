@@ -93,7 +93,6 @@ export function NextButton({
       className="h-14 w-full flex-row rounded-full bg-[#111111] px-0"
       style={{
         backgroundColor: "#111111",
-        elevation: 6,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 5 },
         shadowOpacity: 0.2,

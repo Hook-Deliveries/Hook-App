@@ -36,6 +36,7 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
   const google = useHookGoogleAuth();
   const apple = useHookAppleAuth();
   const snapPoints = useMemo(() => ["100%"], []);
@@ -62,7 +63,18 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
     sheet.current?.expand();
   }, [pathname]);
 
+  function openLegal(type: "terms" | "privacy") {
+    authRouteTransition.current = true;
+    authOpen.current = false;
+    sheet.current?.close();
+    setTimeout(() => router.push({ pathname: "/legal/[type]", params: { type, from: "auth" } }), 180);
+  }
+
   async function submit() {
+    if (!acceptedPolicies) {
+      toast.error("Almost there", "Please accept the Terms and Privacy Policy to continue.");
+      return;
+    }
     setBusy(true);
     try {
       const normalized = email.trim().toLowerCase();
@@ -129,20 +141,41 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
             </View>
           </View>
 
-          <View className="mt-6">
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: acceptedPolicies }}
+            onPress={() => setAcceptedPolicies((value) => !value)}
+            className="mt-5 flex-row items-start gap-2.5 rounded-2xl bg-white/70 p-3"
+          >
+            <View className={`mt-0.5 h-5 w-5 items-center justify-center rounded-md border ${acceptedPolicies ? "border-black bg-black" : "border-[#c4c4c8]"}`}>
+              {acceptedPolicies ? <Ionicons name="checkmark" size={14} color="#FFC809" /> : null}
+            </View>
+            <Text className="flex-1 text-[12px] leading-4 text-[#68686C]">
+              I agree to Hook&apos;s{" "}
+              <Text className="font-bold text-black underline" onPress={() => openLegal("terms")}>
+                Terms
+              </Text>
+              {" "}and{" "}
+              <Text className="font-bold text-black underline" onPress={() => openLegal("privacy")}>
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </Pressable>
+
+          <View className="mt-5">
             <Text className="mb-2 ml-1 text-[13px] font-bold text-[#46464A]">Email address</Text>
             <SheetInput value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" onFocus={() => sheet.current?.expand()} onSubmitEditing={submit} />
-            <Pressable accessibilityRole="button" disabled={busy} onPress={submit} className="mt-4 h-[52px] items-center justify-center rounded-full bg-hook disabled:opacity-60">
+            <Pressable accessibilityRole="button" disabled={busy || !acceptedPolicies} onPress={submit} className="mt-4 h-[52px] items-center justify-center rounded-full bg-hook disabled:opacity-60">
               {busy ? <HookLoader size="button" variant="dark" /> : <Text className="font-bold text-black">Continue</Text>}
             </Pressable>
           </View>
 
             <View className="mt-6 flex-row items-center gap-4"><View className="h-px flex-1 bg-black/10" /><Text className="text-xs font-semibold text-[#858589]">OR CONTINUE WITH</Text><View className="h-px flex-1 bg-black/10" /></View>
             <View className="mt-5 flex-row justify-center gap-3">
-              <Pressable accessibilityLabel="Continue with Google" disabled={!google.isGoogleReady || google.isGoogleLoading} onPress={() => void google.signInWithGoogle()} className="h-14 w-14 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm"><AntDesign name="google" size={22} color="#4285F4" /></Pressable>
-              {Platform.OS === 'ios' && apple.isAppleReady ? <Pressable accessibilityLabel="Continue with Apple" disabled={apple.isAppleLoading} onPress={() => void apple.signInWithApple()} className="h-14 w-14 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm"><Ionicons name="logo-apple" size={24} color="#111" /></Pressable> : null}
+              <Pressable accessibilityLabel="Continue with Google" disabled={!acceptedPolicies || !google.isGoogleReady || google.isGoogleLoading} onPress={() => void google.signInWithGoogle()} className="h-14 w-14 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm disabled:opacity-50"><AntDesign name="google" size={22} color="#4285F4" /></Pressable>
+              {Platform.OS === 'ios' && apple.isAppleReady ? <Pressable accessibilityLabel="Continue with Apple" disabled={!acceptedPolicies || apple.isAppleLoading} onPress={() => void apple.signInWithApple()} className="h-14 w-14 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm disabled:opacity-50"><Ionicons name="logo-apple" size={24} color="#111" /></Pressable> : null}
             </View>
-            <Text className="mt-5 px-5 text-center text-[11px] leading-4 text-[#858589]">By continuing, you agree to Hook&apos;s Terms and Privacy Policy.</Text>
           </View>
           </>
         </BottomSheetScrollView>

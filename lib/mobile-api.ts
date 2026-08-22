@@ -61,6 +61,8 @@ export interface PublicCatalogProduct {
   availabilityStatus: string;
   availabilityNote?: string;
   isPurchasable: boolean;
+  availableQuantity?: number;
+  lowStockThreshold?: number;
   publishedAt?: string;
 }
 
@@ -270,6 +272,22 @@ export function useProductQuery(id?: string) {
       apiRequest<PublicCatalogProduct>(`/public/products/${id}`, {
         auth: false,
       }),
+  });
+}
+
+export interface LegalContent {
+  type: "terms" | "privacy";
+  title: string;
+  bodyHtml: string;
+  version: number;
+  effectiveDate: string | null;
+}
+
+export function useLegalContentQuery(type: "terms" | "privacy") {
+  return useQuery({
+    queryKey: ["mobile", "legal", type],
+    queryFn: () => apiRequest<LegalContent>(`/public/legal/${type}`, { auth: false }),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

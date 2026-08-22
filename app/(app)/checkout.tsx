@@ -286,8 +286,21 @@ export default function CheckoutScreen() {
             ) : null}
           </View>
           <Text className="flex-1 text-xs leading-5 text-[#666]">
-            I accept the current Hook Terms, Privacy Policy, and Returns Policy
-            for this Order.
+            I accept the current Hook{" "}
+            <Text
+              className="font-bold text-black underline"
+              onPress={() => router.push("/legal/terms" as never)}
+            >
+              Terms
+            </Text>
+            ,{" "}
+            <Text
+              className="font-bold text-black underline"
+              onPress={() => router.push("/legal/privacy" as never)}
+            >
+              Privacy Policy
+            </Text>
+            , and Returns Policy for this Order.
           </Text>
         </Pressable>
       </ScrollView>

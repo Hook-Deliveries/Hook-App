@@ -254,6 +254,10 @@ export default function RootLayout() {
                 options={{ headerShown: false }}
               />
               <Stack.Screen
+                name="(app)/legal/[type]"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
                 name="auth/index"
                 options={{
                   fullScreenGestureEnabled: false,

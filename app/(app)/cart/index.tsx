@@ -152,7 +152,7 @@ export default function CartScreen() {
   }
   function checkout() {
     if (getCartItems(data).some((item) => item.checkoutEligible === false)) {
-      toast.info("Some products need confirmation", "Remove unavailable products or check back after a Runner confirms them.");
+      toast.info("Some products need confirmation", "Remove unavailable products or check back after a Market Associate confirms them.");
       return;
     }
     if (!isCustomerSession(session.data)) {
@@ -375,7 +375,7 @@ function CartRow({
         <View className="mt-2 flex-row items-center justify-between">
           {!item.checkoutEligible ? (
             <View className="flex-1 rounded-lg bg-[#FFF8DB] px-2.5 py-2">
-              <Text className="text-[11px] font-bold text-[#725A0A]">Runner confirmation required</Text>
+              <Text className="text-[11px] font-bold text-[#725A0A]">Market Associate confirmation required</Text>
               <Text className="mt-0.5 text-[9px] text-[#8A7440]">Keep it here and check back soon.</Text>
             </View>
           ) : (

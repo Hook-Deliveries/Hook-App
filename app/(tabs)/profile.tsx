@@ -130,7 +130,8 @@ export default function ProfileScreen() {
 
           <ProfileSection title="Support and legal">
             <ProfileRow icon="call" label="Help & support" onPress={() => toast.info("Hook support", "Support options are coming soon.")} neutral />
-            <ProfileRow icon="document-text" label="Terms & privacy" onPress={() => toast.info("Terms & privacy", "Legal information will open here.")} neutral />
+            <ProfileRow icon="document-text" label="Terms of Service" onPress={() => router.push("/legal/terms" as never)} neutral />
+            <ProfileRow icon="shield-checkmark" label="Privacy Policy" onPress={() => router.push("/legal/privacy" as never)} neutral />
           </ProfileSection>
 
           <ProfileSection title="App information">

@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -65,7 +66,17 @@ export default function ProductDetailScreen() {
   const [selectedVariantId, setSelectedVariantId] = useState<string>();
   const [addedToCart, setAddedToCart] = useState(false);
   const [sizeGuideVisible, setSizeGuideVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const addedFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function refreshProduct() {
+    setRefreshing(true);
+    try {
+      await query.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function goBack() {
     if (returnTo === "/(app)/cart") {
@@ -82,8 +93,7 @@ export default function ProductDetailScreen() {
   }
 
   const variants = useMemo(() => product?.variants || [], [product?.variants]);
-  const selectedVariant =
-    variants.find((item) => item.publicId === selectedVariantId) || variants[0];
+  const selectedVariant = variants.find((item) => item.publicId === selectedVariantId);
   const negotiated = useActiveNegotiationQuery(
     isCustomerSession(session.data) ? product?.publicId : undefined,
     selectedVariant?.publicId,
@@ -143,7 +153,21 @@ export default function ProductDetailScreen() {
   useEffect(() => {
     setQuantity(1);
     setActiveImage(0);
-    setSelectedVariantId(product?.variants?.[0]?.publicId);
+    /**
+     * Only pre-fill the variant when there's nothing to actually choose —
+     * a single variant, or one that doesn't vary by color/size at all.
+     * Whenever more than one color or size exists, leave it unselected so
+     * "Add to cart" can require a real, explicit pick.
+     */
+    const nextVariants = product?.variants || [];
+    const distinctColors = new Set(
+      nextVariants.map((variant) => variantColor(variant).toLowerCase()).filter(Boolean),
+    );
+    const distinctSizes = new Set(nextVariants.map((variant) => variant.size).filter(Boolean));
+    const hasChoice = distinctColors.size > 1 || distinctSizes.size > 1;
+    setSelectedVariantId(
+      nextVariants.length === 1 && !hasChoice ? nextVariants[0].publicId : undefined,
+    );
   }, [product?.publicId, product?.variants]);
 
   useEffect(
@@ -184,6 +208,14 @@ export default function ProductDetailScreen() {
 
   function addToCart(redirectToCart = false) {
     if (!product || !product.isPurchasable || add.isPending || addLock.current) return;
+    if (variants.length > 0 && !selectedVariant) {
+      const missing = [
+        colorOptions.length > 1 ? "a colour" : null,
+        sizeOptions.length > 1 ? "a size" : null,
+      ].filter(Boolean);
+      toast.error(`Choose ${missing.join(" and ") || "an option"} before adding to cart`);
+      return;
+    }
     addLock.current = true;
     if (addedFeedbackTimer.current) {
       clearTimeout(addedFeedbackTimer.current);
@@ -261,7 +293,15 @@ export default function ProductDetailScreen() {
   }
 
   const selectedColor = variantColor(selectedVariant || ({} as ProductVariant));
-  const unavailable = product.isPurchasable === false;
+  const variantRequired = variants.length > 0 && !selectedVariant;
+  const availableQuantity = product.availableQuantity;
+  const outOfStock = availableQuantity === 0;
+  const unavailable = product.isPurchasable === false || outOfStock;
+  // Only nudge once stock is genuinely low — the threshold is set by admin.
+  const lowStock =
+    typeof availableQuantity === "number" &&
+    availableQuantity > 0 &&
+    availableQuantity <= (product.lowStockThreshold ?? 5);
 
   return (
     <View className="flex-1 bg-[#F1F1F3]">
@@ -273,6 +313,15 @@ export default function ProductDetailScreen() {
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: insets.bottom + 124 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refreshProduct()}
+            tintColor="#FFC809"
+            colors={["#FFC809"]}
+            progressViewOffset={insets.top}
+          />
+        }
       >
         <View
           className="relative overflow-hidden rounded-b-[22px] bg-white"
@@ -310,13 +359,15 @@ export default function ProductDetailScreen() {
         </View>
 
         <View className="gap-7 px-3 pb-4">
-          {unavailable ? (
+          {unavailable && !outOfStock ? (
             <View className="flex-row items-start rounded-[16px] border border-amber-200 bg-[#FFF8DB] p-4">
               <Ionicons name="time-outline" size={21} color="#8A6500" />
               <View className="ml-3 flex-1">
-                <Text className="font-black text-[#4D3A00]">Temporarily unavailable</Text>
+                <Text className="font-black text-[#4D3A00]">
+                  Temporarily unavailable
+                </Text>
                 <Text className="mt-1 text-[12px] leading-5 text-[#725A0A]">
-                  {product.availabilityNote || "A Hook Runner is confirming availability. Keep it saved and check back soon."}
+                  {product.availabilityNote || "A Hook Market Associate is confirming availability. Keep it saved and check back soon."}
                 </Text>
               </View>
             </View>
@@ -341,6 +392,19 @@ export default function ProductDetailScreen() {
                   <Text className="text-[13px] text-black/50 line-through">
                     ₦{(product.sellingPriceMinor / 100).toLocaleString()}
                   </Text>
+                ) : null}
+                {outOfStock ? (
+                  <View className="rounded-full bg-[#EDEDED] px-2.5 py-1">
+                    <Text className="text-[11px] font-black text-[#5A5A5A]">
+                      Out of stock
+                    </Text>
+                  </View>
+                ) : lowStock ? (
+                  <View className="rounded-full bg-[#FDE8E4] px-2.5 py-1">
+                    <Text className="text-[11px] font-black text-[#B3402A]">
+                      Only {availableQuantity} left
+                    </Text>
+                  </View>
                 ) : null}
               </View>
               {negotiatedPriceMinor > 0 ? (
@@ -397,7 +461,12 @@ export default function ProductDetailScreen() {
 
           {colorOptions.length ? (
             <View>
-              <Text className="text-sm text-black">Color</Text>
+              <Text className="text-sm text-black">
+                Color
+                {colorOptions.length > 1 && !selectedColor ? (
+                  <Text className="text-[#C53B35]"> *</Text>
+                ) : null}
+              </Text>
               <View className="mt-3 flex-row flex-wrap gap-2">
                 {colorOptions.map((value) => {
                   const selected =
@@ -428,7 +497,12 @@ export default function ProductDetailScreen() {
           {sizeOptions.length ? (
             <View>
               <View className="flex-row items-center justify-between">
-                <Text className="text-sm text-black">Size</Text>
+                <Text className="text-sm text-black">
+                  Size
+                  {sizeOptions.length > 1 && !selectedVariant?.size ? (
+                    <Text className="text-[#C53B35]"> *</Text>
+                  ) : null}
+                </Text>
                 {product.category?.sizingGuide?.summary ? (
                   <Pressable
                     accessibilityRole="button"
@@ -459,9 +533,18 @@ export default function ProductDetailScreen() {
             </View>
           ) : null}
 
+          {variantRequired ? (
+            <Text className="text-[12px] text-[#C53B35]">
+              Choose {[colorOptions.length > 1 ? "a colour" : null, sizeOptions.length > 1 ? "a size" : null]
+                .filter(Boolean)
+                .join(" and ") || "an option"}{" "}
+              before adding to cart
+            </Text>
+          ) : null}
+
           <Text className="text-xs text-black/55">
             {unavailable
-              ? "Purchase actions will return after Runner confirmation."
+              ? "Purchase actions will return after Market Associate confirmation."
               : product.market?.name
               ? `Available from ${product.market.name}`
               : "Available from a verified Hook Market"}
@@ -490,7 +573,7 @@ export default function ProductDetailScreen() {
       <View
         className="absolute inset-x-0 z-50 flex-row items-center justify-between px-4"
         pointerEvents="box-none"
-        style={{ top: insets.top + 10, height: 44, elevation: 20 }}
+        style={{ top: insets.top + 10, height: 44 }}
       >
         <HookBackButton onPress={goBack} />
         <View className="flex-row items-center gap-2">
@@ -522,9 +605,9 @@ export default function ProductDetailScreen() {
         style={{ paddingBottom: insets.bottom + 8 }}
       >
         <Pressable
-          disabled={add.isPending || unavailable}
+          disabled={add.isPending || unavailable || variantRequired}
           onPress={() => void addToCart(false)}
-          className={`h-14 flex-1 items-center justify-center rounded-full ${unavailable ? "bg-[#E4E4E6] opacity-60" : "bg-[#F1F1F3]"}`}
+          className={`h-14 flex-1 items-center justify-center rounded-full ${unavailable || variantRequired ? "bg-[#E4E4E6] opacity-60" : "bg-[#F1F1F3]"}`}
         >
           {addedToCart ? (
             <View className="flex-row items-center gap-1.5">
@@ -536,9 +619,9 @@ export default function ProductDetailScreen() {
           )}
         </Pressable>
         <Pressable
-          disabled={add.isPending || unavailable}
+          disabled={add.isPending || unavailable || variantRequired}
           onPress={() => void addToCart(true)}
-          className={`h-14 flex-[1.2] items-center justify-center rounded-full ${unavailable ? "bg-[#D5D5D8] opacity-60" : "bg-[#FFC809]"}`}
+          className={`h-14 flex-[1.2] items-center justify-center rounded-full ${unavailable || variantRequired ? "bg-[#D5D5D8] opacity-60" : "bg-[#FFC809]"}`}
         >
           {add.isPending ? (
             <HookLoader size="button" />

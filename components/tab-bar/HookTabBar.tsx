@@ -215,7 +215,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
-    elevation: 30,
   },
   navigation: { height: HOOK_TAB_BAR_HEIGHT },
   tabSlot: {
@@ -245,6 +244,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.16,
     shadowRadius: 14,
-    elevation: 14,
   },
 });
