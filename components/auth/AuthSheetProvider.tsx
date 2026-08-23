@@ -141,31 +141,25 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
             </View>
           </View>
 
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: acceptedPolicies }}
-            onPress={() => setAcceptedPolicies((value) => !value)}
-            className="mt-5 flex-row items-start gap-2.5 rounded-2xl bg-white/70 p-3"
-          >
-            <View className={`mt-0.5 h-5 w-5 items-center justify-center rounded-md border ${acceptedPolicies ? "border-black bg-black" : "border-[#c4c4c8]"}`}>
-              {acceptedPolicies ? <Ionicons name="checkmark" size={14} color="#FFC809" /> : null}
-            </View>
-            <Text className="flex-1 text-[12px] leading-4 text-[#68686C]">
-              I agree to Hook&apos;s{" "}
-              <Text className="font-bold text-black underline" onPress={() => openLegal("terms")}>
-                Terms
-              </Text>
-              {" "}and{" "}
-              <Text className="font-bold text-black underline" onPress={() => openLegal("privacy")}>
-                Privacy Policy
-              </Text>
-              .
-            </Text>
-          </Pressable>
-
           <View className="mt-5">
             <Text className="mb-2 ml-1 text-[13px] font-bold text-[#46464A]">Email address</Text>
             <SheetInput value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" onFocus={() => sheet.current?.expand()} onSubmitEditing={submit} />
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: acceptedPolicies }}
+              onPress={() => setAcceptedPolicies((value) => !value)}
+              className="mt-3 flex-row items-center gap-3 rounded-2xl border border-black/[0.06] bg-white px-3.5 py-3"
+            >
+              <View className={`h-6 w-6 items-center justify-center rounded-lg border ${acceptedPolicies ? "border-black bg-black" : "border-[#C7C7CC] bg-[#F7F7F8]"}`}>
+                {acceptedPolicies ? <Ionicons name="checkmark" size={15} color="#FFC809" /> : null}
+              </View>
+              <Text className="flex-1 text-[12px] leading-4 text-[#68686C]">
+                I agree to Hook&apos;s{" "}
+                <Text className="font-bold text-black" onPress={() => openLegal("terms")}>Terms</Text>
+                {" "}and{" "}
+                <Text className="font-bold text-black" onPress={() => openLegal("privacy")}>Privacy Policy</Text>.
+              </Text>
+            </Pressable>
             <Pressable accessibilityRole="button" disabled={busy || !acceptedPolicies} onPress={submit} className="mt-4 h-[52px] items-center justify-center rounded-full bg-hook disabled:opacity-60">
               {busy ? <HookLoader size="button" variant="dark" /> : <Text className="font-bold text-black">Continue</Text>}
             </Pressable>

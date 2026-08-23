@@ -64,6 +64,7 @@ export function useHookGoogleAuth() {
     setIsSigningIn(true);
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await GoogleSignin.signOut().catch(() => undefined);
       const response = await GoogleSignin.signIn();
       if (response.type !== 'success') return;
 
@@ -85,6 +86,13 @@ export function useHookGoogleAuth() {
       }
       if (error instanceof ApiError && error.status === 0) {
         toast.error('Server unavailable', 'Please check your connection and try again.');
+        return;
+      }
+      if (error instanceof ApiError && error.status === 401) {
+        toast.error(
+          'Google sign-in could not be verified',
+          'Hook could not verify this Google account. Please try again or use email sign-in.',
+        );
         return;
       }
       toast.error(

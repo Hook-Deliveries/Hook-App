@@ -9,6 +9,7 @@ import {
   ScrollView,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -46,6 +47,7 @@ const DEFAULT_CATEGORY_IMAGE = require("../../assets/images/figma/category-marke
 
 export function DiscoverScreen() {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const { stateParams } = useHookLocation();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -82,6 +84,7 @@ export function DiscoverScreen() {
   const marketRows = markets.data || [];
   const selectedMarket = marketRows.find((market) => market.publicId === marketId);
   const products = discover.data?.products || [];
+  const gridCardWidth = Math.floor((screenWidth - 44) / 2);
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -321,9 +324,9 @@ export function DiscoverScreen() {
           </View>
         ) : null}
         {products.length ? (
-          <View className={`mt-4 px-4 ${layout === "grid" ? "flex-row flex-wrap gap-x-[3.2%] gap-y-5" : "gap-3"}`}>
+          <View className={`mt-4 px-4 ${layout === "grid" ? "flex-row flex-wrap gap-3" : "gap-3"}`}>
             {products.map((product) => (
-              <View key={product.publicId} style={{ width: layout === "grid" ? "48.4%" : "100%" }}>
+              <View key={product.publicId} style={{ width: layout === "grid" ? gridCardWidth : "100%" }}>
                 <CatalogProductCard product={product} variant="figma" displayMode={layout} />
               </View>
             ))}

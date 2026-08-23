@@ -45,6 +45,15 @@ export function PasswordLogin() {
       title="Password"
       description="Login your password">
       <View className="gap-2.5">
+        <View className="flex-row items-center justify-between px-1">
+          <Text className="text-[13px] font-bold text-[#46464A]">Password</Text>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => router.push({ pathname: '/auth/forgot-password', params: { email } })}>
+            <Text className="text-[13px] font-bold text-[#9A7600]">Forgot password?</Text>
+          </Pressable>
+        </View>
         <View
           className={`h-[50px] flex-row items-center rounded-full border-[1.3px] bg-white px-4 ${
             hasError ? 'border-[#ef4444]' : 'border-[#90a1b9]'
@@ -77,14 +86,7 @@ export function PasswordLogin() {
           Must contain at least {MIN_LENGTH} characters
         </Text>
 
-        <Pressable
-          accessibilityRole="button"
-          className="self-center py-3"
-          onPress={() => router.push({ pathname: '/auth/forgot-password', params: { email } })}>
-          <Text className="text-sm font-medium text-black">Forgot password?</Text>
-        </Pressable>
-
-        <View className="pt-1">
+        <View className="pt-3">
           <AuthPrimaryButton disabled={!isValid || loading} loading={loading} label="continue" onPress={handleContinue} />
         </View>
       </View>

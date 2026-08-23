@@ -153,12 +153,7 @@ export default function ProductDetailScreen() {
   useEffect(() => {
     setQuantity(1);
     setActiveImage(0);
-    /**
-     * Only pre-fill the variant when there's nothing to actually choose —
-     * a single variant, or one that doesn't vary by color/size at all.
-     * Whenever more than one color or size exists, leave it unselected so
-     * "Add to cart" can require a real, explicit pick.
-     */
+   
     const nextVariants = product?.variants || [];
     const distinctColors = new Set(
       nextVariants.map((variant) => variantColor(variant).toLowerCase()).filter(Boolean),

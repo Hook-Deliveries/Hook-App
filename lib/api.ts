@@ -54,7 +54,6 @@ type ApiOptions = RequestInit & {
 };
 
 const SENSITIVE_KEYS = /^(accessToken|refreshToken|authorization|password|token|idToken|otp|code|signupSessionToken)$/i;
-let refreshInFlight: Promise<AuthSession | null> | null = null;
 
 function redactForLog(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redactForLog);
@@ -149,8 +148,9 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
         session?.refreshToken
       ) {
         refreshAttempted = true;
-        if (await refreshSessionOnce(session)) continue;
-        await clearSession();
+        const outcome = await refreshSessionOnce(session);
+        if (outcome.session) continue;
+        if (outcome.authRejected) await clearSession();
       }
 
       if (
@@ -166,8 +166,17 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
   }
 }
 
-export async function refreshSession(session: AuthSession) {
-  if (!session.refreshToken) return null;
+type RefreshOutcome = { session: AuthSession } | { session: null; authRejected: boolean };
+
+/**
+ * Only a genuine auth rejection (the refresh token itself was invalid,
+ * expired, or revoked) should ever lead to logging the user out — a network
+ * blip or a down server during this specific call must not clear a session
+ * that is otherwise still good, or the user gets signed out just because a
+ * request timed out. `authRejected` lets callers make that distinction.
+ */
+async function refreshSessionWithOutcome(session: AuthSession): Promise<RefreshOutcome> {
+  if (!session.refreshToken) return { session: null, authRejected: true };
   try {
     const data = await apiRequest<AuthSession>('/auth/refresh', {
       auth: false,
@@ -175,19 +184,42 @@ export async function refreshSession(session: AuthSession) {
       body: JSON.stringify({ refreshToken: session.refreshToken }),
     });
     await saveSession(data);
-    return data;
-  } catch {
-    return null;
+    return { session: data };
+  } catch (error) {
+    const authRejected = error instanceof ApiError && (error.status === 401 || error.status === 403);
+    return { session: null, authRejected };
   }
 }
 
+export async function refreshSession(session: AuthSession) {
+  const outcome = await refreshSessionWithOutcome(session);
+  return outcome.session;
+}
+
+/**
+ * Refresh tokens rotate on every use — the backend invalidates the old one
+ * and revokes the whole session family if a stale refresh token is replayed.
+ * When several requests 401 around the same moment (e.g. a screen's parallel
+ * queries), each captures its own `session` before the 401 — if request A's
+ * refresh has already completed and rotated the token by the time request
+ * B's 401 handler runs, B's closure-captured session still holds the old,
+ * now-consumed refresh token. Re-reading the session fresh right before
+ * issuing a *new* refresh (as opposed to joining an in-flight one) ensures
+ * every refresh call uses the current token instead of a stale one that
+ * would trigger replay detection and force-logout the whole session.
+ */
+let refreshOutcomeInFlight: Promise<RefreshOutcome> | null = null;
+
 function refreshSessionOnce(session: AuthSession) {
-  if (!refreshInFlight) {
-    refreshInFlight = refreshSession(session).finally(() => {
-      refreshInFlight = null;
+  if (!refreshOutcomeInFlight) {
+    refreshOutcomeInFlight = (async () => {
+      const current = (await getSession()) || session;
+      return refreshSessionWithOutcome(current);
+    })().finally(() => {
+      refreshOutcomeInFlight = null;
     });
   }
-  return refreshInFlight;
+  return refreshOutcomeInFlight;
 }
 
 export { API_BASE_URL };
