@@ -1,9 +1,4 @@
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
-import { Stack, usePathname } from "expo-router";
+import { DefaultTheme, Stack, ThemeProvider, usePathname } from "expo-router";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as LocalAuthentication from "expo-local-authentication";
@@ -17,7 +12,6 @@ import "../global.css";
 import { AppState, Text, TextInput, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ToastProvider } from "@/components/shared/toast";
 import { AppQueryProvider } from "@/lib/query";
 import { HookLocationProvider } from "@/lib/location-context";
@@ -52,11 +46,14 @@ function applyNunitoDefaults() {
 }
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const pathname = usePathname();
   // The Home tab resolves to "/", so only the real splash route may bypass outage gating.
   const isLaunchSplash = pathname === "/splash";
   const isMarketHero = pathname.includes("/markets/");
+  // Splash and onboarding are full-bleed brand screens: their artwork runs to
+  // every edge and they apply their own bottom spacing. The shared bottom
+  // safe-area inset would letterbox them, so it is dropped for those routes.
+  const isFullBleedRoute = isLaunchSplash || pathname === "/onboarding";
   const [fontsLoaded] = useFonts({
     "NunitoSans-Regular": require("@expo-google-fonts/nunito-sans/400Regular/NunitoSans_400Regular.ttf"),
     "NunitoSans-Medium": require("@expo-google-fonts/nunito-sans/500Medium/NunitoSans_500Medium.ttf"),
@@ -139,7 +136,7 @@ export default function RootLayout() {
           {/* This screen has no padded header of its own, so it insets on all edges. */}
           <SafeAreaView style={{ flex: 1, backgroundColor: "#FFC809" }}>
             <BackendUnavailableScreen retrying={healthRetrying} onRetry={() => void retryHealth()} />
-            <StatusBar style="dark" translucent />
+            <StatusBar style="dark" />
           </SafeAreaView>
         </GestureHandlerRootView>
       </SafeAreaProvider>
@@ -150,14 +147,19 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#000" }}>
         <KeyboardProvider>
-        <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: "#000" }}>
-          <View style={{ flex: 1, backgroundColor: "#F1F1F3" }}>
+        <SafeAreaView
+          edges={isFullBleedRoute ? [] : ["bottom"]}
+          style={{ flex: 1, backgroundColor: "#000" }}
+        >
+          <View style={{ flex: 1, backgroundColor: isFullBleedRoute ? "transparent" : "#F1F1F3" }}>
             <AppQueryProvider>
               <HookLocationProvider>
                 <AuthSheetProvider>
-                  <ThemeProvider
-                    value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-                  >
+                  {/* Hook's UI is light-only (fixed #F1F1F3 surfaces, dark
+                      status bar), so the navigation theme is pinned rather
+                      than following the device — otherwise native chrome
+                      like the iOS tab bar flips appearance between screens. */}
+                  <ThemeProvider value={DefaultTheme}>
             <Stack>
               <Stack.Screen
                 name="splash"
@@ -310,13 +312,7 @@ export default function RootLayout() {
                 }}
               />
             </Stack>
-            {/*
-              Android is edge-to-edge (app.json android.edgeToEdgeEnabled), so the
-              app draws *under* the status bar and each screen pads by insets.top.
-              An opaque bar would sit on top of that padded header and clip it, so
-              the bar stays translucent and screens supply their own colour.
-            */}
-            <StatusBar animated style={isMarketHero ? "light" : "dark"} translucent />
+            <StatusBar animated style={isMarketHero ? "light" : "dark"} />
             <ToastProvider />
                   </ThemeProvider>
                 </AuthSheetProvider>

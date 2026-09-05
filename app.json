@@ -9,7 +9,7 @@
       "hook",
       "com.googleusercontent.apps.970939309798-beud2kvciukbrbpau74oosnmlf97de2r"
     ],
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.biodun42.hook",

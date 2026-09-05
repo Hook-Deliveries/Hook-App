@@ -27,7 +27,7 @@ import {
 } from "@/lib/mobile-api";
 import { isCustomerSession } from "@/lib/session";
 
-export default function CartScreen() {
+export function CartScreen({ showBackButton = true }: { showBackButton?: boolean } = {}) {
   const insets = useSafeAreaInsets();
   const cart = useCartQuery();
   const update = useUpdateCartItemMutation();
@@ -167,12 +167,12 @@ export default function CartScreen() {
   if (cart.isError) return <CartError retry={() => cart.refetch()} />;
   const items = getCartItems(data);
   const checkoutBlocked = items.some((item) => item.checkoutEligible === false);
-  if (!items.length) return <EmptyCart />;
+  if (!items.length) return <EmptyCart showBackButton={showBackButton} />;
 
   return (
     <View className="flex-1 bg-[#f4f4f5]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 py-3">
-        <HookBackButton />
+        {showBackButton ? <HookBackButton /> : <View className="h-11 w-11" />}
         <Text className="text-xl font-black">Your cart</Text>
         <Pressable
           onPress={() => setConfirmClear(true)}
@@ -432,12 +432,12 @@ function SummaryRow({
     </View>
   );
 }
-function EmptyCart() {
+function EmptyCart({ showBackButton }: { showBackButton: boolean }) {
   const insets = useSafeAreaInsets();
   return (
     <View className="flex-1 bg-[#F4F4F5]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 py-3">
-        <HookBackButton />
+        {showBackButton ? <HookBackButton /> : <View className="h-11 w-11" />}
         <Text className="text-xl font-black text-black">Your cart</Text>
         <View className="h-11 w-11" />
       </View>

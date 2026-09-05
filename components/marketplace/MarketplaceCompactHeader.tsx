@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import Animated from "react-native-reanimated";
-import { Pressable, StyleProp, Text, View, ViewStyle } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import type { ComponentProps } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScallopedEdge } from "./ScallopedEdge";
@@ -22,7 +23,7 @@ type MarketplaceCompactHeaderProps = {
   showActions?: boolean;
   visible?: boolean;
   plain?: boolean;
-  style?: StyleProp<ViewStyle>;
+  style?: ComponentProps<typeof Animated.View>["style"];
 };
 
 export function MarketplaceCompactHeader({

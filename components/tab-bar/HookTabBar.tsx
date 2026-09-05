@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import type { BottomTabBarProps } from "expo-router/build/react-navigation/bottom-tabs/types";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -15,7 +15,8 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { getCartItems, useCartQuery } from "@/lib/mobile-api";
+import { getCartItems, useCartQuery, useNegotiationsQuery } from "@/lib/mobile-api";
+import { countActiveNegotiations } from "@/lib/negotiations";
 import { useLocalSessionQuery } from "@/lib/auth-api";
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import {
@@ -34,6 +35,7 @@ type TabItemConfig = {
 const tabs: Record<string, TabItemConfig> = {
   index: { label: "Home", icon: "home-outline", active: "home" },
   discover: { label: "Discover", icon: "search-outline", active: "search" },
+  cart: { label: "Cart", icon: "cart-outline", active: "cart" },
   messages: { label: "Messages", icon: "chatbubble-ellipses-outline", active: "chatbubble-ellipses" },
   profile: { label: "Profile", icon: "person-outline", active: "person" },
 };
@@ -50,12 +52,14 @@ function AnimatedTabItem({
   onPress,
   onLongPress,
   accessibilityLabel,
+  badgeCount = 0,
 }: {
   selected: boolean;
   item: TabItemConfig;
   onPress: () => void;
   onLongPress: () => void;
   accessibilityLabel?: string;
+  badgeCount?: number;
 }) {
   const scale = useSharedValue(1);
   const lift = useSharedValue(0);
@@ -86,11 +90,20 @@ function AnimatedTabItem({
       style={styles.tabSlot}
     >
       <Animated.View style={[styles.tabContent, animatedStyle]}>
-        <Ionicons
-          name={selected ? item.active : item.icon}
-          size={21}
-          color={selected ? "#111" : "#B2B2B5"}
-        />
+        <View>
+          <Ionicons
+            name={selected ? item.active : item.icon}
+            size={21}
+            color={selected ? "#111" : "#B2B2B5"}
+          />
+          {badgeCount > 0 ? (
+            <View className="absolute -right-2 -top-1 min-w-4 items-center justify-center rounded-full border-2 border-white bg-[#FFC809] px-1">
+              <Text allowFontScaling={false} className="text-[9px] font-black text-black">
+                {badgeCount > 99 ? "99+" : badgeCount}
+              </Text>
+            </View>
+          ) : null}
+        </View>
         <Text
           allowFontScaling={false}
           style={[styles.tabLabel, { color: selected ? "#111" : "#B2B2B5" }]}
@@ -108,11 +121,15 @@ export function HookTabBar({
   navigation,
 }: BottomTabBarProps) {
   const cart = useCartQuery();
+  const negotiations = useNegotiationsQuery();
   const session = useLocalSessionQuery();
   const { openAuth } = useAuthSheet();
   const cartCount = getCartItems(cart.data).reduce(
     (sum, item) => sum + Number(item.quantity || 0),
     0,
+  );
+  const activeNegotiations = countActiveNegotiations(
+    Array.isArray(negotiations.data) ? negotiations.data : [],
   );
   const [width, setWidth] = useState(0);
   const slot = width && state.routes.length ? width / state.routes.length : 0;
@@ -163,6 +180,7 @@ export function HookTabBar({
                 key={route.key}
                 selected={selected}
                 item={item}
+                badgeCount={route.name === "messages" ? activeNegotiations : 0}
                 accessibilityLabel={options.tabBarAccessibilityLabel}
                 onLongPress={() =>
                   navigation.emit({ type: "tabLongPress", target: route.key })
@@ -190,7 +208,7 @@ export function HookTabBar({
         <Pressable
           accessibilityLabel={`Open cart${cartCount ? `, ${cartCount} items` : ""}`}
           accessibilityRole="button"
-          onPress={() => router.push("/cart" as never)}
+          onPress={() => router.push("/(tabs)/cart" as never)}
           className="items-center justify-center rounded-full bg-white"
           style={[styles.cartButton, styles.shadow]}
         >

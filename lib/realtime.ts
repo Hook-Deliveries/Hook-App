@@ -98,7 +98,11 @@ export class HookRealtimeClient {
 function invalidateForEvent(queryClient: ReturnType<typeof useQueryClient>, event: string) {
   if (event === "realtime.connected") {
     queryClient.invalidateQueries({ queryKey: ["mobile", "feed"] });
+    queryClient.invalidateQueries({ queryKey: ["mobile", "discover"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "products"] });
+    queryClient.invalidateQueries({ queryKey: ["mobile", "search"] });
+    queryClient.invalidateQueries({ queryKey: ["mobile", "categories"] });
+    queryClient.invalidateQueries({ queryKey: ["mobile", "public"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "notifications"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "orders"] });
     queryClient.invalidateQueries({ queryKey: ["mobile", "cart"] });
