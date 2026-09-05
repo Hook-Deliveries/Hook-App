@@ -28,7 +28,8 @@ try {
   googleSigninLoadError = error;
 }
 
-const isConfigured = Boolean(webClientId) && Boolean(googleSigninModule);
+const isNativeModuleAvailable = Boolean(googleSigninModule);
+const isConfigured = Boolean(webClientId) && isNativeModuleAvailable;
 
 if (isConfigured && googleSigninModule) {
   googleSigninModule.GoogleSignin.configure({
@@ -37,10 +38,11 @@ if (isConfigured && googleSigninModule) {
     scopes: ['openid', 'profile', 'email'],
     offlineAccess: false,
   });
-} else if (webClientId && googleSigninLoadError) {
+} else if (googleSigninLoadError) {
+  // Expected in Expo Go and in any dev client built before this package was
+  // added — Google sign-in stays disabled until the app is rebuilt.
   console.warn(
     '[google-auth] Native Google Sign-In module is not available in this build — rebuild with EAS to enable it.',
-    googleSigninLoadError,
   );
 }
 
@@ -49,7 +51,9 @@ export function useHookGoogleAuth() {
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
-    if (!isConfigured) {
+    // Only a genuinely missing client id is worth reporting here; a missing
+    // native module is already reported once at module load.
+    if (isNativeModuleAvailable && !webClientId) {
       console.warn(
         '[google-auth] EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is not set — Google sign-in is disabled.',
       );
