@@ -4,10 +4,11 @@ import { useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { AuthPrimaryButton, AuthScreenShell } from '@/components/auth/auth-screen-shell';
+import { useAuthSheet } from '@/components/auth/AuthSheetProvider';
 import { toast } from '@/components/shared/toast';
 import { useLoginMutation } from '@/lib/auth-api';
 import { registerPushToken } from '@/lib/push';
-import { getGuestId, saveSession } from '@/lib/session';
+import { saveSession } from '@/lib/session';
 
 const MIN_LENGTH = 9;
 
@@ -17,6 +18,7 @@ export function PasswordLogin() {
   const [visible, setVisible] = useState(false);
   const [touched, setTouched] = useState(false);
   const login = useLoginMutation();
+  const { hasPendingIntent } = useAuthSheet();
   const inputRef = useRef<TextInput>(null);
 
   const isValid = password.length >= MIN_LENGTH;
@@ -27,12 +29,12 @@ export function PasswordLogin() {
     setTouched(true);
     if (!isValid) return;
     try {
-      const guestId = await getGuestId();
-      const session = await login.mutateAsync({ email, password, guestId });
+      const shouldResume = hasPendingIntent();
+      const session = await login.mutateAsync({ email, password });
       await saveSession(session);
       await registerPushToken({ sendWelcome: true });
       toast.success('Welcome back', 'You are signed in');
-      router.replace('/(tabs)');
+      if (!shouldResume) router.replace('/(tabs)');
     } catch (error) {
       toast.error('Could not sign in', error instanceof Error ? error.message : 'Please check your password.');
     }
@@ -43,6 +45,15 @@ export function PasswordLogin() {
       title="Password"
       description="Login your password">
       <View className="gap-2.5">
+        <View className="flex-row items-center justify-between px-1">
+          <Text className="text-[13px] font-bold text-[#46464A]">Password</Text>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => router.push({ pathname: '/auth/forgot-password', params: { email } })}>
+            <Text className="text-[13px] font-bold text-[#9A7600]">Forgot password?</Text>
+          </Pressable>
+        </View>
         <View
           className={`h-[50px] flex-row items-center rounded-full border-[1.3px] bg-white px-4 ${
             hasError ? 'border-[#ef4444]' : 'border-[#90a1b9]'
@@ -75,14 +86,7 @@ export function PasswordLogin() {
           Must contain at least {MIN_LENGTH} characters
         </Text>
 
-        <Pressable
-          accessibilityRole="button"
-          className="self-center py-3"
-          onPress={() => router.push({ pathname: '/auth/forgot-password', params: { email } })}>
-          <Text className="text-sm font-medium text-black">Forgot password?</Text>
-        </Pressable>
-
-        <View className="pt-1">
+        <View className="pt-3">
           <AuthPrimaryButton disabled={!isValid || loading} loading={loading} label="continue" onPress={handleContinue} />
         </View>
       </View>

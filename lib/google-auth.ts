@@ -1,106 +1,111 @@
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useState } from 'react';
 
 import { toast } from '@/components/shared/toast';
 import { ApiError } from '@/lib/api';
 import { useGoogleLoginMutation } from '@/lib/auth-api';
 import { registerPushToken } from '@/lib/push';
-import { getGuestId, saveSession } from '@/lib/session';
+import { saveSession } from '@/lib/session';
+import { syncAnonymousCommerce } from '@/lib/commerce-sync';
 
-WebBrowser.maybeCompleteAuthSession();
-
+/**
+ * The native SDK issues ID tokens whose audience is the Web client ID, so it is
+ * required even though sign-in happens on iOS/Android. iosClientId lets the
+ * native iOS flow pick the right client without reading GoogleService-Info.
+ */
+const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
-const iosRedirectUri = 'com.googleusercontent.apps.970939309798-beud2kvciukbrbpau74oosnmlf97de2r:/oauthredirect';
-const androidRedirectUri = 'com.biodun42.hook:/oauthredirect';
-const redirectUri = Platform.select({
-  ios: iosRedirectUri,
-  android: androidRedirectUri,
-});
+
+// Requiring the native module throws if it isn't compiled into the running
+// binary (Expo Go, or a dev-client build made before this package was added).
+// Load it lazily so importing this file never crashes the app — only an
+// actual sign-in attempt on an unsupported build does.
+type GoogleSigninModule = typeof import('@react-native-google-signin/google-signin');
+let googleSigninModule: GoogleSigninModule | null = null;
+let googleSigninLoadError: unknown = null;
+try {
+  googleSigninModule = require('@react-native-google-signin/google-signin');
+} catch (error) {
+  googleSigninLoadError = error;
+}
+
+const isConfigured = Boolean(webClientId) && Boolean(googleSigninModule);
+
+if (isConfigured && googleSigninModule) {
+  googleSigninModule.GoogleSignin.configure({
+    webClientId,
+    iosClientId,
+    scopes: ['openid', 'profile', 'email'],
+    offlineAccess: false,
+  });
+} else if (webClientId && googleSigninLoadError) {
+  console.warn(
+    '[google-auth] Native Google Sign-In module is not available in this build — rebuild with EAS to enable it.',
+    googleSigninLoadError,
+  );
+}
 
 export function useHookGoogleAuth() {
   const googleLogin = useGoogleLoginMutation();
-  const handledTokenRef = useRef<string | null>(null);
-  const [isPrompting, setIsPrompting] = useState(false);
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    iosClientId,
-    androidClientId,
-    redirectUri,
-    scopes: ['openid', 'profile', 'email'],
-    selectAccount: true,
-  });
-
-  const isLoading = isPrompting || googleLogin.isPending;
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
-    async function completeGoogleLogin(idToken: string) {
-      if (handledTokenRef.current === idToken) return;
-      handledTokenRef.current = idToken;
-      try {
-        const guestId = await getGuestId();
-        const session = await googleLogin.mutateAsync({ idToken, guestId });
-        await saveSession(session);
-        await registerPushToken({ sendWelcome: true });
-        toast.success('Welcome to Hook', 'Google sign-in completed.');
-        router.replace('/(tabs)');
-      } catch (error) {
-        handledTokenRef.current = null;
-        if (error instanceof ApiError && error.status === 0) {
-          toast.error('Server unavailable', 'Please check your connection and try again.');
-          return;
-        }
-        toast.error(
-          'Google sign-in failed',
-          error instanceof Error ? error.message : 'Please try again.',
-        );
-      } finally {
-        setIsPrompting(false);
-      }
+    if (!isConfigured) {
+      console.warn(
+        '[google-auth] EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is not set — Google sign-in is disabled.',
+      );
     }
+  }, []);
 
-    if (!response) return;
-    if (response.type === 'success') {
-      const idToken = response.params.id_token;
+  const isLoading = isSigningIn || googleLogin.isPending;
+
+  async function signInWithGoogle() {
+    if (!isConfigured || !googleSigninModule || isLoading) return;
+    const { GoogleSignin, isErrorWithCode, statusCodes } = googleSigninModule;
+    setIsSigningIn(true);
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await GoogleSignin.signOut().catch(() => undefined);
+      const response = await GoogleSignin.signIn();
+      if (response.type !== 'success') return;
+
+      const idToken = response.data.idToken;
       if (!idToken) {
-        setIsPrompting(false);
         toast.error('Google sign-in could not be completed', 'Please try again.');
         return;
       }
-      void completeGoogleLogin(idToken);
-      return;
-    }
-    if (response.type === 'cancel' || response.type === 'dismiss') {
-      setIsPrompting(false);
-      return;
-    }
-    if (response.type === 'error') {
-      setIsPrompting(false);
-      toast.error('Google sign-in failed', response.error?.message || 'Please try again.');
-    }
-  }, [googleLogin, response]);
 
-  async function signInWithGoogle() {
-    if (!request || isLoading) return;
-    setIsPrompting(true);
-    try {
-      const result = await promptAsync();
-      if (result.type === 'cancel' || result.type === 'dismiss') {
-        setIsPrompting(false);
-      }
+      const session = await googleLogin.mutateAsync({ idToken });
+      await saveSession(session);
+      await Promise.allSettled([syncAnonymousCommerce(), registerPushToken({ sendWelcome: true })]);
+      toast.success('Welcome to Hook', 'Google sign-in completed.');
     } catch (error) {
-      setIsPrompting(false);
+      if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) return;
+      if (isErrorWithCode(error) && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        toast.error('Google Play Services unavailable', 'Update Google Play Services and try again.');
+        return;
+      }
+      if (error instanceof ApiError && error.status === 0) {
+        toast.error('Server unavailable', 'Please check your connection and try again.');
+        return;
+      }
+      if (error instanceof ApiError && error.status === 401) {
+        toast.error(
+          'Google sign-in could not be verified',
+          'Hook could not verify this Google account. Please try again or use email sign-in.',
+        );
+        return;
+      }
       toast.error(
         'Google sign-in failed',
         error instanceof Error ? error.message : 'Please try again.',
       );
+    } finally {
+      setIsSigningIn(false);
     }
   }
 
   return {
-    isGoogleReady: !!request,
+    isGoogleReady: isConfigured,
     isGoogleLoading: isLoading,
     signInWithGoogle,
   };
