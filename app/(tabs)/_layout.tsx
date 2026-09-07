@@ -23,6 +23,7 @@ export default function TabLayout() {
       <Tabs.Screen name="discover" options={{ title: "Discover" }} />
       <Tabs.Screen name="messages" options={{ title: "Messages" }} />
       <Tabs.Screen name="profile" options={{ title: "Profile" }} />
+      <Tabs.Screen name="cart" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -35,10 +35,11 @@ type TabItemConfig = {
 const tabs: Record<string, TabItemConfig> = {
   index: { label: "Home", icon: "home-outline", active: "home" },
   discover: { label: "Discover", icon: "search-outline", active: "search" },
-  cart: { label: "Cart", icon: "cart-outline", active: "cart" },
   messages: { label: "Messages", icon: "chatbubble-ellipses-outline", active: "chatbubble-ellipses" },
   profile: { label: "Profile", icon: "person-outline", active: "person" },
 };
+
+const mainTabNames = new Set(Object.keys(tabs));
 
 const spring = {
   damping: 22,
@@ -131,18 +132,24 @@ export function HookTabBar({
   const activeNegotiations = countActiveNegotiations(
     Array.isArray(negotiations.data) ? negotiations.data : [],
   );
+  const mainRoutes = state.routes.filter((route) => mainTabNames.has(route.name));
+  const activeRoute = state.routes[state.index];
+  const activeMainIndex = mainRoutes.findIndex(
+    (route) => route.key === activeRoute?.key,
+  );
+  const cartSelected = activeRoute?.name === "cart";
   const [width, setWidth] = useState(0);
-  const slot = width && state.routes.length ? width / state.routes.length : 0;
+  const slot = width && mainRoutes.length ? width / mainRoutes.length : 0;
   const activeWidth = Math.max(66, Math.min(slot - 5, 94));
   const activeOffset = useSharedValue(0);
 
   useEffect(() => {
-    if (!slot) return;
+    if (!slot || activeMainIndex < 0) return;
     activeOffset.value = withSpring(
-      state.index * slot + (slot - activeWidth) / 2,
+      activeMainIndex * slot + (slot - activeWidth) / 2,
       spring,
     );
-  }, [activeOffset, activeWidth, slot, state.index]);
+  }, [activeMainIndex, activeOffset, activeWidth, slot]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: activeOffset.value }],
@@ -163,16 +170,16 @@ export function HookTabBar({
           className="relative flex-1 flex-row overflow-hidden rounded-[31px] bg-white px-1"
           style={[styles.navigation, styles.shadow]}
         >
-          {slot ? (
+          {slot && activeMainIndex >= 0 ? (
             <Animated.View
               pointerEvents="none"
               className="absolute bottom-1 top-1 rounded-[25px] bg-[#FFC809]"
               style={[{ width: activeWidth }, indicatorStyle]}
             />
           ) : null}
-          {state.routes.map((route) => {
-            const selected = state.routes[state.index].key === route.key;
-            const item = tabs[route.name] || tabs.index;
+          {mainRoutes.map((route) => {
+            const selected = activeRoute?.key === route.key;
+            const item = tabs[route.name];
             const options = descriptors[route.key].options;
 
             return (
@@ -208,11 +215,16 @@ export function HookTabBar({
         <Pressable
           accessibilityLabel={`Open cart${cartCount ? `, ${cartCount} items` : ""}`}
           accessibilityRole="button"
+          accessibilityState={{ selected: cartSelected }}
           onPress={() => router.push("/(tabs)/cart" as never)}
-          className="items-center justify-center rounded-full bg-white"
+          className={`items-center justify-center rounded-full ${cartSelected ? "bg-[#FFC809]" : "bg-white"}`}
           style={[styles.cartButton, styles.shadow]}
         >
-          <Ionicons name="bag-handle-outline" size={23} color="#111" />
+          <Ionicons
+            name={cartSelected ? "bag-handle" : "bag-handle-outline"}
+            size={23}
+            color="#111"
+          />
           {cartCount > 0 ? (
             <View className="absolute right-0.5 top-0.5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#FFC809] px-1">
               <Text className="text-[10px] font-black text-black">
