@@ -8,6 +8,7 @@ import { HookBackButton } from "@/components/shared/HookBackButton";
 import { useCustomerSessionQuery, useOrdersQuery } from "@/lib/mobile-api";
 import { isCustomerSession } from "@/lib/session";
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
+import { Button } from "@/components/ui/button";
 export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const query = useOrdersQuery();
@@ -30,7 +31,7 @@ export default function OrdersScreen() {
       <View className="h-20 w-20 items-center justify-center rounded-full bg-[#fff4c7]"><Ionicons name="cube-outline" size={36} /></View>
       <Text className="mt-5 text-xl font-black">Sign in to track orders</Text>
       <Text className="mt-2 text-center text-sm leading-5 text-[#777]">Your local cart stays ready while you sign in or create an account.</Text>
-      <Pressable onPress={() => openAuth("/orders" as never)} className="mt-6 h-[52px] w-full items-center justify-center rounded-full bg-hook"><Text className="font-bold text-black">Continue</Text></Pressable>
+      <Button title="Continue" onPress={() => openAuth("/orders" as never)} className="mt-6 w-full" />
     </View>
   );
   if (query.isLoading || session.isPending)
@@ -117,9 +118,7 @@ export default function OrdersScreen() {
               <Text className="mt-2 text-center text-sm leading-5 text-[#777]">
                 Explore products from Hook Markets and your first order will appear here.
               </Text>
-              <Pressable onPress={() => router.push("/(tabs)/discover" as never)} className="mt-6 h-12 items-center justify-center rounded-full bg-hook px-6">
-                <Text className="font-black text-black">Start discovering</Text>
-              </Pressable>
+              <Button title="Start discovering" onPress={() => router.push("/(tabs)/discover" as never)} className="mt-6" />
             </View>
           </View>
         }

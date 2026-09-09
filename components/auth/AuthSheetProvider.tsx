@@ -6,7 +6,7 @@ import { createContext, PropsWithChildren, useCallback, useContext, useEffect, u
 import { Keyboard, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HookLoader } from "@/components/shared/HookLoader";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/components/shared/toast";
 import { lookupEmail } from "@/lib/auth-api";
 import { useHookGoogleAuth } from "@/lib/google-auth";
@@ -161,9 +161,7 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
                 <Text className="font-bold text-black" onPress={() => openLegal("privacy")}>Privacy Policy</Text>.
               </Text>
             </Pressable>
-            <Pressable accessibilityRole="button" disabled={busy || !acceptedPolicies} onPress={submit} className="mt-4 h-[52px] items-center justify-center rounded-full bg-hook disabled:opacity-60">
-              {busy ? <HookLoader size="button" variant="dark" /> : <Text className="font-bold text-black">Continue</Text>}
-            </Pressable>
+            <Button title="Continue" disabled={!acceptedPolicies} loading={busy} onPress={submit} className="mt-4" />
           </View>
 
             {hasSocialAuth ? (

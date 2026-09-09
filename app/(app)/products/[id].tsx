@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CartButton } from "@/components/cart/CartButton";
 import { CatalogProductCard } from "@/components/marketplace/CatalogProductCard";
 import { NegotiationPrompt } from "@/components/marketplace/NegotiationPrompt";
-import { HookLoader } from "@/components/shared/HookLoader";
+import { BottomActionBar, BottomActionButton } from "@/components/shared/BottomActionBar";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
 import { HookBackButton } from "@/components/shared/HookBackButton";
 import { HookSheet } from "@/components/shared/HookSheet";
@@ -622,40 +622,22 @@ export default function ProductDetailScreen() {
           </Text>
         </View>
       ) : (
-        <View
-          className="absolute inset-x-0 bottom-0 flex-row gap-3 border-t border-black/5 bg-white px-4 pt-2"
-          style={{ paddingBottom: 8 }}
-        >
-            <Pressable
-              disabled={add.isPending || unavailable}
-              onPress={() => void addToCart(false)}
-              className={`h-14 flex-1 items-center justify-center rounded-full ${unavailable ? "bg-[#E4E4E6] opacity-60" : "bg-[#F1F1F3]"}`}
-            >
-              {addedToCart ? (
-                <View className="flex-row items-center gap-1.5">
-                  <Ionicons name="checkmark-circle" size={18} color="#111" />
-                  <Text className="font-semibold text-black">Added</Text>
-                </View>
-              ) : (
-                <Text className="font-semibold text-black">
-                  {unavailable ? "Unavailable" : "Add to cart"}
-                </Text>
-              )}
-            </Pressable>
-            <Pressable
-              disabled={add.isPending || unavailable}
-              onPress={() => void addToCart(true)}
-              className={`h-14 flex-[1.2] items-center justify-center rounded-full ${unavailable ? "bg-[#D5D5D8] opacity-60" : "bg-[#FFC809]"}`}
-            >
-              {add.isPending ? (
-                <HookLoader size="button" />
-              ) : (
-                <Text className="font-semibold text-black">
-                  {unavailable ? "Check back soon" : "Buy now"}
-                </Text>
-              )}
-            </Pressable>
-        </View>
+        <BottomActionBar>
+          <BottomActionButton
+            label={addedToCart ? "Added" : unavailable ? "Unavailable" : "Add to cart"}
+            icon={addedToCart ? "checkmark-circle" : undefined}
+            disabled={unavailable}
+            onPress={() => void addToCart(false)}
+            tone="secondary"
+          />
+          <BottomActionButton
+            label={unavailable ? "Check back soon" : "Buy now"}
+            disabled={unavailable}
+            loading={add.isPending}
+            onPress={() => void addToCart(true)}
+            flex={1.2}
+          />
+        </BottomActionBar>
       )}
 
       <HookSheet

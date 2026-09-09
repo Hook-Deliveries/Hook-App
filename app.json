@@ -10,7 +10,6 @@
       "com.googleusercontent.apps.970939309798-beud2kvciukbrbpau74oosnmlf97de2r"
     ],
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.biodun42.hook",
       "supportsTablet": true,
@@ -26,7 +25,6 @@
         "backgroundColor": "#FFC809",
         "foregroundImage": "./assets/images/adaptive-icon.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.USE_BIOMETRIC",
@@ -36,11 +34,6 @@
     "androidStatusBar": {
       "barStyle": "dark-content",
       "translucent": true
-    },
-    "androidNavigationBar": {
-      "backgroundColor": "#000000",
-      "barStyle": "light-content",
-      "enforceContrast": false
     },
     "web": {
       "output": "static",

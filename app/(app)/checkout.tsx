@@ -7,8 +7,9 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HookSheet } from "@/components/shared/HookSheet";
+import { BottomActionBar, BottomActionButton } from "@/components/shared/BottomActionBar";
+import { Button } from "@/components/ui/button";
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
-import { HookLoader } from "@/components/shared/HookLoader";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
 import { HookBackButton } from "@/components/shared/HookBackButton";
 import { toast } from "@/components/shared/toast";
@@ -57,9 +58,7 @@ export default function CheckoutScreen() {
         </View>
         <Text className="mt-5 text-center text-2xl font-black text-black">Sign in to checkout</Text>
         <Text className="mt-2 text-center text-sm leading-5 text-[#666]">Your local cart will be added to your Hook account before checkout.</Text>
-        <Pressable onPress={() => openAuth("/checkout" as never)} className="mt-6 h-[52px] w-full items-center justify-center rounded-full bg-hook">
-          <Text className="font-black text-black">Continue</Text>
-        </Pressable>
+        <Button title="Continue" onPress={() => openAuth("/checkout" as never)} className="mt-6 w-full" />
       </View>
     );
   }
@@ -304,38 +303,31 @@ export default function CheckoutScreen() {
           </Text>
         </Pressable>
       </ScrollView>
-      <View
-        className="absolute inset-x-0 bottom-0 border-t border-black/5 bg-white px-4 pt-3"
-        style={{ paddingBottom: insets.bottom + 8 }}
-      >
-        <View className="mb-2 flex-row items-center justify-between">
-          <Text className="text-xs text-[#777]">
+      <BottomActionBar>
+        <View className="min-w-0 flex-[0.8]">
+          <Text numberOfLines={1} className="text-[11px] font-semibold text-[#777]">
             {paymentMethod === "PREPAID"
               ? "Secure Paystack payment"
               : "Operations review may apply"}
           </Text>
-          <Text className="font-black">
+          <Text numberOfLines={1} className="mt-0.5 text-base font-black text-black">
             ₦{(Number((cart.data as any)?.subtotalMinor || 0) / 100).toLocaleString()}
           </Text>
         </View>
-        <Pressable
+        <BottomActionButton
+          label={
+            !selectedAddress
+              ? "Add address"
+              : paymentMethod === "PREPAID"
+                ? "Continue to payment"
+                : "Submit request"
+          }
           disabled={busy}
+          loading={busy}
           onPress={() => void placeOrder()}
-          className={`h-14 items-center justify-center rounded-2xl ${busy ? "bg-[#e3e3e5]" : "bg-hook"}`}
-        >
-          {busy ? (
-            <HookLoader size="button" />
-          ) : (
-            <Text className="font-black">
-              {!selectedAddress
-                ? "Add delivery address"
-                : paymentMethod === "PREPAID"
-                ? "Continue to secure payment"
-                : "Submit handover request"}
-            </Text>
-          )}
-        </Pressable>
-      </View>
+          flex={1.4}
+        />
+      </BottomActionBar>
       <HookSheet
         visible={addressPromptVisible}
         onClose={() => setAddressPromptVisible(false)}

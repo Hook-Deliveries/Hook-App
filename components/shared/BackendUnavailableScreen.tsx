@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HookLoader } from "@/components/shared/HookLoader";
+import { Button } from "@/components/ui/button";
 
 export function BackendUnavailableScreen({
   retrying,
@@ -31,20 +31,7 @@ export function BackendUnavailableScreen({
           We cannot reach Hook right now. Our team is working to bring
           everything back to life.
         </Text>
-        <Pressable
-          disabled={retrying}
-          onPress={onRetry}
-          className="mt-8 h-14 flex-row items-center justify-center rounded-full bg-black px-6"
-        >
-          {retrying ? (
-            <HookLoader size="button" variant="yellow" />
-          ) : (
-            <>
-              <Ionicons name="refresh" size={19} color="#FFC809" />
-              <Text className="ml-2 font-black text-hook">Try again</Text>
-            </>
-          )}
-        </Pressable>
+        <Button title="Try again" variant="dark" loading={retrying} onPress={onRetry} className="mt-8" />
       </View>
       <Text className="text-center text-xs font-semibold text-black/45">
         Your account and cart are safe.

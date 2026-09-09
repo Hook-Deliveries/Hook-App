@@ -11,6 +11,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
+import { BottomActionBar, BottomActionButton } from "@/components/shared/BottomActionBar";
+import { Button } from "@/components/ui/button";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
 import { HookBackButton } from "@/components/shared/HookBackButton";
 import { RemoteImage } from "@/components/shared/RemoteImage";
@@ -253,15 +255,21 @@ export function CartScreen({ showBackButton = true }: { showBackButton?: boolean
           </Text>
         </View>
       </ScrollView>
-      <View
-        className="absolute inset-x-0 bottom-0 border-t border-black/5 bg-white px-4 pt-3"
-        style={{ paddingBottom: insets.bottom + 10 }}
-      >
-        <Pressable accessibilityRole="button" accessibilityState={{ disabled: checkoutBlocked }} onPress={checkout} className={`h-[54px] flex-row items-center justify-center rounded-2xl ${checkoutBlocked ? "bg-[#D5D5D8]" : "bg-hook"}`}>
-          <Text className="font-black text-black">{checkoutBlocked ? "Review unavailable products" : "Checkout"}</Text>
-          <Ionicons name="arrow-forward" size={18} color="#111" style={{ marginLeft: 8 }} />
-        </Pressable>
-      </View>
+      <BottomActionBar>
+        <View className="min-w-0 flex-[0.8]">
+          <Text className="text-[11px] font-semibold text-[#777]">Subtotal</Text>
+          <Text numberOfLines={1} className="mt-0.5 text-base font-black text-black">
+            ₦{Number(visibleSubtotal(items) / 100).toLocaleString()}
+          </Text>
+        </View>
+        <BottomActionButton
+          label={checkoutBlocked ? "Review products" : "Checkout"}
+          icon="arrow-forward"
+          disabled={checkoutBlocked}
+          onPress={checkout}
+          flex={1.4}
+        />
+      </BottomActionBar>
       <HookConfirmSheet
         visible={confirmClear}
         title="Clear your cart?"
@@ -455,9 +463,7 @@ function EmptyCart({ showBackButton }: { showBackButton: boolean }) {
         </View>
         <Text className="mt-6 text-[22px] font-black text-black">Your cart is empty</Text>
         <Text className="mt-2 text-center text-[14px] leading-5 text-[#77777B]">Browse products from Hook Markets and add something you love.</Text>
-        <Pressable onPress={() => router.replace("/(tabs)/discover")} className="mt-7 h-[52px] w-full items-center justify-center rounded-full bg-hook">
-          <Text className="font-black text-black">Discover products</Text>
-        </Pressable>
+        <Button title="Discover products" onPress={() => router.replace("/(tabs)/discover")} className="mt-7 w-full" />
       </View>
     </View>
   );
