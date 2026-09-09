@@ -63,7 +63,8 @@ export default function ProductDetailScreen() {
   const product = query.data;
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
-  const [selectedVariantId, setSelectedVariantId] = useState<string>();
+  const [selectedColor, setSelectedColor] = useState<string>();
+  const [selectedSize, setSelectedSize] = useState<string>();
   const [addedToCart, setAddedToCart] = useState(false);
   const [sizeGuideVisible, setSizeGuideVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,15 +94,6 @@ export default function ProductDetailScreen() {
   }
 
   const variants = useMemo(() => product?.variants || [], [product?.variants]);
-  const selectedVariant = variants.find((item) => item.publicId === selectedVariantId);
-  const negotiated = useActiveNegotiationQuery(
-    isCustomerSession(session.data) ? product?.publicId : undefined,
-    selectedVariant?.publicId,
-    quantity,
-  );
-  const quote = (negotiated.data as any)?.quote;
-  const negotiatedPriceMinor = Number(quote?.agreedPriceMinor || 0);
-  const displayPriceMinor = negotiatedPriceMinor || Number(product?.effectivePriceMinor || 0);
   const colorOptions = useMemo(() => {
     const values = new Map<string, string>();
     variants.forEach((variant) => {
@@ -111,6 +103,29 @@ export default function ProductDetailScreen() {
     });
     return [...values.values()];
   }, [variants]);
+  const sizeOptions = useMemo(() => {
+    const values = new Set<string>();
+    variants.forEach((variant) => {
+      if (variant.size) values.add(variant.size);
+    });
+    return [...values];
+  }, [variants]);
+  const selectedVariant = variants.find((variant) => {
+    const colorMatches =
+      !colorOptions.length ||
+      variantColor(variant).toLowerCase() === selectedColor?.toLowerCase();
+    const sizeMatches = !sizeOptions.length || variant.size === selectedSize;
+    return colorMatches && sizeMatches;
+  });
+  const negotiated = useActiveNegotiationQuery(
+    isCustomerSession(session.data) ? product?.publicId : undefined,
+    selectedVariant?.publicId,
+    quantity,
+  );
+  const quote = (negotiated.data as any)?.quote;
+  const negotiatedPriceMinor = Number(quote?.agreedPriceMinor || 0);
+  const displayPriceMinor =
+    negotiatedPriceMinor || Number(product?.effectivePriceMinor || 0);
   const relatedByMarket = useProductsQuery(
     { marketId: product?.market?.publicId, limit: 10 },
     Boolean(product?.market?.publicId),
@@ -137,13 +152,6 @@ export default function ProductDetailScreen() {
     }
     return result.slice(0, 8);
   }, [relatedByMarket.data, relatedByCategory.data, product?.publicId]);
-  const sizeOptions = useMemo(() => {
-    const values = new Set<string>();
-    variants.forEach((variant) => {
-      if (variant.size) values.add(variant.size);
-    });
-    return [...values];
-  }, [variants]);
   const images = product?.media?.length ? product.media : [{ url: "" }];
   const heroHeight = Math.min(Math.max(width * 1.1, 380), 460);
   const isLiked = Boolean(
@@ -153,16 +161,9 @@ export default function ProductDetailScreen() {
   useEffect(() => {
     setQuantity(1);
     setActiveImage(0);
-   
-    const nextVariants = product?.variants || [];
-    const distinctColors = new Set(
-      nextVariants.map((variant) => variantColor(variant).toLowerCase()).filter(Boolean),
-    );
-    const distinctSizes = new Set(nextVariants.map((variant) => variant.size).filter(Boolean));
-    const hasChoice = distinctColors.size > 1 || distinctSizes.size > 1;
-    setSelectedVariantId(
-      nextVariants.length === 1 && !hasChoice ? nextVariants[0].publicId : undefined,
-    );
+
+    setSelectedColor(undefined);
+    setSelectedSize(undefined);
   }, [product?.publicId, product?.variants]);
 
   useEffect(
@@ -173,42 +174,34 @@ export default function ProductDetailScreen() {
   );
 
   function chooseColor(value: string) {
-    const matching =
-      variants.find(
-        (variant) =>
-          variantColor(variant).toLowerCase() === value.toLowerCase() &&
-          (!selectedVariant?.size ||
-            !variant.size ||
-            variant.size === selectedVariant.size),
-      ) ||
-      variants.find(
-        (variant) =>
-          variantColor(variant).toLowerCase() === value.toLowerCase(),
-      );
-    if (matching) setSelectedVariantId(matching.publicId);
+    if (selectedColor?.toLowerCase() === value.toLowerCase()) return;
+    setSelectedColor(value);
+    // A colour change creates a new choice: never carry a size across silently.
+    setSelectedSize(undefined);
   }
 
   function chooseSize(value: string) {
-    const matching =
-      variants.find(
-        (variant) =>
-          variant.size === value &&
-          (!selectedVariant ||
-            !variantColor(selectedVariant) ||
-            variantColor(variant).toLowerCase() ===
-              variantColor(selectedVariant).toLowerCase()),
-      ) || variants.find((variant) => variant.size === value);
-    if (matching) setSelectedVariantId(matching.publicId);
+    if (colorOptions.length && !selectedColor) return;
+    const matching = variants.some(
+      (variant) =>
+        variant.size === value &&
+        (!selectedColor ||
+          variantColor(variant).toLowerCase() === selectedColor.toLowerCase()),
+    );
+    if (matching) setSelectedSize(value);
   }
 
   function addToCart(redirectToCart = false) {
-    if (!product || !product.isPurchasable || add.isPending || addLock.current) return;
+    if (!product || !product.isPurchasable || add.isPending || addLock.current)
+      return;
     if (variants.length > 0 && !selectedVariant) {
       const missing = [
-        colorOptions.length > 1 ? "a colour" : null,
-        sizeOptions.length > 1 ? "a size" : null,
+        colorOptions.length && !selectedColor ? "a colour" : null,
+        sizeOptions.length && !selectedSize ? "a size" : null,
       ].filter(Boolean);
-      toast.error(`Choose ${missing.join(" and ") || "an option"} before adding to cart`);
+      toast.error(
+        `Choose ${missing.join(" and ") || "an option"} before adding to cart`,
+      );
       return;
     }
     addLock.current = true;
@@ -268,7 +261,13 @@ export default function ProductDetailScreen() {
   }
 
   if (query.isLoading) {
-    return <HookPageLoading title="Product details" label="Loading product" onBack={goBack} />;
+    return (
+      <HookPageLoading
+        title="Product details"
+        label="Loading product"
+        onBack={goBack}
+      />
+    );
   }
 
   if (!product) {
@@ -287,8 +286,13 @@ export default function ProductDetailScreen() {
     );
   }
 
-  const selectedColor = variantColor(selectedVariant || ({} as ProductVariant));
   const variantRequired = variants.length > 0 && !selectedVariant;
+  const selectionPrompt =
+    colorOptions.length && !selectedColor
+      ? "Select a colour to continue"
+      : sizeOptions.length && !selectedSize
+        ? "Now select your size to continue"
+        : "Select the available options to continue";
   const availableQuantity = product.availableQuantity;
   const outOfStock = availableQuantity === 0;
   const unavailable = product.isPurchasable === false || outOfStock;
@@ -341,7 +345,6 @@ export default function ProductDetailScreen() {
               </View>
             ))}
           </ScrollView>
-
         </View>
 
         <View className="h-10 flex-row items-center justify-center gap-1.5">
@@ -362,7 +365,8 @@ export default function ProductDetailScreen() {
                   Temporarily unavailable
                 </Text>
                 <Text className="mt-1 text-[12px] leading-5 text-[#725A0A]">
-                  {product.availabilityNote || "A Hook Market Associate is confirming availability. Keep it saved and check back soon."}
+                  {product.availabilityNote ||
+                    "A Hook Market Associate is confirming availability. Keep it saved and check back soon."}
                 </Text>
               </View>
             </View>
@@ -437,17 +441,17 @@ export default function ProductDetailScreen() {
           {product.negotiationAvailable && !unavailable ? (
             <NegotiationPrompt
               onPress={() => {
-                const destination = `/negotiations/new?productId=${encodeURIComponent(product.publicId)}&variantId=${encodeURIComponent(selectedVariant?.publicId || "")}&quantity=${quantity}` as never;
-                if (!isCustomerSession(session.data)) return openAuth(destination);
+                const destination =
+                  `/negotiations/new?productId=${encodeURIComponent(product.publicId)}&variantId=${encodeURIComponent(selectedVariant?.publicId || "")}&quantity=${quantity}` as never;
+                if (!isCustomerSession(session.data))
+                  return openAuth(destination);
                 router.push(destination);
               }}
             />
           ) : null}
 
           <View className="rounded-[5px] bg-white px-3 py-3">
-            <Text className="text-base font-medium text-black">
-              Description
-            </Text>
+            <Text className="text-base font-medium text-black">Description</Text>
             <Text className="mt-2 text-[14px] leading-6 text-black/60">
               {product.description ||
                 "A quality-checked product from a verified Hook market."}
@@ -458,14 +462,13 @@ export default function ProductDetailScreen() {
             <View>
               <Text className="text-sm text-black">
                 Color
-                {colorOptions.length > 1 && !selectedColor ? (
-                  <Text className="text-[#C53B35]"> *</Text>
-                ) : null}
+                    {!selectedColor ? (
+                      <Text className="text-[#C53B35]"> *</Text>
+                    ) : null}
               </Text>
               <View className="mt-3 flex-row flex-wrap gap-2">
                 {colorOptions.map((value) => {
-                  const selected =
-                    selectedColor.toLowerCase() === value.toLowerCase();
+                  const selected = selectedColor?.toLowerCase() === value.toLowerCase();
                   const displayColor = resolveColor(value);
                   return (
                     <Pressable
@@ -475,13 +478,8 @@ export default function ProductDetailScreen() {
                       onPress={() => chooseColor(value)}
                       className={`flex-row items-center rounded-full border px-2.5 py-1.5 ${selected ? "border-black" : "border-black/25"}`}
                     >
-                      <View
-                        className="h-5 w-5 rounded-full border border-black/10"
-                        style={{ backgroundColor: displayColor.hex }}
-                      />
-                      <Text className="ml-1.5 text-[13px] text-black">
-                        {displayColor.name}
-                      </Text>
+                      <View className="h-5 w-5 rounded-full border border-black/10" style={{ backgroundColor: displayColor.hex }} />
+                      <Text className="ml-1.5 text-[13px] text-black">{displayColor.name}</Text>
                     </Pressable>
                   );
                 })}
@@ -491,58 +489,72 @@ export default function ProductDetailScreen() {
 
           {sizeOptions.length ? (
             <View>
-              <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center justify-between">
                 <Text className="text-sm text-black">
                   Size
-                  {sizeOptions.length > 1 && !selectedVariant?.size ? (
-                    <Text className="text-[#C53B35]"> *</Text>
-                  ) : null}
-                </Text>
-                {product.category?.sizingGuide?.summary ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Open size guide"
-                    onPress={() => setSizeGuideVisible(true)}
-                    className="flex-row items-center gap-1"
-                  >
-                    <Ionicons name="information-circle-outline" size={16} color="#555" />
-                    <Text className="text-xs font-semibold text-black/60">Size guide</Text>
-                  </Pressable>
-                ) : null}
-              </View>
+                      {!selectedSize ? (
+                        <Text className="text-[#C53B35]"> *</Text>
+                      ) : null}
+                    </Text>
+                    {product.category?.sizingGuide?.summary ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Open size guide"
+                        onPress={() => setSizeGuideVisible(true)}
+                        className="flex-row items-center gap-1"
+                      >
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={16}
+                          color="#555"
+                        />
+                        <Text className="text-xs font-semibold text-black/60">
+                          Size guide
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
               <View className="mt-3 flex-row flex-wrap gap-2">
-                {sizeOptions.map((size) => (
-                  <Pressable
-                    key={size}
-                    accessibilityRole="button"
-                    accessibilityState={{
-                      selected: selectedVariant?.size === size,
-                    }}
-                    onPress={() => chooseSize(size)}
-                    className={`min-w-10 items-center rounded-md border px-3 py-2 ${selectedVariant?.size === size ? "border-black bg-white" : "border-black/25"}`}
-                  >
-                    <Text className="text-[14px] text-black">{size}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ) : null}
-
-          {variantRequired ? (
-            <Text className="text-[12px] text-[#C53B35]">
-              Choose {[colorOptions.length > 1 ? "a colour" : null, sizeOptions.length > 1 ? "a size" : null]
-                .filter(Boolean)
-                .join(" and ") || "an option"}{" "}
-              before adding to cart
-            </Text>
+                    {sizeOptions.map((size) => {
+                      const enabled =
+                        !colorOptions.length ||
+                        Boolean(
+                          selectedColor &&
+                          variants.some(
+                            (variant) =>
+                              variant.size === size &&
+                              variantColor(variant).toLowerCase() ===
+                                selectedColor.toLowerCase(),
+                          ),
+                        );
+                      const selected = selectedSize === size;
+                      return (
+                        <Pressable
+                          key={size}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected, disabled: !enabled }}
+                          disabled={!enabled}
+                          onPress={() => chooseSize(size)}
+                          className={`min-w-11 items-center rounded-lg border px-3.5 py-2.5 ${selected ? "border-black bg-black" : enabled ? "border-black/20 bg-white" : "border-black/5 bg-black/[0.03] opacity-40"}`}
+                        >
+                          <Text
+                            className={`text-[14px] font-semibold ${selected ? "text-white" : "text-black"}`}
+                          >
+                            {size}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
           ) : null}
 
           <Text className="text-xs text-black/55">
             {unavailable
               ? "Purchase actions will return after Market Associate confirmation."
               : product.market?.name
-              ? `Available from ${product.market.name}`
-              : "Available from a verified Hook Market"}
+                ? `Available from ${product.market.name}`
+                : "Available from a verified Hook Market"}
           </Text>
         </View>
 
@@ -554,7 +566,11 @@ export default function ProductDetailScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 12, paddingHorizontal: 12, paddingTop: 12 }}
+              contentContainerStyle={{
+                gap: 12,
+                paddingHorizontal: 12,
+                paddingTop: 12,
+              }}
             >
               {suggestions.map((item) => (
                 <View key={item.publicId} style={{ width: 150 }}>
@@ -595,36 +611,52 @@ export default function ProductDetailScreen() {
         </View>
       </View>
 
-      <View
-        className="absolute inset-x-0 bottom-0 flex-row gap-3 border-t border-black/5 bg-white px-4 pt-3"
-        style={{ paddingBottom: insets.bottom + 8 }}
-      >
-        <Pressable
-          disabled={add.isPending || unavailable || variantRequired}
-          onPress={() => void addToCart(false)}
-          className={`h-14 flex-1 items-center justify-center rounded-full ${unavailable || variantRequired ? "bg-[#E4E4E6] opacity-60" : "bg-[#F1F1F3]"}`}
+      {variantRequired && !unavailable ? (
+        <View
+          pointerEvents="none"
+          className="absolute inset-x-0 bottom-0 items-center border-t border-black/[0.06] bg-white px-4 pt-2"
+          style={{ paddingBottom: 8 }}
         >
-          {addedToCart ? (
-            <View className="flex-row items-center gap-1.5">
-              <Ionicons name="checkmark-circle" size={18} color="#111" />
-              <Text className="font-semibold text-black">Added</Text>
-            </View>
-          ) : (
-            <Text className="font-semibold text-black">{unavailable ? "Unavailable" : "Add to cart"}</Text>
-          )}
-        </Pressable>
-        <Pressable
-          disabled={add.isPending || unavailable || variantRequired}
-          onPress={() => void addToCart(true)}
-          className={`h-14 flex-[1.2] items-center justify-center rounded-full ${unavailable || variantRequired ? "bg-[#D5D5D8] opacity-60" : "bg-[#FFC809]"}`}
+          <Text className="text-center text-[13px] font-semibold text-[#66666B]">
+            {selectionPrompt}
+          </Text>
+        </View>
+      ) : (
+        <View
+          className="absolute inset-x-0 bottom-0 flex-row gap-3 border-t border-black/5 bg-white px-4 pt-2"
+          style={{ paddingBottom: 8 }}
         >
-          {add.isPending ? (
-            <HookLoader size="button" />
-          ) : (
-            <Text className="font-semibold text-black">{unavailable ? "Check back soon" : "Buy now"}</Text>
-          )}
-        </Pressable>
-      </View>
+            <Pressable
+              disabled={add.isPending || unavailable}
+              onPress={() => void addToCart(false)}
+              className={`h-14 flex-1 items-center justify-center rounded-full ${unavailable ? "bg-[#E4E4E6] opacity-60" : "bg-[#F1F1F3]"}`}
+            >
+              {addedToCart ? (
+                <View className="flex-row items-center gap-1.5">
+                  <Ionicons name="checkmark-circle" size={18} color="#111" />
+                  <Text className="font-semibold text-black">Added</Text>
+                </View>
+              ) : (
+                <Text className="font-semibold text-black">
+                  {unavailable ? "Unavailable" : "Add to cart"}
+                </Text>
+              )}
+            </Pressable>
+            <Pressable
+              disabled={add.isPending || unavailable}
+              onPress={() => void addToCart(true)}
+              className={`h-14 flex-[1.2] items-center justify-center rounded-full ${unavailable ? "bg-[#D5D5D8] opacity-60" : "bg-[#FFC809]"}`}
+            >
+              {add.isPending ? (
+                <HookLoader size="button" />
+              ) : (
+                <Text className="font-semibold text-black">
+                  {unavailable ? "Check back soon" : "Buy now"}
+                </Text>
+              )}
+            </Pressable>
+        </View>
+      )}
 
       <HookSheet
         visible={sizeGuideVisible}
@@ -634,7 +666,9 @@ export default function ProductDetailScreen() {
       >
         <ScrollView showsVerticalScrollIndicator={false}>
           {product.category?.sizingGuide?.summary ? (
-            <Text className="text-[14px] leading-6 text-black">{product.category.sizingGuide.summary}</Text>
+            <Text className="text-[14px] leading-6 text-black">
+              {product.category.sizingGuide.summary}
+            </Text>
           ) : null}
           {product.category?.sizingGuide?.howToMeasure ? (
             <Text className="mt-3 text-[13px] leading-6 text-black/70">
@@ -648,7 +682,9 @@ export default function ProductDetailScreen() {
                   key={row.size}
                   className={`px-4 py-3 ${index ? "border-t border-black/5" : ""}`}
                 >
-                  <Text className="text-[13px] font-black text-black">{row.size}</Text>
+                  <Text className="text-[13px] font-black text-black">
+                    {row.size}
+                  </Text>
                   <View className="mt-1 flex-row flex-wrap gap-x-4 gap-y-1">
                     {Object.entries(row.measurements).map(([label, value]) => (
                       <Text key={label} className="text-[12px] text-black/60">

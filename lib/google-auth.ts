@@ -21,11 +21,11 @@ const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 // actual sign-in attempt on an unsupported build does.
 type GoogleSigninModule = typeof import('@react-native-google-signin/google-signin');
 let googleSigninModule: GoogleSigninModule | null = null;
-let googleSigninLoadError: unknown = null;
 try {
   googleSigninModule = require('@react-native-google-signin/google-signin');
-} catch (error) {
-  googleSigninLoadError = error;
+} catch {
+  // Expo Go and older development builds do not contain this native module.
+  // Keep Google sign-in unavailable without raising a LogBox warning.
 }
 
 const isNativeModuleAvailable = Boolean(googleSigninModule);
@@ -38,12 +38,6 @@ if (isConfigured && googleSigninModule) {
     scopes: ['openid', 'profile', 'email'],
     offlineAccess: false,
   });
-} else if (googleSigninLoadError) {
-  // Expected in Expo Go and in any dev client built before this package was
-  // added — Google sign-in stays disabled until the app is rebuilt.
-  console.warn(
-    '[google-auth] Native Google Sign-In module is not available in this build — rebuild with EAS to enable it.',
-  );
 }
 
 export function useHookGoogleAuth() {
