@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
+import { setPaymentFlowActive } from '@/lib/payment-flow';
 import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -123,6 +124,7 @@ export default function CheckoutScreen() {
         throw new Error("Secure payment checkout is unavailable");
       const checkoutUrl = new URL(paymentLink.url);
       checkoutUrl.searchParams.set("appReturn", "1");
+      setPaymentFlowActive(true);
       const browserResult = await WebBrowser.openAuthSessionAsync(
         checkoutUrl.toString(),
         "hook://payments/return",
@@ -158,7 +160,7 @@ export default function CheckoutScreen() {
           ? error.message
           : "Checkout could not be completed",
       );
-    }
+    } finally { setPaymentFlowActive(false); }
   }
 
   if (cart.isLoading || addresses.isLoading || config.isLoading)
@@ -168,7 +170,7 @@ export default function CheckoutScreen() {
       <View className="flex-1 items-center justify-center bg-[#f4f4f5] px-8">
         <Text className="text-xl font-black">Your cart is empty</Text>
         <Pressable
-          onPress={() => router.replace("/cart")}
+          onPress={() => router.replace("/(app)/cart")}
           className="mt-5 rounded-full bg-hook px-6 py-3"
         >
           <Text className="font-bold">Back to cart</Text>

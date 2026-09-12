@@ -10,7 +10,7 @@ import { useLoginMutation } from '@/lib/auth-api';
 import { registerPushToken } from '@/lib/push';
 import { saveSession } from '@/lib/session';
 
-const MIN_LENGTH = 9;
+import { PASSWORD_MIN_LENGTH as MIN_LENGTH } from '@/lib/password-policy';
 
 export function PasswordLogin() {
   const { email = '' } = useLocalSearchParams<{ email?: string }>();

@@ -1,6 +1,6 @@
-import { CartScreen } from "@/components/cart/CartScreen";
+import { Redirect } from 'expo-router';
 
-/** Cart tab — reached from the tab bar, so there is nothing to go back to. */
+/** Keep old cart links compatible without rendering Checkout beneath the tabs. */
 export default function CartTabScreen() {
-  return <CartScreen showBackButton={false} />;
+  return <Redirect href="/(app)/cart" />;
 }

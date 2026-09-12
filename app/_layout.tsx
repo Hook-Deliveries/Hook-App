@@ -50,9 +50,10 @@ export default function RootLayout() {
   // The Home tab resolves to "/", so only the real splash route may bypass outage gating.
   const isLaunchSplash = pathname === "/splash";
   const isMarketHero = pathname.includes("/markets/");
-  // Splash and onboarding are full-bleed brand screens: their artwork runs to
-  // every edge and they apply their own bottom spacing. The shared bottom
-  // safe-area inset would letterbox them, so it is dropped for those routes.
+  const isMainTab = ['/', '/discover', '/messages', '/profile'].includes(pathname);
+  const safeAreaBackground = isMainTab ? '#F1F1F3' : '#FFFFFF';
+  // Every route fills the window. Interactive footers reserve their own safe
+  // area rather than shrinking the entire navigator and exposing a bottom strip.
   const isFullBleedRoute = isLaunchSplash || pathname === "/onboarding";
   const [fontsLoaded] = useFonts({
     "NunitoSans-Regular": require("@expo-google-fonts/nunito-sans/400Regular/NunitoSans_400Regular.ttf"),
@@ -145,11 +146,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#000" }}>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: safeAreaBackground }}>
         <KeyboardProvider>
         <SafeAreaView
-          edges={isFullBleedRoute ? [] : ["bottom"]}
-          style={{ flex: 1, backgroundColor: "#000" }}
+          edges={[]}
+          style={{ flex: 1, backgroundColor: safeAreaBackground }}
         >
           <View style={{ flex: 1, backgroundColor: isFullBleedRoute ? "transparent" : "#F1F1F3" }}>
             <AppQueryProvider>

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { PropsWithChildren } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HookLoader } from "@/components/shared/HookLoader";
 import { designTokens } from "@/constants/design-tokens";
@@ -8,7 +9,8 @@ import { designTokens } from "@/constants/design-tokens";
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
 export function BottomActionBar({ children }: PropsWithChildren) {
-  return <View style={styles.bar}>{children}</View>;
+  const insets = useSafeAreaInsets();
+  return <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, designTokens.control.bottomInset) }]}>{children}</View>;
 }
 
 export function BottomActionButton({
@@ -72,9 +74,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: designTokens.spacing.lg,
     paddingTop: designTokens.spacing.sm,
     paddingBottom: designTokens.control.bottomInset,
-    backgroundColor: designTokens.color.surface,
-    borderTopColor: designTokens.color.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    backgroundColor: 'transparent',
   },
   button: {
     height: designTokens.control.actionHeight,

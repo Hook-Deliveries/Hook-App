@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import * as Crypto from "expo-crypto";
 
-import { apiRequest } from "@/lib/api";
+import { apiRequest, ApiError } from "@/lib/api";
+import type { NegotiationResponse } from '@/lib/negotiation-types';
 import { getSession, isCustomerSession, onSessionChanged } from "@/lib/session";
+import { hookRealtime } from './realtime';
 import {
   addAnonymousCartItem,
   anonymousCartResponse,
@@ -33,6 +35,7 @@ export type SizingGuide = {
 };
 
 export interface PublicCatalogProduct {
+  hookId?: string;
   publicId: string;
   title: string;
   slug: string;
@@ -147,7 +150,7 @@ function toQueryString(params?: QueryParams) {
   return value ? `?${value}` : "";
 }
 
-function post<TData, TVariables>(path: string, variables?: TVariables) {
+function post<TData, TVariables = unknown>(path: string, variables?: TVariables) {
   return apiRequest<TData>(path, {
     method: "POST",
     body: variables ? JSON.stringify(variables) : undefined,
@@ -564,6 +567,26 @@ export function useCartQuery() {
   });
 }
 
+/** Compatibility lookup for cart responses that predate market presentation. */
+export function useCartMarketProductsQuery(cart: unknown) {
+  const ids = [...new Set(getCartItems(cart)
+    .filter((item) => !item.market?.name && !item.product?.market?.name)
+    .map((item) => String(item.product?.publicId || item.product?.id || item.productId || ''))
+    .filter(Boolean))].sort();
+  return useQuery({
+    queryKey: ['mobile', 'cart', 'market-products', ids],
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const products: PublicCatalogProduct[] = [];
+      for (let index = 0; index < ids.length; index += 50) {
+        products.push(...await apiRequest<PublicCatalogProduct[]>(`/public/products/status${toQueryString({ ids: ids.slice(index, index + 50).join(',') })}`, { auth: false }));
+      }
+      return products;
+    },
+  });
+}
+
 export function getCartItems(cart: any): any[] {
   if (Array.isArray(cart?.items)) return cart.items;
   return Array.isArray(cart?.stateGroups)
@@ -722,6 +745,7 @@ function provisionalCartItem(input: AddCartItemInput) {
     productVersion: 1,
     stateId: product.sourceState?.publicId,
     marketId: product.market?.publicId,
+    market: product.market,
     product: {
       ...product,
       id: product.publicId,
@@ -1161,7 +1185,7 @@ export function useNegotiationQuery(id?: string) {
   return useQuery({
     enabled: Boolean(id),
     queryKey: mobileQueryKeys.negotiation(id || ""),
-    queryFn: () => apiRequest(`/negotiations/${id}`),
+    queryFn: () => apiRequest<NegotiationResponse>(`/negotiations/${id}`),
   });
 }
 
@@ -1178,7 +1202,7 @@ export function useActiveNegotiationQuery(
       quantity,
     ),
     queryFn: () =>
-      apiRequest(
+      apiRequest<NegotiationResponse | null>(
         `/negotiations-active${toQueryString({ productId, variantId, quantity })}`,
       ),
   });
@@ -1192,7 +1216,7 @@ export function useStartNegotiationMutation() {
       variantId: string;
       quantity: number;
       message?: string;
-    }) => post("/negotiations", input),
+    }) => post<NegotiationResponse>("/negotiations", input),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] }),
   });
@@ -1205,16 +1229,11 @@ export function useCounterNegotiationMutation() {
       negotiationId: string;
       offeredPrice?: number;
       message: string;
+      requestId?: string;
     }) =>
-      apiRequest(`/negotiations/${input.negotiationId}/offers`, {
-        method: "POST",
-        headers: { "Idempotency-Key": Crypto.randomUUID() },
-        body: JSON.stringify({
-          ...(input.offeredPrice
-            ? { offeredPriceMinor: input.offeredPrice }
-            : {}),
-          message: input.message,
-        }),
+      hookRealtime.request<NegotiationResponse>('negotiation.send', {
+        negotiationId: input.negotiationId, message: input.message,
+        requestId: input.requestId || Crypto.randomUUID(),
       }),
     onSuccess: (_data, input) => {
       queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] });
@@ -1229,7 +1248,7 @@ export function useAcceptNegotiationMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (negotiationId: string) =>
-      post(`/negotiations/${negotiationId}/accept`),
+      post<NegotiationResponse>(`/negotiations/${negotiationId}/accept`),
     onSuccess: (_data, negotiationId) => {
       queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] });
       queryClient.invalidateQueries({

@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "expo-router/build/react-navigation/bottom-tabs/types";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import {
   type LayoutChangeEvent,
@@ -121,6 +122,7 @@ export function HookTabBar({
   descriptors,
   navigation,
 }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
   const cart = useCartQuery();
   const negotiations = useNegotiationsQuery();
   const session = useLocalSessionQuery();
@@ -159,10 +161,12 @@ export function HookTabBar({
     setWidth(Math.round(event.nativeEvent.layout.width));
   };
 
+  if (cartSelected) return null;
+
   return (
     <View
       pointerEvents="box-none"
-      style={styles.safeArea}
+      style={[styles.safeArea, { bottom: insets.bottom + HOOK_TAB_BAR_BOTTOM_GAP }]}
     >
       <View pointerEvents="box-none" className="flex-row items-center gap-2 px-3">
         <View
@@ -216,7 +220,7 @@ export function HookTabBar({
           accessibilityLabel={`Open cart${cartCount ? `, ${cartCount} items` : ""}`}
           accessibilityRole="button"
           accessibilityState={{ selected: cartSelected }}
-          onPress={() => router.push("/(tabs)/cart" as never)}
+          onPress={() => router.push("/(app)/cart" as never)}
           className={`items-center justify-center rounded-full ${cartSelected ? "bg-[#FFC809]" : "bg-white"}`}
           style={[styles.cartButton, styles.shadow]}
         >

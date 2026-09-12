@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
+import { setPaymentFlowActive } from '@/lib/payment-flow';
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import { Pressable, ScrollView, Share, Text, View } from "react-native";
@@ -64,6 +65,7 @@ export default function OrderDetailScreen() {
       if (!link?.url) throw new Error("Secure payment checkout is unavailable");
       const checkoutUrl = new URL(link.url);
       checkoutUrl.searchParams.set("appReturn", "1");
+      setPaymentFlowActive(true);
       const result = await WebBrowser.openAuthSessionAsync(checkoutUrl.toString(), "hook://payments/return");
       await WebBrowser.dismissBrowser();
       if (result.type === "cancel" || result.type === "dismiss") return;
@@ -79,7 +81,7 @@ export default function OrderDetailScreen() {
       toast.info("Payment confirmation is still processing");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Payment could not be started");
-    } finally { setPaymentBusy(false); }
+    } finally { setPaymentBusy(false); setPaymentFlowActive(false); }
   }
 
   async function sharePayment(fulfilmentGroupId?: string) {

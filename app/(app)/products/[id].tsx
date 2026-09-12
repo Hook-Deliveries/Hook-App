@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CartButton } from "@/components/cart/CartButton";
 import { CatalogProductCard } from "@/components/marketplace/CatalogProductCard";
 import { NegotiationPrompt } from "@/components/marketplace/NegotiationPrompt";
+import { NegotiationOptionsSheet } from "@/components/negotiation/NegotiationOptionsSheet";
+import { ProductInformation } from "@/components/marketplace/ProductInformation";
 import { BottomActionBar, BottomActionButton } from "@/components/shared/BottomActionBar";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
 import { HookBackButton } from "@/components/shared/HookBackButton";
@@ -66,7 +68,9 @@ export default function ProductDetailScreen() {
   const [selectedColor, setSelectedColor] = useState<string>();
   const [selectedSize, setSelectedSize] = useState<string>();
   const [addedToCart, setAddedToCart] = useState(false);
+  const [pendingCartAction, setPendingCartAction] = useState<'add' | 'buy' | null>(null);
   const [sizeGuideVisible, setSizeGuideVisible] = useState(false);
+  const [negotiationOptionsVisible, setNegotiationOptionsVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const addedFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -122,7 +126,7 @@ export default function ProductDetailScreen() {
     selectedVariant?.publicId,
     quantity,
   );
-  const quote = (negotiated.data as any)?.quote;
+  const quote = negotiated.data?.quote;
   const negotiatedPriceMinor = Number(quote?.agreedPriceMinor || 0);
   const displayPriceMinor =
     negotiatedPriceMinor || Number(product?.effectivePriceMinor || 0);
@@ -205,6 +209,8 @@ export default function ProductDetailScreen() {
       return;
     }
     addLock.current = true;
+    setPendingCartAction(redirectToCart ? 'buy' : 'add');
+    setAddedToCart(false);
     if (addedFeedbackTimer.current) {
       clearTimeout(addedFeedbackTimer.current);
       addedFeedbackTimer.current = null;
@@ -223,6 +229,14 @@ export default function ProductDetailScreen() {
     };
 
     add.mutate(input, {
+      onSuccess: () => {
+        if (redirectToCart) {
+          router.push('/(app)/cart' as never);
+        } else {
+          setAddedToCart(true);
+          toast.success('Added to cart');
+        }
+      },
       onError: (error) => {
         setAddedToCart(false);
         toast.error(
@@ -231,15 +245,13 @@ export default function ProductDetailScreen() {
       },
       onSettled: () => {
         addLock.current = false;
+        setPendingCartAction(null);
         addedFeedbackTimer.current = setTimeout(
           () => setAddedToCart(false),
           1400,
         );
       },
     });
-    setAddedToCart(true);
-    toast.success("Added to cart");
-    if (redirectToCart) router.push("/cart" as never);
   }
 
   async function toggleProductLike() {
@@ -440,23 +452,11 @@ export default function ProductDetailScreen() {
 
           {product.negotiationAvailable && !unavailable ? (
             <NegotiationPrompt
-              onPress={() => {
-                const destination =
-                  `/negotiations/new?productId=${encodeURIComponent(product.publicId)}&variantId=${encodeURIComponent(selectedVariant?.publicId || "")}&quantity=${quantity}` as never;
-                if (!isCustomerSession(session.data))
-                  return openAuth(destination);
-                router.push(destination);
-              }}
+              onPress={() => { setNegotiationOptionsVisible(true); void query.refetch(); }}
             />
           ) : null}
 
-          <View className="rounded-[5px] bg-white px-3 py-3">
-            <Text className="text-base font-medium text-black">Description</Text>
-            <Text className="mt-2 text-[14px] leading-6 text-black/60">
-              {product.description ||
-                "A quality-checked product from a verified Hook market."}
-            </Text>
-          </View>
+          <ProductInformation key={product.publicId} name={product.title} description={product.description} />
 
           {colorOptions.length ? (
             <View>
@@ -614,8 +614,8 @@ export default function ProductDetailScreen() {
       {variantRequired && !unavailable ? (
         <View
           pointerEvents="none"
-          className="absolute inset-x-0 bottom-0 items-center border-t border-black/[0.06] bg-white px-4 pt-2"
-          style={{ paddingBottom: 8 }}
+          className="absolute inset-x-0 bottom-0 items-center px-4 pt-2"
+          style={{ paddingBottom: Math.max(insets.bottom, 8) }}
         >
           <Text className="text-center text-[13px] font-semibold text-[#66666B]">
             {selectionPrompt}
@@ -626,20 +626,33 @@ export default function ProductDetailScreen() {
           <BottomActionButton
             label={addedToCart ? "Added" : unavailable ? "Unavailable" : "Add to cart"}
             icon={addedToCart ? "checkmark-circle" : undefined}
-            disabled={unavailable}
+            disabled={unavailable || pendingCartAction !== null}
+            loading={pendingCartAction === 'add'}
             onPress={() => void addToCart(false)}
             tone="secondary"
           />
           <BottomActionButton
             label={unavailable ? "Check back soon" : "Buy now"}
-            disabled={unavailable}
-            loading={add.isPending}
+            disabled={unavailable || pendingCartAction !== null}
+            loading={pendingCartAction === 'buy'}
             onPress={() => void addToCart(true)}
             flex={1.2}
           />
         </BottomActionBar>
       )}
 
+      {negotiationOptionsVisible ? <NegotiationOptionsSheet
+        visible product={product} quantity={quantity} initialVariantId={selectedVariant?.publicId}
+        onClose={() => setNegotiationOptionsVisible(false)}
+        onContinue={(variant) => {
+          if (!variant.publicId) return;
+          setSelectedColor(variantColor(variant)); setSelectedSize(variant.size);
+          setNegotiationOptionsVisible(false);
+          const destination = `/negotiations/new?productId=${encodeURIComponent(product.publicId)}&variantId=${encodeURIComponent(variant.publicId)}&quantity=${quantity}` as never;
+          if (!isCustomerSession(session.data)) return openAuth(destination);
+          router.push(destination);
+        }}
+      /> : null}
       <HookSheet
         visible={sizeGuideVisible}
         onClose={() => setSizeGuideVisible(false)}
