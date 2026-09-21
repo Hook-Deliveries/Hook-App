@@ -17,6 +17,7 @@ import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import { ProfileAvatar, ProfileRow, ProfileSection } from "@/components/profile/ProfileComponents";
 import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
 import { toast } from "@/components/shared/toast";
+import { openDeleteAccountPage } from "@/lib/account-deletion-api";
 import { logout, useLocalSessionQuery } from "@/lib/auth-api";
 import { useCreditsQuery } from "@/lib/mobile-api";
 import { unregisterPushToken } from "@/lib/push";
@@ -208,7 +209,7 @@ export default function ProfileScreen() {
             <ProfileRow icon="document-text" label="Terms of Service" onPress={() => router.push("/legal/terms" as never)} neutral />
             <ProfileRow icon="shield-checkmark" label="Privacy Policy" onPress={() => router.push("/legal/privacy" as never)} neutral />
             <ProfileRow icon="refresh-circle" label="Returns Policy" onPress={() => router.push("/legal/returns" as never)} neutral />
-            <ProfileRow icon="trash" label="Delete account" onPress={() => router.push("/profile/delete-account" as never)} danger />
+            <ProfileRow icon="trash" label="Delete account" onPress={() => void openDeleteAccountPage().catch(() => toast.error("Could not open the page. Please try again."))} danger />
           </ProfileSection>
 
           <ProfileSection title="App information">

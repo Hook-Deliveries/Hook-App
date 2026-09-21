@@ -91,12 +91,14 @@ export function HookSheet({
       animationType="none"
       onRequestClose={handleClose}
       statusBarTranslucent
+      // Without this Android leaves the system navigation bar area uncovered, so the sheet floats above a strip of the screen behind it.
+      navigationBarTranslucent
       transparent
       visible={mounted}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={insets.top}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
         style={{ flex: 1 }}
       >
         <Animated.View pointerEvents="none" style={[{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)" }, backdropStyle]} />
