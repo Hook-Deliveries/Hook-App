@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SPRING_PANEL } from "@/constants/motion";
 
 /**
  * Canonical bottom sheet shell for the whole app — same rounded top, drag
@@ -66,7 +67,7 @@ export function HookSheet({
   useEffect(() => {
     if (visible) {
       setMounted(true);
-      progress.value = reducedMotion ? withTiming(1, { duration: 120 }) : withSpring(1, { damping: 24, stiffness: 260, mass: 0.82 });
+      progress.value = reducedMotion ? withTiming(1, { duration: 120 }) : withSpring(1, SPRING_PANEL);
     } else {
       // A keyboard left open by the search field would otherwise stay up over the screen behind.
       Keyboard.dismiss();

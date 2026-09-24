@@ -247,12 +247,18 @@ export function NegotiationComposer({
   onSend: () => void;
 }) {
   return (
-    <View className="flex-row items-end rounded-[25px] bg-[#F1F1F3] p-1.5 pl-4">
+    // White, bordered and lightly shadowed so it reads as a distinct input surface — the page behind it is the
+    // same light grey this pill used to be, which made it disappear entirely.
+    <View
+      className="flex-row items-end rounded-[25px] border border-black/10 bg-white p-1.5 pl-4"
+      style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 }}
+    >
       <TextInput
         accessibilityLabel="Message Hook or make an offer"
         value={value}
         onChangeText={onChange}
         placeholder="Message or offer, e.g. ₦25,000"
+        placeholderTextColor="#999"
         multiline
         maxLength={500}
         className="max-h-24 min-h-11 flex-1 py-3 text-sm"

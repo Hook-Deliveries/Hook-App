@@ -1,6 +1,8 @@
 import { ClearableInput } from "@/components/shared/ClearableInput";
+import { Reveal } from "@/components/motion/Reveal";
 import { Ionicons } from "@expo/vector-icons";
 import { centeredHeaderTextStyle } from "@/constants/design-tokens";
+import { SPRING_PANEL } from "@/constants/motion";
 import { useRef, useState } from "react";
 import {
   Pressable,
@@ -348,9 +350,11 @@ export default function AddressesScreen() {
             scrollIndicatorInsets={{ bottom: Math.max(insets.bottom, 8) + 120 }}
             showsVerticalScrollIndicator={false}
           >
-            {step === 0 ? <StateStep rows={stateRows} selectedId={draft.stateId} loading={states.isLoading} error={states.isError} onRetry={() => void states.refetch()} onSelect={selectState} /> : null}
-            {step === 1 ? <LocalGovernmentStep state={selectedState} rows={localGovernmentRows} selectedId={draft.localGovernmentAreaId} loading={localGovernments.isLoading} error={localGovernments.isError} onRetry={() => void localGovernments.refetch()} onSelect={selectLocalGovernment} /> : null}
-            {step === 2 ? <AddressStep draft={draft} error={addressError} onChange={setDraftValue} /> : null}
+            <Reveal key={step} from="bottom">
+              {step === 0 ? <StateStep rows={stateRows} selectedId={draft.stateId} loading={states.isLoading} error={states.isError} onRetry={() => void states.refetch()} onSelect={selectState} /> : null}
+              {step === 1 ? <LocalGovernmentStep state={selectedState} rows={localGovernmentRows} selectedId={draft.localGovernmentAreaId} loading={localGovernments.isLoading} error={localGovernments.isError} onRetry={() => void localGovernments.refetch()} onSelect={selectLocalGovernment} /> : null}
+              {step === 2 ? <AddressStep draft={draft} error={addressError} onChange={setDraftValue} /> : null}
+            </Reveal>
           </ScrollView>
           {step === 2 ? <View className="border-t border-black/5 pt-3" style={{ paddingBottom: 8 }}><View className="flex-row items-center gap-3"><Pressable accessibilityLabel="Previous address step" accessibilityRole="button" onPress={() => setStep(1)} className="h-14 w-14 items-center justify-center rounded-2xl border border-black/10 bg-white"><Ionicons name="arrow-back" size={20} color="#111" /></Pressable><Pressable accessibilityLabel="Save delivery address" accessibilityRole="button" accessibilityState={{ busy: saving, disabled: saving }} disabled={saving} onPress={() => void saveAddress()} className="h-14 flex-1 items-center justify-center rounded-2xl bg-hook" style={{ opacity: saving ? 0.65 : 1 }}>{saving ? <View className="flex-row items-center gap-2"><HookLoader size="button" variant="dark" /><Text className="font-black text-black">Saving address</Text></View> : <Text className="font-black text-black">Save address</Text>}</Pressable></View></View> : step === 1 ? <View className="border-t border-black/5 pt-3" style={{ paddingBottom: 8 }}><Pressable accessibilityLabel="Previous address step" accessibilityRole="button" onPress={() => setStep(0)} className="h-14 items-center justify-center rounded-2xl border border-black/10 bg-white"><View className="flex-row items-center"><Ionicons name="arrow-back" size={20} color="#111" /><Text className="ml-2 font-black text-black">Back to states</Text></View></Pressable></View> : null}
         </View>
@@ -399,7 +403,7 @@ function SwipeableAddressCard({
   const startX = useSharedValue(0);
 
   function closeFromJs() {
-    translateX.value = withSpring(0, { damping: 22, stiffness: 260 });
+    translateX.value = withSpring(0, SPRING_PANEL);
     onClosed(address.publicId);
   }
 
@@ -416,10 +420,10 @@ function SwipeableAddressCard({
     .onEnd((event) => {
       const shouldOpen = translateX.value < SWIPE_OPEN_OFFSET / 2 || event.velocityX < -600;
       if (shouldOpen) {
-        translateX.value = withSpring(SWIPE_OPEN_OFFSET, { damping: 22, stiffness: 260 });
+        translateX.value = withSpring(SWIPE_OPEN_OFFSET, SPRING_PANEL);
         runOnJS(onOpen)(address.publicId, closeFromJs);
       } else {
-        translateX.value = withSpring(0, { damping: 22, stiffness: 260 });
+        translateX.value = withSpring(0, SPRING_PANEL);
         runOnJS(onClosed)(address.publicId);
       }
     });
@@ -429,7 +433,7 @@ function SwipeableAddressCard({
   }));
 
   function withClose(action: () => void) {
-    translateX.value = withSpring(0, { damping: 22, stiffness: 260 });
+    translateX.value = withSpring(0, SPRING_PANEL);
     onClosed(address.publicId);
     action();
   }
@@ -680,21 +684,7 @@ function AddressStep({
         <Text className="mt-1 text-sm text-black/55">{draft.stateName}</Text>
       </View>
 
-      <Text className="mb-3 mt-6 text-sm font-black text-black">
-        Recipient details
-      </Text>
-      <View className="gap-4">
-        <LabeledField label="Address label" limit={FIELD_LIMITS.label} value={draft.label}>
-          <ClearableInput
-            className={inputClass}
-            placeholder="e.g. Home, Office"
-            placeholderTextColor="#999"
-            value={draft.label}
-            onChangeText={(value) => onChange("label", value)}
-            maxLength={FIELD_LIMITS.label}
-          />
-        </LabeledField>
-
+      <FormSection icon="person-outline" title="Who's receiving this">
         <LabeledField label="Recipient name" limit={FIELD_LIMITS.recipientName} value={draft.recipientName}>
           <ClearableInput
             className={inputClass}
@@ -716,6 +706,19 @@ function AddressStep({
             value={draft.phone}
             onChangeText={(value) => onChange("phone", value)}
             maxLength={24}
+          />
+        </LabeledField>
+      </FormSection>
+
+      <FormSection icon="location-outline" title="Address details">
+        <LabeledField label="Address label" limit={FIELD_LIMITS.label} value={draft.label}>
+          <ClearableInput
+            className={inputClass}
+            placeholder="e.g. Home, Office"
+            placeholderTextColor="#999"
+            value={draft.label}
+            onChangeText={(value) => onChange("label", value)}
+            maxLength={FIELD_LIMITS.label}
           />
         </LabeledField>
 
@@ -765,7 +768,22 @@ function AddressStep({
             maxLength={FIELD_LIMITS.postalCode}
           />
         </LabeledField>
+      </FormSection>
+    </View>
+  );
+}
+
+/** One clearly labeled group of fields, so a long form reads as a couple of scannable sections instead of one list. */
+function FormSection({ icon, title, children }: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; children: React.ReactNode }) {
+  return (
+    <View className="mt-6 rounded-2xl border border-black/8 bg-white p-4">
+      <View className="mb-4 flex-row items-center gap-2">
+        <View className="h-7 w-7 items-center justify-center rounded-full bg-[#FFF4C7]">
+          <Ionicons name={icon} size={14} color="#8A6900" />
+        </View>
+        <Text className="text-sm font-black text-black">{title}</Text>
       </View>
+      <View className="gap-4">{children}</View>
     </View>
   );
 }

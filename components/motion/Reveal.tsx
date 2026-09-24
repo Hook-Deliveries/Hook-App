@@ -30,7 +30,9 @@ export function Reveal({ children, index = 0, delay = 0, from = "bottom", style,
       ? FadeInUp.delay(wait).duration(340)
       : from === "none"
         ? FadeIn.delay(wait).duration(320)
-        : FadeInDown.delay(wait).duration(360).springify().damping(18).stiffness(160);
+        // A fixed timing curve, not a spring: a grid of cards visibly jiggling in on entrance reads as unpolished,
+        // so this settles cleanly with no overshoot while staying quick.
+        : FadeInDown.delay(wait).duration(260);
   return (
     <Animated.View entering={entering} style={style} className={className}>
       {children}

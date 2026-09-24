@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Keyboard, Pressable, RefreshControl, Text, View } from "react-native";
+import { Keyboard, Platform, Pressable, RefreshControl, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getHookTabBarContentInset } from "@/components/tab-bar/layout";
 import Animated, {
@@ -68,6 +68,18 @@ export function MarketplaceHomeScreen() {
     const all: PublicCategory = { publicId: "all", name: "All", slug: "all" };
     return categories.length ? [all, ...categories, comingSoon] : [comingSoon];
   }, [categoriesQuery.data]);
+  // One stable handler per category (not a fresh inline closure per render), so CategoryCircle's memoization
+  // actually holds when scroll-driven state (header visibility, search pin) re-renders this screen.
+  const categoryHandlers = useMemo(() => {
+    const handlers = new Map<string, () => void>();
+    for (const category of displayCategories) {
+      handlers.set(category.publicId, () => {
+        if (category.isComingSoon) return;
+        router.push({ pathname: "/shop/[categoryId]", params: { categoryId: category.publicId } } as never);
+      });
+    }
+    return handlers;
+  }, [displayCategories]);
 
   // The market list stays whole; search opens its own panel over it instead of filtering it underneath.
   const markets = marketsQuery.data || [];
@@ -234,6 +246,7 @@ export function MarketplaceHomeScreen() {
         keyboardDismissMode="interactive"
         onScroll={onScroll}
         scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === "android"}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -320,13 +333,7 @@ export function MarketplaceHomeScreen() {
                     key={category.publicId}
                     index={index}
                     category={category}
-                    onPress={() => {
-                      if (category.isComingSoon) return;
-                      router.push({
-                        pathname: "/shop/[categoryId]",
-                        params: { categoryId: category.publicId },
-                      } as never);
-                    }}
+                    onPress={categoryHandlers.get(category.publicId)!}
                   />
                 ))}
               </Animated.ScrollView>

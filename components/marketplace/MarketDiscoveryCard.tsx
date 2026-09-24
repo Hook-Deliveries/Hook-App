@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { PressScale } from "@/components/motion/PressScale";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -43,7 +44,7 @@ function getFrameColor(color: string) {
   return `#${channels.join("")}`;
 }
 
-export function MarketDiscoveryCard({
+function MarketDiscoveryCardBase({
   market,
   index,
 }: {
@@ -122,3 +123,7 @@ export function MarketDiscoveryCard({
     </PressScale>
   );
 }
+
+// Scroll-driven state (header visibility, search-pin) lives on the Home screen that renders a list of these; without
+// memoizing, every such state change re-renders every card in the list even though none of their props changed.
+export const MarketDiscoveryCard = memo(MarketDiscoveryCardBase);

@@ -114,8 +114,10 @@ export default function CheckoutScreen() {
   const stateDeliveryFeeMinor = Number(addressState?.deliveryFeeMinor ?? DEFAULT_DELIVERY_FEE_MINOR);
   const cartItems = getCartItems(cart.data);
   const providers = logistics.data || [];
-  const podPaused = Boolean((config.data as { podPaused?: boolean } | undefined)?.podPaused);
-  const podGloballyOn = Boolean((config.data as { podEnabled?: boolean } | undefined)?.podEnabled) && !podPaused;
+  const podGloballyOn = Boolean((config.data as { podEnabled?: boolean } | undefined)?.podEnabled);
+  // The only real "admin switched it off" signal — kept distinct from every other unavailable reason below,
+  // which are about this specific order/address, not about the feature being off entirely.
+  const podOffEntirely = !podGloballyOn;
   // Settings the admin controls: VAT, and what Pay on Delivery needs and costs.
   const vatRate = Number(config.data?.vatRatePercent ?? 7.5) / 100;
   const podMinimumMinor = Number(config.data?.podMinimumOrderMinor ?? 3_000_000);
@@ -201,7 +203,7 @@ export default function CheckoutScreen() {
   const podAvailable = podGloballyOn && Boolean(selectedAddress) && stateAllowsPod && shortfallMinor === 0;
   const naira0 = (minor: number) => `₦${Math.round(minor / 100).toLocaleString("en-NG")}`;
   const podUnavailableReason = !podGloballyOn
-    ? "Pay on Delivery isn't offered right now. Please pay now to place this order."
+    ? "You don't have access to Pay on Delivery right now. Please try again later, or pay now to place this order."
     : !selectedAddress
       ? "Choose a delivery address to see if Pay on Delivery is available where you are."
       : !stateAllowsPod
@@ -344,7 +346,14 @@ export default function CheckoutScreen() {
       );
       await WebBrowser.dismissBrowser();
       if (browserResult.type === "cancel" || browserResult.type === "dismiss") {
-        router.replace({ pathname: "/payments/[id]", params: { id: order.id } } as never);
+        // Closing the payment page is not a completed payment — say so clearly instead of quietly moving on, which
+        // read as though the order had gone through either way.
+        const isPod = method === "PAY_AT_HANDOVER";
+        toast.error(
+          isPod ? "Delivery fee not paid" : "Payment not completed",
+          isPod ? "Your order is saved, but it won't move forward until the delivery fee is paid." : "Pay to complete your order.",
+        );
+        router.replace({ pathname: "/orders/[id]", params: { id: order.id } } as never);
         return;
       }
       setPaymentStage("confirming");
@@ -630,7 +639,7 @@ export default function CheckoutScreen() {
         podTotalMinor={money.payableBeforeCredits}
         stateName={stateName}
         creditsAppliedMinor={money.prepaidCreditsMinor}
-        podPaused={podPaused}
+        podOffEntirely={podOffEntirely}
         method={method}
         onSelectMethod={setMethod}
         podAvailable={podAvailable}

@@ -7,13 +7,8 @@ import Animated, { FadeIn, FadeOut, runOnJS, useAnimatedStyle, useFrameCallback,
 
 import { haptics } from "@/lib/haptics";
 import { useBannersQuery, type PublicBanner } from "@/lib/mobile-api";
+import { resolveBannerColors } from "@/lib/banner-tone";
 
-const TONES: Record<string, { bg: string; fg: string }> = {
-  gold: { bg: "#FFC809", fg: "#111111" },
-  dark: { bg: "#18181B", fg: "#FFFFFF" },
-  green: { bg: "#047857", fg: "#FFFFFF" },
-  red: { bg: "#B91C1C", fg: "#FFFFFF" },
-};
 const HEIGHT = 44;
 const SPEED = 40; // points per second while drifting on its own
 
@@ -100,7 +95,7 @@ export function BannerCarousel({ placement = "home", className = "mt-4" }: { pla
 
   const renderItems = (measure: boolean) =>
     banners.map((banner, index) => {
-      const tone = TONES[banner.tone] || TONES.gold;
+      const tone = resolveBannerColors(banner);
       return (
         <View
           key={banner.id}
