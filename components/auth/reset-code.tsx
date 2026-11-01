@@ -1,3 +1,4 @@
+import type { TextInputRef } from "@/lib/rn-refs";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, Text, TextInput, View } from "react-native";
@@ -30,10 +31,10 @@ export function ResetCode() {
   const verifyPasswordReset = useVerifyPasswordResetMutation();
   const forgotPassword = useForgotPasswordMutation();
   const refs = [
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
+    useRef<TextInputRef>(null),
+    useRef<TextInputRef>(null),
+    useRef<TextInputRef>(null),
+    useRef<TextInputRef>(null),
   ];
 
   useEffect(() => {

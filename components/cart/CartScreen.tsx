@@ -1,3 +1,4 @@
+import type { ViewRef } from "@/lib/rn-refs";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
@@ -38,13 +39,21 @@ import { useCommerceSyncing } from "@/lib/commerce-sync";
 import { isCustomerSession } from "@/lib/session";
 import { designTokens, centeredHeaderTextStyle } from "@/constants/design-tokens";
 import { useCartAddAnimation } from './useCartAddAnimation';
+import { HOOK_TAB_BAR_BOTTOM_GAP, HOOK_TAB_BAR_HEIGHT } from "@/components/tab-bar/layout";
 
 const cartMoney = (minor: number) =>
   `₦${(minor / 100).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`;
 
+/** Back is always a real back: pop when there is history, otherwise move to a tab in place (never push a new page forward). */
+function goBack() {
+  if (router.canGoBack()) router.back();
+  else router.navigate("/(tabs)/discover" as never);
+}
+
 export function CartScreen({
   showBackButton = true,
-}: { showBackButton?: boolean } = {}) {
+  inTab = false,
+}: { showBackButton?: boolean; /** Rendered as a tab: the checkout bar must clear the native tab bar. */ inTab?: boolean } = {}) {
   const insets = useSafeAreaInsets();
   const cart = useCartQuery();
   const syncingCommerce = useCommerceSyncing();
@@ -66,8 +75,8 @@ export function CartScreen({
   const [pendingRemoval, setPendingRemoval] = useState<{
     item: any;
     id: string;
-    source: View | null;
-    target: View | null;
+    source: ViewRef | null;
+    target: ViewRef | null;
   } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const data = cart.data as any;
@@ -178,7 +187,7 @@ export function CartScreen({
       });
     }
   }
-  function requestRemoveItem(item: any, source: View | null, target: View | null) {
+  function requestRemoveItem(item: any, source: ViewRef | null, target: ViewRef | null) {
     if (removalLock.current || clearLock.current) return;
     const itemId = cartItemIdentifier(item);
     if (!itemId) return toast.error("This cart item cannot be removed yet");
@@ -200,7 +209,7 @@ export function CartScreen({
     }
   }
   function continueShopping() {
-    router.push("/(tabs)/discover" as never);
+    router.navigate("/(tabs)/discover" as never);
   }
   function checkout() {
     if (belowMinimum) {
@@ -270,7 +279,7 @@ export function CartScreen({
       }}
     >
       <View className="flex-row items-center justify-between px-4 py-3">
-        {showBackButton ? <HookBackButton onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/discover')} /> : <View className="h-11 w-11" />}
+        {showBackButton ? <HookBackButton onPress={goBack} /> : <View className="h-11 w-11" />}
         <Text style={centeredHeaderTextStyle}>Your Cart</Text>
         <View
           accessibilityLabel={`${unitCount} items in your cart`}
@@ -396,7 +405,7 @@ export function CartScreen({
           </View>
         </View>
       </ScrollView>
-      <BottomActionBar>
+      <BottomActionBar extraBottom={inTab ? HOOK_TAB_BAR_HEIGHT + HOOK_TAB_BAR_BOTTOM_GAP + 8 : 0}>
         <BottomActionButton
           label={cartBusy ? "Updating cart…" : belowMinimum ? `Add ₦${(shortfallMinor / 100).toLocaleString("en-NG")} more to check out` : "Proceed to Checkout"}
           disabled={checkoutBlocked || cartBusy || belowMinimum}
@@ -447,11 +456,11 @@ function CartRow({
   busy: boolean;
   quantity: number;
   onChange: (quantity: number) => void;
-  onRemove: (source: View | null, target: View | null) => void;
+  onRemove: (source: ViewRef | null, target: ViewRef | null) => void;
 }) {
   const reducedMotion = useReducedMotion();
-  const imageRef = useRef<View>(null);
-  const trashRef = useRef<View>(null);
+  const imageRef = useRef<ViewRef>(null);
+  const trashRef = useRef<ViewRef>(null);
   const product = item.product;
   const selectedColorValue =
     item.selectedVariants?.color || item.selectedVariants?.colour;
@@ -631,7 +640,7 @@ function EmptyCart({ showBackButton }: { showBackButton: boolean }) {
   return (
     <View className="flex-1 bg-[#F4F4F5]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 py-3">
-        {showBackButton ? <HookBackButton onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/discover')} /> : <View className="h-11 w-11" />}
+        {showBackButton ? <HookBackButton onPress={goBack} /> : <View className="h-11 w-11" />}
         <Text style={centeredHeaderTextStyle}>Your cart</Text>
         <View className="h-11 w-11" />
       </View>
@@ -662,7 +671,7 @@ function EmptyCart({ showBackButton }: { showBackButton: boolean }) {
         </Text>
         <Button
           title="Discover products"
-          onPress={() => router.replace("/(tabs)/discover")}
+          onPress={() => router.navigate("/(tabs)/discover" as never)}
           className="mt-7 w-full"
         />
       </View>

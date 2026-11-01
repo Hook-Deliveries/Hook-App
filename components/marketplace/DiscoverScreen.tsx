@@ -448,7 +448,7 @@ export function DiscoverScreen() {
         ) : null}
           </View>
         )}
-        ListEmptyComponent={null}
+        ListEmptyComponent={undefined}
       />
 
       <MarketplaceCompactHeader

@@ -120,7 +120,8 @@ function AnimatedTabItem({
 export function HookTabBar({
   state,
   descriptors,
-  navigation,
+  emitter,
+  navigateToTab,
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const cart = useCartQuery();
@@ -201,7 +202,7 @@ export function HookTabBar({
                 }
                 accessibilityLabel={options.tabBarAccessibilityLabel}
                 onLongPress={() =>
-                  navigation.emit({ type: "tabLongPress", target: route.key })
+                  emitter.emit({ type: "tabLongPress", target: route.key })
                 }
                 onPress={() => {
                   if (route.name === 'profile' && !session.data?.session) {
@@ -209,14 +210,14 @@ export function HookTabBar({
                     openAuth('/(tabs)/profile');
                     return;
                   }
-                  const event = navigation.emit({
+                  const event = emitter.emit({
                     type: "tabPress",
                     target: route.key,
                     canPreventDefault: true,
                   });
                   if (!selected && !event.defaultPrevented) {
                     void Haptics.selectionAsync();
-                    navigation.navigate(route.name, route.params);
+                    navigateToTab(route.key);
                   }
                 }}
               />

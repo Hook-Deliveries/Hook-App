@@ -1,3 +1,4 @@
+import type { TextInputRef } from "@/lib/rn-refs";
 import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useImperativeHandle, useRef } from "react";
 import { Pressable, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from "react-native";
@@ -14,9 +15,9 @@ type Props = TextInputProps & {
  * field can be emptied in one tap. Focus stays in the field after clearing.
  * Single-line fields only; multiline fields and passwords should use TextInput.
  */
-export const ClearableInput = forwardRef<TextInput, Props>(function ClearableInput({ containerStyle, onClear, style, value, editable, onChangeText, ...input }, ref) {
-  const inner = useRef<TextInput>(null);
-  useImperativeHandle(ref, () => inner.current as TextInput);
+export const ClearableInput = forwardRef<TextInputRef, Props>(function ClearableInput({ containerStyle, onClear, style, value, editable, onChangeText, ...input }, ref) {
+  const inner = useRef<TextInputRef>(null);
+  useImperativeHandle(ref, () => inner.current as TextInputRef);
   const showClear = typeof value === "string" && value.length > 0 && editable !== false && !input.multiline && !input.secureTextEntry;
 
   return (

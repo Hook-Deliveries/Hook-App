@@ -1,3 +1,4 @@
+import type { TextInputRef } from "@/lib/rn-refs";
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -19,7 +20,7 @@ export function PasswordLogin() {
   const [touched, setTouched] = useState(false);
   const login = useLoginMutation();
   const { hasPendingIntent } = useAuthSheet();
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputRef>(null);
 
   const isValid = password.length >= MIN_LENGTH;
   const hasError = touched && !isValid;

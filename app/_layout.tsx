@@ -20,7 +20,7 @@ import { HookLocationProvider } from "@/lib/location-context";
 import { AuthSheetProvider } from "@/components/auth/AuthSheetProvider";
 import { getBiometricEnabled, getSession } from "@/lib/session";
 import { checkHookHealth } from "@/lib/health";
-import { BackendUnavailableScreen } from "@/components/shared/BackendUnavailableScreen";
+import { ConnectionBanner } from "@/components/shared/ConnectionBanner";
 import { ReplacementFab } from "@/components/shared/ReplacementFab";
 
 export const unstable_settings = { anchor: "(tabs)" };
@@ -69,7 +69,6 @@ export default function RootLayout() {
   });
   const [launchReady, setLaunchReady] = useState(false);
   const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
-  const [healthRetrying, setHealthRetrying] = useState(false);
 
   useEffect(() => {
     if (!fontsLoaded) return;
@@ -129,27 +128,6 @@ export default function RootLayout() {
   }, [backendAvailable, launchReady]);
 
   if (fontsLoaded) applyNunitoDefaults();
-
-  const retryHealth = async () => {
-    setHealthRetrying(true);
-    const healthy = await checkHookHealth();
-    setBackendAvailable(healthy);
-    setHealthRetrying(false);
-  };
-
-  if (backendAvailable === false && !isLaunchSplash) {
-    return (
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#FFC809" }}>
-          {/* This screen has no padded header of its own, so it insets on all edges. */}
-          <SafeAreaView style={{ flex: 1, backgroundColor: "#FFC809" }}>
-            <BackendUnavailableScreen retrying={healthRetrying} onRetry={() => void retryHealth()} />
-            <StatusBar style="dark" />
-          </SafeAreaView>
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    );
-  }
 
   return (
     <SafeAreaProvider>
@@ -321,6 +299,7 @@ export default function RootLayout() {
               />
             </Stack>
             <NetworkBanner />
+            <ConnectionBanner visible={backendAvailable === false} />
             <ReplacementFab hidden={hideReplacementFab} />
             <StatusBar animated style={isMarketHero ? "light" : "dark"} />
             <ToastProvider />

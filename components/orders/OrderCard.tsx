@@ -97,7 +97,7 @@ export function OrderCard({ order, onPress }: { order: Order; onPress: () => voi
               {count} item{count === 1 ? "" : "s"}
             </Text>
             <Text className="mt-1 text-xs text-[#888]" numberOfLines={1}>
-              {order.paymentMethod === "PAY_AT_HANDOVER" ? "Pay at handover" : "Prepaid"}
+              Prepaid
             </Text>
           </View>
         </View>

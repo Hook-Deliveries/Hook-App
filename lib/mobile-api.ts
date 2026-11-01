@@ -147,11 +147,6 @@ export interface HookOperatingState {
   /** What the customer pays to have an order delivered to this State, in kobo. */
   deliveryFeeMinor?: number;
   deliveryPromiseHours?: number;
-  /** Whether Pay on Delivery is switched on for this State, and the largest order it allows (kobo). */
-  podEnabled?: boolean;
-  podLimitMinor?: number | null;
-  /** The smallest order that can use Pay on Delivery in this State (kobo); absent means the global minimum. */
-  podMinimumOrderMinor?: number | null;
 }
 
 export interface PublicLocalGovernment {
@@ -1108,18 +1103,13 @@ export function useAddressesQuery() {
 }
 export type CommerceConfig = {
   currency: string;
-  podEnabled: boolean;
-  podPaused: boolean;
   policyVersions: { TERMS?: string; PRIVACY?: string; RETURNS?: string };
   orderEarnEnabled: boolean;
   orderEarnPercent: number;
   orderEarnMaxMinor: number;
   /** Smallest cart subtotal (kobo) that may be checked out. 0 means no minimum. */
   minimumCheckoutMinor?: number;
-  /** Pay on Delivery: smallest order, the surcharge, and VAT. All set by the admin. */
-  podMinimumOrderMinor?: number;
-  podSurchargeType?: "flat" | "percent";
-  podSurchargeValue?: number;
+  /** VAT, set by the admin. */
   vatRatePercent?: number;
 };
 
@@ -1258,7 +1248,7 @@ export function useCheckoutPreviewMutation() {
     mutationFn: (input: {
       addressId?: string;
       deliveryMethod: "HOME_DELIVERY" | "PARTNER_PICKUP";
-      paymentMethod: "PREPAID" | "PAY_AT_HANDOVER";
+      paymentMethod: "PREPAID";
       policyVersions: { TERMS: string; PRIVACY: string; RETURNS: string };
       logisticsProviderId?: string;
       couponCode?: string;

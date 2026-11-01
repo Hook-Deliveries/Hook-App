@@ -80,9 +80,7 @@ export default function CheckoutScreen() {
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discountMinor: number; appliesToDelivery: boolean }>();
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
-  // Pay now is the default; the customer only picks when Pay on Delivery is actually available.
-  const [paymentChosen, setPaymentChosen] = useState(false);
-  const [method, setMethod] = useState<"PREPAID" | "PAY_AT_HANDOVER">("PREPAID");
+  const method = "PREPAID" as const;
   const [sheet, setSheet] = useState<"address" | "logistics" | "payment" | null>(null);
   // Set once checkout is submitted; survives the cart being emptied by confirm.
   const [paymentStage, setPaymentStage] = useState<PaymentStage | null>(null);
@@ -111,12 +109,8 @@ export default function CheckoutScreen() {
   const stateDeliveryFeeMinor = Number(addressState?.deliveryFeeMinor ?? DEFAULT_DELIVERY_FEE_MINOR);
   const cartItems = getCartItems(cart.data);
   const providers = logistics.data || [];
-  const podGloballyOn = Boolean((config.data as { podEnabled?: boolean } | undefined)?.podEnabled);
-  // The only "admin switched it off" signal, distinct from reasons tied to this order/address.
-  const podOffEntirely = !podGloballyOn;
-  // Settings the admin controls: VAT, and what Pay on Delivery needs and costs.
+  // The VAT rate is an admin setting.
   const vatRate = Number(config.data?.vatRatePercent ?? 7.5) / 100;
-  const podMinimumMinor = Number(config.data?.podMinimumOrderMinor ?? 3_000_000);
 
   // Hook credit is applied by default once the wallet loads; an explicit customer choice then persists for checkout.
   useEffect(() => {
@@ -147,28 +141,14 @@ export default function CheckoutScreen() {
     const itemDiscount = coupon?.appliesToDelivery ? 0 : couponDiscountMinor;
     const deliveryFeeMinor = Math.max(0, grossDeliveryMinor - deliveryDiscount);
     const vatMinor = Math.round(Math.max(0, subtotalMinor - itemDiscount) * vatRate);
-    const isPod = method === "PAY_AT_HANDOVER";
-    const surchargeValue = Number(config.data?.podSurchargeValue ?? 0);
-    const podSurchargeMinor = isPod
-      ? config.data?.podSurchargeType === "percent" ? Math.round((subtotalMinor * surchargeValue) / 100) : Math.round(surchargeValue)
-      : 0;
-    const payableBeforeCredits = Math.max(0, subtotalMinor - itemDiscount + vatMinor + deliveryFeeMinor + podSurchargeMinor);
-    // Pay now is always quoted without the Pay on Delivery surcharge, so choosing another method never changes it.
-    const prepaidBeforeCredits = Math.max(0, subtotalMinor - itemDiscount + vatMinor + deliveryFeeMinor);
+    const payableBeforeCredits = Math.max(0, subtotalMinor - itemDiscount + vatMinor + deliveryFeeMinor);
 
     const capPercent = credits.data?.capPercent ?? 20;
     const balanceMinor = credits.data?.balanceMinor ?? 0;
-    // Hook credit is for paying online in full; it is not used on a Pay on Delivery order.
-    const creditsAppliedMinor = useCredits && !isPod
+    // Hook credit is capped to a share of the goods and can never exceed what is payable.
+    const creditsAppliedMinor = useCredits
       ? Math.min(balanceMinor, Math.floor((subtotalMinor * capPercent) / 100), payableBeforeCredits)
       : 0;
-
-    const capMinor = Math.floor((subtotalMinor * capPercent) / 100);
-    const prepaidCreditsMinor = useCredits ? Math.min(balanceMinor, capMinor, prepaidBeforeCredits) : 0;
-    // What Pay on Delivery would cost, whichever method is selected, so the sheet can show it beside Pay now.
-    const podFlatSurcharge = config.data?.podSurchargeType === "percent" ? Math.round((subtotalMinor * surchargeValue) / 100) : Math.round(surchargeValue);
-    const podPayNowMinor = deliveryFeeMinor + podFlatSurcharge;
-    const podTotalMinor = Math.max(0, subtotalMinor - itemDiscount + vatMinor + deliveryFeeMinor + podFlatSurcharge);
 
     return {
       subtotalMinor,
@@ -176,36 +156,10 @@ export default function CheckoutScreen() {
       deliveryFeeMinor,
       couponDiscountMinor,
       creditsAppliedMinor,
-      podSurchargeMinor,
       totalMinor: Math.max(0, payableBeforeCredits - creditsAppliedMinor),
       payableBeforeCredits,
-      // What the order comes to (goods after discount, VAT, delivery): the figure Pay on Delivery's minimum is judged on.
-      orderValueMinor: prepaidBeforeCredits,
-      prepaidTotalMinor: Math.max(0, prepaidBeforeCredits - prepaidCreditsMinor),
-      prepaidCreditsMinor,
-      podPayNowMinor,
-      podAtDoorMinor: Math.max(0, podTotalMinor - podPayNowMinor),
     };
-  }, [cartItems, stateDeliveryFeeMinor, coupon, useCredits, credits.data, vatRate, method, config.data]);
-  const stateName = addressState?.name || selectedAddress?.stateName;
-  const stateAllowsPod = Boolean(addressState?.podEnabled);
-  // The State's own minimum wins over the global one.
-  const podMinimumForState = Number(addressState?.podMinimumOrderMinor ?? podMinimumMinor);
-  const shortfallMinor = Math.max(0, podMinimumForState - money.orderValueMinor);
-  const podAvailable = podGloballyOn && Boolean(selectedAddress) && stateAllowsPod && shortfallMinor === 0;
-  const naira0 = (minor: number) => `₦${Math.round(minor / 100).toLocaleString("en-NG")}`;
-  const podUnavailableReason = !podGloballyOn
-    ? "You don't have access to Pay on Delivery right now. Please try again later, or pay now to place this order."
-    : !selectedAddress
-      ? "Choose a delivery address to see if Pay on Delivery is available where you are."
-      : !stateAllowsPod
-        ? `Pay on Delivery isn't available in ${stateName || "your State"} yet.`
-        : `Pay on Delivery in ${stateName} needs an order total of ${naira0(podMinimumForState)} or more (goods, VAT and delivery). Add ${naira0(shortfallMinor)} more to unlock it.`;
-  // If the address changes to a State without Pay on Delivery, fall back to Pay now.
-  useEffect(() => {
-    if (method === "PAY_AT_HANDOVER" && !podAvailable) setMethod("PREPAID");
-  }, [method, podAvailable]);
-
+  }, [cartItems, stateDeliveryFeeMinor, coupon, useCredits, credits.data, vatRate]);
   // Always look at the freshest State and settings when the customer opens the payment choices.
   useEffect(() => {
     if (sheet !== "payment") return;
@@ -274,7 +228,6 @@ export default function CheckoutScreen() {
       setSheet("logistics");
       return toast.info("Choose a delivery option to continue");
     }
-    if (!paymentChosen) { setSheet("payment"); return; }
     const policyVersions = config.data?.policyVersions;
     if (!policyVersions?.TERMS || !policyVersions?.PRIVACY || !policyVersions?.RETURNS)
       return toast.error("Checkout policies are temporarily unavailable");
@@ -337,11 +290,7 @@ export default function CheckoutScreen() {
       );
       if (browserResult.type === "cancel" || browserResult.type === "dismiss") {
         // Closing the payment page is not a completed payment — say so clearly instead of moving on quietly.
-        const isPod = method === "PAY_AT_HANDOVER";
-        toast.error(
-          isPod ? "Delivery fee not paid" : "Payment not completed",
-          isPod ? "Your order is saved, but it won't move forward until the delivery fee is paid." : "Pay to complete your order.",
-        );
+        toast.error("Payment not completed", "Pay to complete your order.");
         router.replace({ pathname: "/orders/[id]", params: { id: order.id } } as never);
         return;
       }
@@ -369,10 +318,6 @@ export default function CheckoutScreen() {
       } else if (code === "MINIMUM_ORDER_NOT_MET") {
         toast.info("Add a little more to check out", error instanceof Error ? error.message : undefined);
         router.replace("/(app)/cart" as never);
-      } else if (code === "POD_NOT_ELIGIBLE") {
-        // Not available here (state switched off, below the minimum, or the option was suspended): fall back to paying online.
-        setMethod("PREPAID");
-        toast.info("Pay on delivery isn't available for this order", error instanceof Error ? error.message : "Choose Pay now to continue.");
       } else if (code === "EMAIL_VERIFICATION_REQUIRED") {
         toast.info("Verify your email to check out");
         router.push("/auth/verify-email" as never);
@@ -403,7 +348,7 @@ export default function CheckoutScreen() {
       || selectedAddress.label
       || selectedAddress.recipientName
     : undefined;
-  const readyForPayment = Boolean(selectedAddress && provider && paymentChosen);
+  const readyForPayment = Boolean(selectedAddress && provider);
 
   function openPolicy(type: "terms" | "privacy" | "returns") {
     router.push(`/legal/${type}?from=checkout` as never);
@@ -448,13 +393,7 @@ export default function CheckoutScreen() {
 
         <View style={{ marginTop: 24, gap: 10 }}>
           <Text className="text-base font-medium text-black">Payment</Text>
-          <CheckoutRow placeholder="Payment method" value={paymentChosen ? (method === "PAY_AT_HANDOVER" ? "Pay on delivery" : "Pay now") : undefined} onPress={() => setSheet("payment")} />
-          {podGloballyOn && selectedAddress ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 4 }}>
-              <Ionicons name={stateAllowsPod && shortfallMinor === 0 ? "checkmark-circle" : "information-circle-outline"} size={15} color={stateAllowsPod && shortfallMinor === 0 ? "#30B940" : "#8A8A8A"} />
-              <Text style={{ flex: 1, fontSize: 12, color: "#666" }}>{stateAllowsPod ? (shortfallMinor > 0 ? `Pay on Delivery in ${stateName} starts at ${naira0(podMinimumForState)} (goods, VAT and delivery). Add ${naira0(shortfallMinor)} more to unlock it.` : `Pay on Delivery is available in ${stateName} on orders of ${naira0(podMinimumForState)} or more in total.`) : `Pay on Delivery isn't available in ${stateName || "your State"} yet.`}</Text>
-            </View>
-          ) : null}
+          <CheckoutRow placeholder="Payment" value="Pay now" onPress={() => setSheet("payment")} />
           {money.creditsAppliedMinor > 0 ? (
             <Pressable
               accessibilityRole="button"
@@ -523,8 +462,6 @@ export default function CheckoutScreen() {
             couponCode={coupon?.code}
             deliveryFeeMinor={money.deliveryFeeMinor}
             totalMinor={money.totalMinor}
-            podSurchargeMinor={money.podSurchargeMinor}
-            payNowMinor={method === "PAY_AT_HANDOVER" ? money.podPayNowMinor : undefined}
           />
         </View>
 
@@ -568,13 +505,9 @@ export default function CheckoutScreen() {
               ? "Choose address"
               : !provider
                 ? "Choose logistics"
-                : !paymentChosen
-                  ? "Choose payment method"
-                  : !acceptedPolicies
-                    ? "Accept policies to pay"
-                    : method === "PAY_AT_HANDOVER"
-                      ? `Pay ₦${Math.round(money.podPayNowMinor / 100).toLocaleString("en-NG")} now`
-                      : "Pay now"
+                : !acceptedPolicies
+                  ? "Accept policies to pay"
+                  : "Pay now"
           }
           disabled={busy || (readyForPayment && !acceptedPolicies)}
           loading={busy}
@@ -621,19 +554,10 @@ export default function CheckoutScreen() {
         creditBalanceMinor={credits.data?.balanceMinor ?? 0}
         useCredits={useCredits}
         estimatedEarnMinor={estimatedEarnMinor}
-        payNowTotalMinor={money.prepaidTotalMinor}
-        podTotalMinor={money.payableBeforeCredits}
-        stateName={stateName}
-        creditsAppliedMinor={money.prepaidCreditsMinor}
-        podOffEntirely={podOffEntirely}
-        method={method}
-        onSelectMethod={setMethod}
-        podAvailable={podAvailable}
-        podUnavailableReason={podUnavailableReason}
-        podPayNowMinor={money.podPayNowMinor}
-        podAtDoorMinor={money.podAtDoorMinor}
+        payNowTotalMinor={money.totalMinor}
+        creditsAppliedMinor={money.creditsAppliedMinor}
         onToggleCredits={handleToggleCredits}
-        onChoosePayNow={() => { setPaymentChosen(true); setSheet(null); }}
+        onChoosePayNow={() => setSheet(null)}
         onClose={() => setSheet(null)}
       />
     </View>

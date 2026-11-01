@@ -12,6 +12,7 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "Hook uses Face ID to protect your account on this device.",
         "UIApplicationSceneManifest": {
           "UIApplicationSupportsMultipleScenes": false,
@@ -67,8 +68,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/app-icon.png",
-          "imageWidth": 160,
+          "image": "./assets/images/splash-logo.png",
+          "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#FFC809",
           "dark": {

@@ -1,21 +1,19 @@
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Platform, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BackendUnavailableScreen } from "@/components/shared/BackendUnavailableScreen";
 import { checkHookHealth } from "@/lib/health";
 import { resumeSession as refreshSession } from "@/lib/api";
 import { getOnboardingComplete, getPendingSignup, getSession } from "@/lib/session";
 
-const SPLASH_DELAY = 900;
+const IS_WEB = Platform.OS === "web";
+const SPLASH_DELAY = IS_WEB ? 0 : 900;
 
 export default function SplashScreen() {
   const insets = useSafeAreaInsets();
   const routed = useRef(false);
-  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
-  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -32,11 +30,11 @@ export default function SplashScreen() {
         checkHookHealth(),
       ]);
       if (!mounted) return;
-      setBackendAvailable(healthy);
-      if (!healthy) return;
 
+      // An unreachable backend must not trap the user here: the root layout shows a passive
+      // banner and keeps retrying, so launch routing falls back to what is stored on the device.
       const session = await getSession();
-      if (session && (await refreshSession(session))) {
+      if (session && (!healthy || (await refreshSession(session)))) {
         replace("/(tabs)");
         return;
       }
@@ -68,67 +66,20 @@ export default function SplashScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    if (backendAvailable !== false) return;
+  if (IS_WEB) return null;
 
-    let active = true;
-    const recover = async () => {
-      if (routed.current) return;
-      const healthy = await checkHookHealth();
-      if (!active || !healthy || routed.current) return;
-
-      setBackendAvailable(true);
-      const session = await getSession();
-      if (!active || routed.current) return;
-      routed.current = true;
-      if (session) await refreshSession(session);
-      router.replace((await getOnboardingComplete()) ? "/(tabs)" : "/onboarding");
-    };
-
-    const interval = setInterval(() => void recover(), 5_000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [backendAvailable]);
-
-  const retryHealth = async () => {
-    setRetrying(true);
-    const healthy = await checkHookHealth();
-    if (healthy) {
-      setBackendAvailable(true);
-      const session = await getSession();
-      if (session) await refreshSession(session);
-      router.replace((await getOnboardingComplete()) ? "/(tabs)" : "/onboarding");
-    } else {
-      setBackendAvailable(false);
-    }
-    setRetrying(false);
-  };
-
-  if (backendAvailable === false) {
-    return (
-      <View className="flex-1 bg-hook">
-        <StatusBar style="dark" />
-        <BackendUnavailableScreen retrying={retrying} onRetry={() => void retryHealth()} />
-      </View>
-    );
-  }
-
+  // The wordmark sits at the exact centre of the screen, where the native launch image draws it, so
+  // the hand-off from the native splash is invisible. The footer is pinned and takes no part in centring.
   return (
     <View className="flex-1 items-center justify-center bg-hook px-6">
       <StatusBar style="light" />
-      <View className="w-full flex-1 items-center justify-center">
-        <Text className="text-[55px] font-bold leading-[66px] text-black">
-          hook
-          <Text className="text-[55px] font-bold leading-[66px] text-white">
-            .
-          </Text>
-        </Text>
-      </View>
+      <Text className="text-[55px] font-bold leading-[66px] text-black">
+        hook
+        <Text className="text-[55px] font-bold leading-[66px] text-white">.</Text>
+      </Text>
       <View
-        className="w-full items-center"
-        style={{ paddingBottom: Math.max(insets.bottom, 32) }}
+        className="items-center"
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingBottom: Math.max(insets.bottom, 32) }}
       >
         <View className="mb-3 h-px w-8 bg-black/20" />
         <Text className="text-center text-[11px] font-bold uppercase tracking-[1.6px] text-black/60">

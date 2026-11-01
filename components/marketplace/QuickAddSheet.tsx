@@ -1,3 +1,4 @@
+import type { ViewRef } from "@/lib/rn-refs";
 import { Ionicons } from "@expo/vector-icons";
 import { haptics } from "@/lib/haptics";
 import { router } from "expo-router";
@@ -32,7 +33,7 @@ export function QuickAddSheet({ product: listed, visible, onClose }: { product: 
   const add = useAddCartItemMutation();
   // The photo flies from the sheet's thumbnail into its cart icon, which bounces: the same tap feedback as the product page.
   const cartAnimation = useCartAddAnimation(listed.publicId);
-  const thumbRef = useRef<View>(null);
+  const thumbRef = useRef<ViewRef>(null);
   // Cards carry a light product; load the full one (category questions, variants) when the sheet opens.
   const full = useProductQuery(visible ? listed.publicId : undefined);
   const product = full.data || listed;

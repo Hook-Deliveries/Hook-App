@@ -464,7 +464,7 @@ export function CategoryStorefrontScreen() {
                 Try another market or search term.
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
         ListFooterComponent={
           parentCategory && subCategories.length > 1 && selectedCategoryId !== parentCategory.publicId ? (
@@ -482,7 +482,7 @@ export function CategoryStorefrontScreen() {
                   ))}
               </ScrollView>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

@@ -1,3 +1,4 @@
+import type { ScrollViewRef, TextInputRef } from "@/lib/rn-refs";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
@@ -33,8 +34,8 @@ export function EnterName({ email }: { email: string }) {
   const completeSignup = useCompleteSignupMutation();
   const creditConfig = useCreditConfigQuery().data;
   const { hasPendingIntent } = useAuthSheet();
-  const scrollRef = useRef<ScrollView>(null);
-  const inputRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollViewRef>(null);
+  const inputRef = useRef<TextInputRef>(null);
 
   const isValid = name.trim().length >= 2;
   const loading = completeSignup.isPending;

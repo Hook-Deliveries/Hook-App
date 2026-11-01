@@ -1,18 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useRef } from "react";
-import { Animated, Easing, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { HookLoader } from "@/components/shared/HookLoader";
+import { HookPageHeader } from "@/components/shared/HookPageHeader";
 
 export type PaymentStage = "creating" | "redirecting" | "confirming";
 
 const STAGE_COPY: Record<PaymentStage, { title: string; body: string }> = {
   creating: {
     title: "Setting up your order",
-    body: "We are reserving your items and preparing a secure payment link.",
+    body: "We're reserving your items and preparing secure payment.",
   },
   redirecting: {
-    title: "Opening secure payment",
-    body: "Complete your payment in the secure window. Come back here when you are done.",
+    title: "Complete your payment",
+    body: "Finish in the secure window, then come back here.",
   },
   confirming: {
     title: "Confirming your payment",
@@ -29,126 +31,71 @@ const STEPS: { key: PaymentStage; label: string }[] = [
 /** Shown from checkout submission until the order screen takes over, so the empty-cart guard doesn't flash first. */
 export function PaymentProcessingScreen({ stage }: { stage: PaymentStage }) {
   const insets = useSafeAreaInsets();
-  const spin = useRef(new Animated.Value(0)).current;
   const activeIndex = STEPS.findIndex((step) => step.key === stage);
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.timing(spin, {
-        toValue: 1,
-        duration: 1100,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [spin]);
-
-  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   const copy = STAGE_COPY[stage];
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#F1F1F3",
-        paddingTop: insets.top + 24,
-        paddingBottom: insets.bottom + 24,
-        paddingHorizontal: 24,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <View style={{ width: 96, height: 96, alignItems: "center", justifyContent: "center" }}>
-        <Animated.View
-          style={{
-            position: "absolute",
-            width: 96,
-            height: 96,
-            borderRadius: 48,
-            borderWidth: 4,
-            borderColor: "#FFC809",
-            borderTopColor: "transparent",
-            transform: [{ rotate }],
-          }}
-        />
-        <View
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 32,
-            backgroundColor: "#111111",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons name="lock-closed" size={26} color="#FFC809" />
-        </View>
+    <View style={{ flex: 1, backgroundColor: "#F1F1F3", paddingTop: insets.top }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}>
+        <HookPageHeader title="Checkout" centered />
       </View>
 
-      <Text
-        accessibilityRole="header"
-        style={{ marginTop: 28, fontSize: 24, lineHeight: 32, textAlign: "center", color: "#111", fontFamily: "NunitoSans-Black" }}
-      >
-        {copy.title}
-      </Text>
-      <Text
-        accessibilityLiveRegion="polite"
-        style={{ marginTop: 10, maxWidth: 320, fontSize: 15, lineHeight: 22, textAlign: "center", color: "#666" }}
-      >
-        {copy.body}
-      </Text>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 12 }}>
+        <View style={{ borderRadius: 22, backgroundColor: "white", padding: 20 }}>
+          <View style={{ alignItems: "flex-start" }}>
+            <HookLoader />
+          </View>
+          <Text accessibilityRole="header" style={{ marginTop: 16, fontSize: 18, lineHeight: 24, color: "#111", fontFamily: "NunitoSans-Black" }}>
+            {copy.title}
+          </Text>
+          <Text accessibilityLiveRegion="polite" style={{ marginTop: 4, fontSize: 13, lineHeight: 19, color: "#77777B" }}>
+            {copy.body}
+          </Text>
 
-      <View style={{ marginTop: 32, width: "100%", maxWidth: 320, gap: 14 }}>
-        {STEPS.map((step, index) => {
-          const done = index < activeIndex;
-          const active = index === activeIndex;
-          return (
-            <View key={step.key} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <View
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: done || active ? "#FFC809" : "#E3E3E6",
-                }}
-              >
-                {done ? (
-                  <Ionicons name="checkmark" size={14} color="#111" />
-                ) : (
+          <View style={{ marginTop: 18, borderTopWidth: 1, borderTopColor: "#F0F0F2", paddingTop: 16, gap: 14 }}>
+            {STEPS.map((step, index) => {
+              const done = index < activeIndex;
+              const active = index === activeIndex;
+              return (
+                <View key={step.key} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                   <View
                     style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: active ? "#111" : "#B5B5B8",
+                      width: 22,
+                      height: 22,
+                      borderRadius: 11,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: done || active ? "#FFC809" : "#EDEDEF",
                     }}
-                  />
-                )}
-              </View>
-              <Text
-                style={{
-                  flex: 1,
-                  fontSize: 14,
-                  color: done || active ? "#111" : "#9A9A9E",
-                  fontFamily: done || active ? "NunitoSans-Bold" : undefined,
-                }}
-              >
-                {step.label}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+                  >
+                    {done ? (
+                      <Ionicons name="checkmark" size={13} color="#111" />
+                    ) : (
+                      <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: active ? "#111" : "#B5B5B8" }} />
+                    )}
+                  </View>
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontSize: 14,
+                      color: done || active ? "#111" : "#9A9A9E",
+                      fontFamily: done || active ? "NunitoSans-Bold" : "NunitoSans-Regular",
+                    }}
+                  >
+                    {step.label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
 
-      <View style={{ marginTop: 36, flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Ionicons name="shield-checkmark-outline" size={16} color="#30b940" />
-        <Text style={{ fontSize: 12, color: "#30b940" }}>
-          Your money is protected with hook until you receive your order
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 16, backgroundColor: "#FFF9E5", paddingHorizontal: 14, paddingVertical: 12 }}>
+          <Ionicons name="shield-checkmark-outline" size={17} color="#8A6500" />
+          <Text style={{ flex: 1, fontSize: 12, lineHeight: 17, color: "#6F5900" }}>
+            Your money is protected by Hook until you receive your order.
+          </Text>
+        </View>
       </View>
     </View>
   );

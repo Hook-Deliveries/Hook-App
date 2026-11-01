@@ -3,7 +3,7 @@ import { centeredHeaderTextStyle } from "@/constants/design-tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { Pressable, RefreshControl, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Extrapolation,
@@ -15,6 +15,7 @@ import Animated, {
 
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import { ProfileAvatar, ProfileRow, ProfileSection } from "@/components/profile/ProfileComponents";
+import { HookBackButton } from "@/components/shared/HookBackButton";
 import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
 import { toast } from "@/components/shared/toast";
 import { openDeleteAccountPage } from "@/lib/account-deletion-api";
@@ -81,53 +82,46 @@ export default function ProfileScreen() {
 
   if (!session) {
     return (
-      <View className="flex-1 bg-[#F4F4F5]" style={{ paddingTop: insets.top }}>
+      <View className="flex-1 bg-[#F1F1F3]" style={{ paddingTop: insets.top }}>
         <View className="flex-row items-center justify-between px-4 py-3">
-          <View className="h-11 w-11" />
+          <HookBackButton onPress={() => (router.canGoBack() ? router.back() : router.navigate("/(tabs)" as never))} />
           <Text style={centeredHeaderTextStyle}>Profile</Text>
           <View className="h-11 w-11" />
         </View>
 
-        <View className="mx-4 mt-3 overflow-hidden rounded-[24px] bg-[#171717] p-5">
-          <View className="h-11 w-11 items-center justify-center rounded-[13px] bg-white/10">
-            <Ionicons name="person" size={22} color="#FFC809" />
-          </View>
-          <Text className="mt-5 text-[22px] font-black text-white">Your Hook account</Text>
-          <Text className="mt-2 text-[13px] leading-5 text-white/60">
-            Sign in to track orders, save delivery addresses, keep the products you love and negotiate prices with Hook Markets.
-          </Text>
-        </View>
-
-        <View
-          className="mx-4 mt-4 rounded-[24px] bg-white p-5"
-          style={{ marginBottom: getHookTabBarContentInset(insets.bottom) }}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: getHookTabBarContentInset(insets.bottom) }}
         >
-          {SIGNED_OUT_BENEFITS.map((benefit, index) => (
-            <View
-              key={benefit.title}
-              className={`flex-row items-center gap-3 ${index ? "mt-4 border-t border-[#F0F0F1] pt-4" : ""}`}
-            >
-              <View className="h-10 w-10 items-center justify-center rounded-[13px] bg-[#F4F4F5]">
-                <Ionicons name={benefit.icon} size={19} color="#111" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-[15px] font-black text-black">{benefit.title}</Text>
-                <Text className="mt-0.5 text-[12px] leading-4 text-[#77777B]">{benefit.description}</Text>
-              </View>
-            </View>
-          ))}
+          <View className="rounded-[22px] bg-white p-5">
+            <Text className="text-[20px] font-black text-black">Your Hook account</Text>
+            <Text className="mt-1.5 text-[13px] leading-5 text-[#77777B]">
+              Sign in to track orders, save addresses and negotiate prices.
+            </Text>
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => openAuth("/(tabs)/profile")}
-            className="mt-6 h-[52px] items-center justify-center rounded-full bg-hook active:opacity-90"
-          >
-            <Text className="font-black text-black">Sign in or create account</Text>
-          </Pressable>
-          <Text className="mt-3 text-center text-[11px] leading-4 text-[#A0A0A3]">
-            It only takes a moment, and your cart stays exactly as you left it.
-          </Text>
-        </View>
+            <View className="mt-5 gap-4">
+              {SIGNED_OUT_BENEFITS.map((benefit) => (
+                <View key={benefit.title} className="flex-row items-center gap-3">
+                  <View className="h-10 w-10 items-center justify-center rounded-full bg-[#F4F4F5]">
+                    <Ionicons name={benefit.icon} size={19} color="#111" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-[15px] font-black text-black">{benefit.title}</Text>
+                    <Text className="mt-0.5 text-[12px] leading-4 text-[#77777B]">{benefit.description}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => openAuth("/(tabs)/profile")}
+              className="mt-6 h-[52px] items-center justify-center rounded-full bg-hook active:opacity-90"
+            >
+              <Text className="font-black text-black">Sign in or create account</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
       </View>
     );
   }

@@ -1,6 +1,6 @@
-import { Redirect } from 'expo-router';
+import { CartScreen } from "@/components/cart/CartScreen";
 
-/** Keep old cart links compatible without rendering Checkout beneath the tabs. */
+/** The Cart tab: opens in place like Discover, Messages and Profile. Other flows push the standalone cart route instead. */
 export default function CartTabScreen() {
-  return <Redirect href="/(app)/cart" />;
+  return <CartScreen inTab />;
 }

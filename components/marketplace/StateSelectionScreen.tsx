@@ -206,7 +206,7 @@ export function StateSelectionScreen() {
                 <Text className="mt-0.5 text-xs leading-4 text-[#806D25]">Hook is expanding to more operating locations.</Text>
               </View>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

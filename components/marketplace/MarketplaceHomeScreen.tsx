@@ -55,8 +55,6 @@ export function MarketplaceHomeScreen() {
   const marketSectionY = useSharedValue(0);
   const headerVisibleValue = useSharedValue(false);
   const searchPinnedValue = useSharedValue(false);
-  const categoryStripHeight = useSharedValue(120);
-  const categoryStripMeasured = useSharedValue(false);
   const compactHeaderHeight = insets.top + 62;
   const displayCategories = useMemo<PublicCategory[]>(() => {
     const categories = categoriesQuery.data || [];
@@ -138,40 +136,25 @@ export function MarketplaceHomeScreen() {
     },
   });
 
+  // Scrolls with the page at 1:1 (no height animation, so the content size never changes mid-scroll);
+  // it only dissolves and lags slightly so the compact header can take over.
   const categoryStripStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      scrollY.value,
-      [0, 118],
-      [categoryStripHeight.value, 0],
-      Extrapolation.CLAMP,
-    ),
-    opacity: interpolate(
-      scrollY.value,
-      [0, 54, 118],
-      [1, 0.72, 0],
-      Extrapolation.CLAMP,
-    ),
-    transform: [
-      {
-        translateY: interpolate(
-          scrollY.value,
-          [0, 118],
-          [0, -18],
-          Extrapolation.CLAMP,
-        ),
-      },
-    ],
-    overflow: "hidden",
+    opacity: interpolate(scrollY.value, [0, 44], [1, 0], Extrapolation.CLAMP),
+    transform: [{ translateY: interpolate(scrollY.value, [0, 120], [0, 22], Extrapolation.CLAMP) }],
+  }));
+
+  const topRowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, 26], [1, 0], Extrapolation.CLAMP),
   }));
 
   const compactHeaderStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [36, 86], [0, 1], Extrapolation.CLAMP),
+    opacity: interpolate(scrollY.value, [30, 56], [0, 1], Extrapolation.CLAMP),
     transform: [
       {
         translateY: interpolate(
           scrollY.value,
-          [36, 86],
-          [-8, 0],
+          [30, 56],
+          [-6, 0],
           Extrapolation.CLAMP,
         ),
       },
@@ -260,13 +243,18 @@ export function MarketplaceHomeScreen() {
         }
         contentContainerStyle={{ paddingBottom: getHookTabBarContentInset(insets.bottom) }}
       >
+        {/* Pulling down past the top reveals this instead of the grey page background. */}
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", top: -1600, left: 0, right: 0, height: 1600, backgroundColor: "#FFD93E" }}
+        />
         <View className="relative overflow-hidden rounded-b-[28px] bg-[#FFD93E] pb-4">
           <View
             className="overflow-hidden px-4 pb-2"
             style={{ paddingTop: insets.top + 8, zIndex: 1 }}
           >
             <HookYellowPattern />
-            <View className="flex-row items-center justify-between">
+            <Animated.View className="flex-row items-center justify-between" style={topRowStyle}>
               <NotificationBellButton />
               <Pressable
                 accessibilityRole="button"
@@ -298,18 +286,9 @@ export function MarketplaceHomeScreen() {
                   )}
                 </Pressable>
               </View>
-            </View>
+            </Animated.View>
 
-            <Animated.View
-              className="-mx-4 overflow-hidden"
-              onLayout={(event) => {
-                if (!categoryStripMeasured.value) {
-                  categoryStripHeight.value = event.nativeEvent.layout.height;
-                  categoryStripMeasured.value = true;
-                }
-              }}
-              style={categoryStripStyle}
-            >
+            <Animated.View className="-mx-4" style={categoryStripStyle}>
               {categoriesQuery.isLoading ? (
                 <SkeletonCategoryCircles />
             ) : (

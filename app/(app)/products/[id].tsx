@@ -1,3 +1,4 @@
+import type { ScrollViewRef } from "@/lib/rn-refs";
 import { Ionicons } from "@expo/vector-icons";
 import { haptics } from "@/lib/haptics";
 import { router, useLocalSearchParams } from "expo-router";
@@ -55,8 +56,8 @@ export default function ProductDetailScreen() {
   }>();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const scrollRef = useRef<ScrollView>(null);
-  const heroPager = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewRef>(null);
+  const heroPager = useRef<ScrollViewRef>(null);
   const optionPositions = useRef<Record<string, number>>({ details: 0 });
   const reducedMotion = useReducedMotion();
   const query = useProductQuery(id);
@@ -567,7 +568,7 @@ export default function ProductDetailScreen() {
                   <CatalogProductCard product={item} variant="figma" />
                 </View>
               )}
-              ListFooterComponent={feed.isFetchingNextPage ? <View style={{ width: 150 }}><ProductCardSkeleton /></View> : null}
+              ListFooterComponent={feed.isFetchingNextPage ? <View style={{ width: 150 }}><ProductCardSkeleton /></View> : undefined}
             />
           </View>
         ) : null}

@@ -5,8 +5,8 @@ import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import { useCustomerSessionQuery, useNotificationsQuery } from "@/lib/mobile-api";
 import { isCustomerSession } from "@/lib/session";
 
-// The bell icon shown across marketplace headers, with an unread-count badge.
-// Bare icon, no background chip — sits directly on the header's own yellow.
+// The bell shown across marketplace headers: a white 44pt circle that pairs with the profile button,
+// with a small dark count badge ringed in the header yellow so it never clashes with the page.
 export function NotificationBellButton({ color = "#111" }: { color?: string }) {
   const session = useCustomerSessionQuery();
   const { openAuth } = useAuthSheet();
@@ -16,15 +16,19 @@ export function NotificationBellButton({ color = "#111" }: { color?: string }) {
 
   return (
     <Pressable
+      accessibilityRole="button"
       accessibilityLabel={unread ? `Open notifications, ${unread} unread` : "Open notifications"}
       onPress={() => (signedIn ? router.push("/notifications" as never) : openAuth("/notifications" as never))}
-      hitSlop={10}
-      className="h-11 w-11 items-center justify-center"
+      hitSlop={6}
+      style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" }}
     >
-      <Ionicons name={unread > 0 ? "notifications" : "notifications-outline"} size={23} color={color} />
+      <Ionicons name={unread > 0 ? "notifications" : "notifications-outline"} size={21} color={color} />
       {unread > 0 ? (
-        <View className="absolute right-1.5 top-1.5 h-4 min-w-4 items-center justify-center rounded-full border-2 border-[#FFD93E] bg-red-500 px-1">
-          <Text className="text-[10px] font-bold leading-none text-white">{unread > 9 ? "9+" : unread}</Text>
+        <View
+          pointerEvents="none"
+          className="absolute -right-1 -top-1 h-[19px] min-w-[19px] items-center justify-center rounded-full border-2 border-[#FFD93E] bg-[#111] px-1"
+        >
+          <Text className="text-[10px] font-extrabold leading-[12px] text-[#FFD93E]">{unread > 9 ? "9+" : unread}</Text>
         </View>
       ) : null}
     </Pressable>

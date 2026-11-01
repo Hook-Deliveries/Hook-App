@@ -356,7 +356,7 @@ export function MarketStorefrontScreen() {
                 {debouncedSearch ? `Nothing in ${marketDisplayName} matches that. Check the spelling or try a shorter word.` : "Try another category."}
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

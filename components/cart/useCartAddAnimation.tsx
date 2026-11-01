@@ -1,3 +1,4 @@
+import type { ViewRef } from "@/lib/rn-refs";
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -20,7 +21,7 @@ type Flight = { uri: string; fromX: number; fromY: number; toX: number; toY: num
 const SIZE = 76;
 const DURATION = 720;
 
-function measure(view: View | null): Promise<Bounds | null> {
+function measure(view: ViewRef | null): Promise<Bounds | null> {
   if (!view) return Promise.resolve(null);
   return new Promise((resolve) => {
     // A removed native view may never invoke its measurement callback.
@@ -34,10 +35,10 @@ function measure(view: View | null): Promise<Bounds | null> {
 
 /** Immediate decorative tap feedback, not proof of a successful cart write. */
 export function useCartAddAnimation(productId?: string) {
-  const containerRef = useRef<View>(null);
-  const heroRef = useRef<View>(null);
-  const triggerRef = useRef<View>(null);
-  const cartRef = useRef<View>(null);
+  const containerRef = useRef<ViewRef>(null);
+  const heroRef = useRef<ViewRef>(null);
+  const triggerRef = useRef<ViewRef>(null);
+  const cartRef = useRef<ViewRef>(null);
   const generation = useRef(0);
   const activeProduct = useRef(productId);
   activeProduct.current = productId;
@@ -93,7 +94,7 @@ export function useCartAddAnimation(productId?: string) {
     setFlight(next);
   }
 
-  async function playBetween(uri: string | undefined, source: View | null, target: View | null) {
+  async function playBetween(uri: string | undefined, source: ViewRef | null, target: ViewRef | null) {
     lastFlight.current = null;
     if (reducedMotion || !uri) return;
     const current = generation.current;

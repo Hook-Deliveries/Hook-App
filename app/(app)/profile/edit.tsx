@@ -1,3 +1,4 @@
+import type { ScrollViewRef, TextInputRef } from "@/lib/rn-refs";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
@@ -34,9 +35,9 @@ type ProfileForm = {
 
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
-  const lastNameRef = useRef<TextInput>(null);
-  const phoneRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollViewRef>(null);
+  const lastNameRef = useRef<TextInputRef>(null);
+  const phoneRef = useRef<TextInputRef>(null);
   const [form, setForm] = useState<ProfileForm>({ firstName: "", lastName: "", phone: "", email: "", avatarUrl: "" });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -195,7 +196,7 @@ export default function EditProfileScreen() {
   );
 }
 
-const Field = forwardRef<TextInput, React.ComponentProps<typeof TextInput> & { label: string; helper?: string }>(
+const Field = forwardRef<TextInputRef, React.ComponentProps<typeof TextInput> & { label: string; helper?: string }>(
   function Field({ label, helper, ...input }, ref) {
     return (
       <View className="mb-4">

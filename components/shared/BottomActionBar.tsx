@@ -10,9 +10,9 @@ import { designTokens } from "@/constants/design-tokens";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
-export function BottomActionBar({ children }: PropsWithChildren) {
+export function BottomActionBar({ children, extraBottom = 0 }: PropsWithChildren<{ extraBottom?: number }>) {
   const insets = useSafeAreaInsets();
-  return <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, designTokens.control.bottomInset) }]}>{children}</View>;
+  return <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, designTokens.control.bottomInset) + extraBottom }]}>{children}</View>;
 }
 
 export function BottomActionButton({
