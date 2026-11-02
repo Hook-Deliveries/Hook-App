@@ -18,12 +18,24 @@ export function availabilityLabel(value?: string | null) {
   return `Verified ${date.toLocaleDateString("en-NG", { day: "numeric", month: "short" })}`;
 }
 
-/** A compact pill, same family as the out-of-stock/low-stock pills beside it — sits inline with the price, not a separate row. */
-export function AvailabilityBadge({ verifiedAt }: { verifiedAt?: string | null }) {
+/**
+ * A compact pill that sits inline with the price. Available products read "Available · Verified today" so the customer
+ * sees both the status and how fresh the market confirmation is; once it runs out the pill turns grey and says so.
+ */
+export function AvailabilityBadge({ verifiedAt, available = true }: { verifiedAt?: string | null; available?: boolean }) {
+  if (!available) {
+    return (
+      <View style={[styles.pill, styles.pillOff]}>
+        <Ionicons name="time-outline" size={13} color="#6B6B6B" />
+        <Text style={[styles.text, styles.textOff]}>Unavailable</Text>
+      </View>
+    );
+  }
+  const label = availabilityLabel(verifiedAt);
   return (
     <View style={styles.pill}>
       <Ionicons name="checkmark-circle" size={13} color="#1f8a4c" />
-      <Text style={styles.text}>{availabilityLabel(verifiedAt)}</Text>
+      <Text style={styles.text}>{label === "Available" ? "Available" : `Available · ${label}`}</Text>
     </View>
   );
 }
@@ -38,5 +50,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
+  pillOff: { backgroundColor: "#EDEDED" },
   text: { fontSize: 11, fontFamily: "NunitoSans-Bold", color: "#1f8a4c" },
+  textOff: { color: "#6B6B6B" },
 });

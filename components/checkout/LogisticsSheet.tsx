@@ -2,9 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { SkeletonRows } from "@/components/motion/Skeleton";
 import { Image } from "expo-image";
 import { Pressable, Text, View } from "react-native";
-import { BottomSheetScrollView as ScrollView } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BottomSheetScrollView as ScrollView } from "@gorhom/bottom-sheet";
 import { CheckoutSheet } from "./CheckoutSheet";
 import { HookLoader } from "@/components/shared/HookLoader";
 import type { LogisticsProvider } from "@/lib/mobile-api";

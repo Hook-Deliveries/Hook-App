@@ -34,7 +34,7 @@ export interface PublicCatalogMedia {
 export type SizingGuide = {
   summary?: string;
   howToMeasure?: string;
-  presetGroups: ("clothing" | "shoes" | "kids-shoes" | "bra" | "general")[];
+  presetGroups: ("clothing" | "uk-dress" | "shoes" | "kids-shoes" | "bra" | "general")[];
   chart?: { size: string; measurements: Record<string, string> }[];
 };
 
@@ -74,8 +74,8 @@ export interface PublicCatalogProduct {
   availabilityNote?: string;
   lastAvailabilityConfirmedAt?: string;
   isPurchasable: boolean;
-  availableQuantity?: number;
-  lowStockThreshold?: number;
+  /** Hook sells what was confirmed on the market, so this is a verified status, never a stock count. */
+  availability?: { status: "available" | "unavailable"; verifiedAt?: string | null; validUntil?: string | null };
   publishedAt?: string;
 }
 

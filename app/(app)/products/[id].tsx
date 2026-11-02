@@ -294,16 +294,10 @@ export default function ProductDetailScreen() {
   }
 
   const variantRequired = variants.length > 0 && !selectedVariant;
-  const availableQuantity = product.availableQuantity;
-  const outOfStock = availableQuantity === 0;
-  // The most a customer can add: 20, or what is actually in stock when that is fewer.
-  const maxQuantity = Math.max(1, Math.min(20, typeof availableQuantity === "number" ? availableQuantity : 20));
-  const unavailable = product.isPurchasable === false || outOfStock;
-  // Only nudge once stock is genuinely low — the threshold is set by admin.
-  const lowStock =
-    typeof availableQuantity === "number" &&
-    availableQuantity > 0 &&
-    availableQuantity <= (product.lowStockThreshold ?? 5);
+  // Hook sells what was confirmed on the market, so the page never shows counts: a product is available until its
+  // confirmation runs out, then unavailable.
+  const maxQuantity = 20;
+  const unavailable = product.isPurchasable === false;
 
   return (
     <View ref={cartAnimation.containerRef} collapsable={false} className="flex-1 bg-[#F1F1F3]">
@@ -379,16 +373,15 @@ export default function ProductDetailScreen() {
         ) : <View className="h-4" />}
 
         <View className="gap-7 px-3 pb-4" onLayout={(event) => { optionPositions.current.details = event.nativeEvent.layout.y; }}>
-          {unavailable && !outOfStock ? (
+          {unavailable ? (
             <View className="flex-row items-start rounded-[16px] border border-amber-200 bg-[#FFF8DB] p-4">
               <Ionicons name="time-outline" size={21} color="#8A6500" />
               <View className="ml-3 flex-1">
                 <Text className="font-black text-[#4D3A00]">
-                  Temporarily unavailable
+                  Currently unavailable
                 </Text>
                 <Text className="mt-1 text-[12px] leading-5 text-[#725A0A]">
-                  {product.availabilityNote ||
-                    "Hook is confirming availability. Keep it saved and check back soon."}
+                  Hook is confirming this with the market. Keep it saved and check back soon.
                 </Text>
               </View>
             </View>
@@ -412,41 +405,6 @@ export default function ProductDetailScreen() {
                   By <Text className="font-semibold text-[#B98A00]">{product.market.name}</Text>
                 </Text>
               ) : null}
-              <View className="mt-3 flex-row flex-wrap items-center gap-2">
-                <Text className="text-[24px] font-black text-black">
-                  ₦{(displayPriceMinor / 100).toLocaleString()}
-                </Text>
-                {negotiatedPriceMinor > 0 ? (
-                  <Text className="text-[14px] text-black/40 line-through">
-                    ₦{(product.effectivePriceMinor / 100).toLocaleString()}
-                  </Text>
-                ) : product.discountMinor > 0 ? (
-                  <Text className="text-[14px] text-black/40 line-through">
-                    ₦{(product.sellingPriceMinor / 100).toLocaleString()}
-                  </Text>
-                ) : null}
-                {outOfStock ? (
-                  <View className="rounded-full bg-[#EDEDED] px-2.5 py-1">
-                    <Text className="text-[11px] font-black text-[#5A5A5A]">
-                      Out of stock
-                    </Text>
-                  </View>
-                ) : lowStock ? (
-                  <View className="rounded-full bg-[#FDE8E4] px-2.5 py-1">
-                    <Text className="text-[11px] font-black text-[#B3402A]">
-                      Only {availableQuantity} left
-                    </Text>
-                  </View>
-                ) : null}
-                <AvailabilityBadge verifiedAt={product.lastAvailabilityConfirmedAt} />
-              </View>
-              {negotiatedPriceMinor > 0 ? (
-                <View className="mt-2 self-start rounded-full bg-[#FFF2B8] px-3 py-1.5">
-                  <Text className="text-[11px] font-black text-[#765700]">
-                    Your negotiated price applies to each item
-                  </Text>
-                </View>
-              ) : null}
             </View>
 
             <View className="flex-row items-center gap-2.5 pt-2">
@@ -468,6 +426,33 @@ export default function ProductDetailScreen() {
                 <Ionicons name="add" size={17} color="#111" />
               </Pressable>
             </View>
+          </View>
+
+          <View className="-mt-3">
+            <View className="flex-row items-center justify-between gap-3">
+              <View className="min-w-0 shrink flex-row flex-wrap items-baseline gap-x-2">
+                <Text className="text-[24px] font-black text-black">
+                  ₦{(displayPriceMinor / 100).toLocaleString()}
+                </Text>
+                {negotiatedPriceMinor > 0 ? (
+                  <Text className="text-[14px] text-black/40 line-through">
+                    ₦{(product.effectivePriceMinor / 100).toLocaleString()}
+                  </Text>
+                ) : product.discountMinor > 0 ? (
+                  <Text className="text-[14px] text-black/40 line-through">
+                    ₦{(product.sellingPriceMinor / 100).toLocaleString()}
+                  </Text>
+                ) : null}
+              </View>
+              <AvailabilityBadge available={!unavailable} verifiedAt={product.availability?.verifiedAt ?? product.lastAvailabilityConfirmedAt} />
+            </View>
+            {negotiatedPriceMinor > 0 ? (
+              <View className="mt-2 self-start rounded-full bg-[#FFF2B8] px-3 py-1.5">
+                <Text className="text-[11px] font-black text-[#765700]">
+                  Your negotiated price applies to each item
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           {product.negotiationAvailable && !unavailable ? (

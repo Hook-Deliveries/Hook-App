@@ -61,8 +61,7 @@ export function QuickAddSheet({ product: listed, visible, onClose }: { product: 
   const active = useMemo(() => autoSelection(axes, selection), [axes, selection]);
   const missing = nextMissingAxis(axes, active);
   const variant = axes.length ? (missing ? undefined : findVariant(variants, active)) : variants.length === 1 ? variants[0] : undefined;
-  const stock = product.availableQuantity ?? 99;
-  const maxQuantity = Math.max(1, Math.min(stock, 10));
+  const maxQuantity = 10;
   const summary = axes.map((axis) => `${axis.label}: ${active[axis.key] || "—"}`).join(" · ");
 
   function confirm() {

@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, Switch, Text, View } from "react-native";
-import { BottomSheetScrollView as ScrollView } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BottomSheetScrollView as ScrollView } from "@gorhom/bottom-sheet";
 import { CheckoutSheet } from "./CheckoutSheet";
 
 function naira(minor: number) {

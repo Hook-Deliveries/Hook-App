@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "react-native";
-import { BottomSheetScrollView as ScrollView, BottomSheetTextInput as TextInput } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BottomSheetScrollView as ScrollView, BottomSheetTextInput as TextInput } from "@gorhom/bottom-sheet";
 import { CheckoutSheet } from "./CheckoutSheet";
 
 export type AddressRow = {
