@@ -1,3 +1,4 @@
+import type { ScrollViewRef, TextInputRef } from "@/lib/rn-refs";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
@@ -21,7 +22,7 @@ import { toast } from "@/components/shared/toast";
 import { useStartSignupMutation } from "@/lib/auth-api";
 import { savePendingSignup } from "@/lib/session";
 
-const MIN_LENGTH = 9;
+import { PASSWORD_MIN_LENGTH as MIN_LENGTH } from '@/lib/password-policy';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function CreatePassword({ email }: { email: string }) {
@@ -31,8 +32,8 @@ export function CreatePassword({ email }: { email: string }) {
   const [visible, setVisible] = useState(false);
   const [touched, setTouched] = useState(false);
   const startSignup = useStartSignupMutation();
-  const scrollRef = useRef<ScrollView>(null);
-  const inputRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollViewRef>(null);
+  const inputRef = useRef<TextInputRef>(null);
 
   const hasError = touched && password.length < MIN_LENGTH;
   const isValid = password.length >= MIN_LENGTH;

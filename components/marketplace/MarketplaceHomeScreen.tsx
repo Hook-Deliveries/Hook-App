@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, RefreshControl, Text, View } from "react-native";
+import { Keyboard, Platform, Pressable, RefreshControl, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getHookTabBarContentInset } from "@/components/tab-bar/layout";
 import Animated, {
@@ -14,7 +14,6 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 
-import { HookLoader } from "@/components/shared/HookLoader";
 import { HookRefreshIndicator } from "@/components/shared/HookRefreshIndicator";
 import { useCategoriesQuery, useCustomerSessionQuery, useDiscoverQuery, useMarketsQuery, type PublicCategory } from "@/lib/mobile-api";
 import { useHookLocation } from "@/lib/location-context";
@@ -27,8 +26,14 @@ import { MarketplaceCompactHeader } from "./MarketplaceCompactHeader";
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
 import { isCustomerSession } from "@/lib/session";
 import { MarketplaceSearch } from "./MarketplaceSearch";
-import { ScallopedEdge } from "./ScallopedEdge";
+import { rememberSearch, useRecentSearches } from "@/lib/recent-searches";
+import { useDebouncedValue } from "@/lib/use-debounced";
+import { BannerCarousel } from "./BannerCarousel";
+import { Reveal } from "@/components/motion/Reveal";
+import { SkeletonCategoryCircles, SkeletonMarketCards } from "@/components/motion/Skeleton";
+import { RecentlyViewed } from "./RecentlyViewed";
 import { ProfileAvatar } from "@/components/profile/ProfileComponents";
+import { NotificationBellButton } from "@/components/shared/NotificationBellButton";
 
 const HOOK_APP_ICON = require("../../assets/images/market-icon.png");
 
@@ -40,7 +45,9 @@ export function MarketplaceHomeScreen() {
   const categoriesQuery = useCategoriesQuery();
   const marketsQuery = useMarketsQuery(stateParams);
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Search stays open until the customer cancels it, even after the keyboard is swiped away.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const recents = useRecentSearches();
   const [refreshing, setRefreshing] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(false);
   const [searchPinned, setSearchPinned] = useState(false);
@@ -48,8 +55,6 @@ export function MarketplaceHomeScreen() {
   const marketSectionY = useSharedValue(0);
   const headerVisibleValue = useSharedValue(false);
   const searchPinnedValue = useSharedValue(false);
-  const categoryStripHeight = useSharedValue(120);
-  const categoryStripMeasured = useSharedValue(false);
   const compactHeaderHeight = insets.top + 62;
   const displayCategories = useMemo<PublicCategory[]>(() => {
     const categories = categoriesQuery.data || [];
@@ -59,24 +64,30 @@ export function MarketplaceHomeScreen() {
       slug: "categories-coming-soon",
       isComingSoon: true,
     };
-    return categories.length ? [...categories.slice(0, 6), comingSoon] : [comingSoon];
+    const all: PublicCategory = { publicId: "all", name: "All", slug: "all" };
+    return categories.length ? [all, ...categories, comingSoon] : [comingSoon];
   }, [categoriesQuery.data]);
+  // One stable handler per category so CategoryCircle's memoization holds across scroll-driven re-renders.
+  const categoryHandlers = useMemo(() => {
+    const handlers = new Map<string, () => void>();
+    for (const category of displayCategories) {
+      handlers.set(category.publicId, () => {
+        if (category.isComingSoon) return;
+        router.push({ pathname: "/shop/[categoryId]", params: { categoryId: category.publicId } } as never);
+      });
+    }
+    return handlers;
+  }, [displayCategories]);
 
-  const markets = useMemo(() => {
-    const value = search.trim().toLowerCase();
-    return (marketsQuery.data || []).filter(
-      (market) =>
-        !value ||
-        `${market.name} ${market.address || ""}`.toLowerCase().includes(value),
-    );
-  }, [marketsQuery.data, search]);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 280);
-    return () => clearTimeout(timeout);
-  }, [search]);
-
-  const searchActive = search.trim().length > 0;
+  // The market list stays whole; search opens its own panel over it instead of filtering it underneath.
+  const markets = marketsQuery.data || [];
+  const debouncedSearch = useDebouncedValue(search.trim(), 280);
+  const searchActive = searchOpen || search.trim().length > 0;
+  function closeSearch() {
+    setSearch("");
+    setSearchOpen(false);
+    Keyboard.dismiss();
+  }
   const discoverQuery = useDiscoverQuery(
     { q: debouncedSearch, ...stateParams, limit: 24 },
     Boolean(debouncedSearch),
@@ -125,40 +136,25 @@ export function MarketplaceHomeScreen() {
     },
   });
 
+  // Scrolls with the page at 1:1 (no height animation, so the content size never changes mid-scroll);
+  // it only dissolves and lags slightly so the compact header can take over.
   const categoryStripStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      scrollY.value,
-      [0, 118],
-      [categoryStripHeight.value, 0],
-      Extrapolation.CLAMP,
-    ),
-    opacity: interpolate(
-      scrollY.value,
-      [0, 54, 118],
-      [1, 0.72, 0],
-      Extrapolation.CLAMP,
-    ),
-    transform: [
-      {
-        translateY: interpolate(
-          scrollY.value,
-          [0, 118],
-          [0, -18],
-          Extrapolation.CLAMP,
-        ),
-      },
-    ],
-    overflow: "hidden",
+    opacity: interpolate(scrollY.value, [0, 44], [1, 0], Extrapolation.CLAMP),
+    transform: [{ translateY: interpolate(scrollY.value, [0, 120], [0, 22], Extrapolation.CLAMP) }],
+  }));
+
+  const topRowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, 26], [1, 0], Extrapolation.CLAMP),
   }));
 
   const compactHeaderStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [36, 86], [0, 1], Extrapolation.CLAMP),
+    opacity: interpolate(scrollY.value, [30, 56], [0, 1], Extrapolation.CLAMP),
     transform: [
       {
         translateY: interpolate(
           scrollY.value,
-          [36, 86],
-          [-8, 0],
+          [30, 56],
+          [-6, 0],
           Extrapolation.CLAMP,
         ),
       },
@@ -229,8 +225,11 @@ export function MarketplaceHomeScreen() {
   return (
     <View className="flex-1 bg-[#F1F1F3]">
       <Animated.ScrollView
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         onScroll={onScroll}
         scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === "android"}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -244,20 +243,19 @@ export function MarketplaceHomeScreen() {
         }
         contentContainerStyle={{ paddingBottom: getHookTabBarContentInset(insets.bottom) }}
       >
-        <View className="relative bg-[#FFD93E]">
+        {/* Pulling down past the top reveals this instead of the grey page background. */}
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", top: -1600, left: 0, right: 0, height: 1600, backgroundColor: "#FFD93E" }}
+        />
+        <View className="relative overflow-hidden rounded-b-[28px] bg-[#FFD93E] pb-4">
           <View
-            className="overflow-hidden px-4 pb-5"
+            className="overflow-hidden px-4 pb-2"
             style={{ paddingTop: insets.top + 8, zIndex: 1 }}
           >
             <HookYellowPattern />
-            <View className="flex-row items-center justify-between">
-              <Pressable
-                accessibilityLabel="Open notifications"
-                onPress={() => isCustomerSession(session.data) ? router.push("/notifications" as never) : openAuth("/notifications" as never)}
-                className="h-11 w-11 items-center justify-center rounded-full bg-white"
-              >
-                <Ionicons name="notifications-outline" size={20} color="#8B6D52" />
-              </Pressable>
+            <Animated.View className="flex-row items-center justify-between" style={topRowStyle}>
+              <NotificationBellButton />
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Operating state: ${selectedState.name}`}
@@ -288,22 +286,11 @@ export function MarketplaceHomeScreen() {
                   )}
                 </Pressable>
               </View>
-            </View>
+            </Animated.View>
 
-            <Animated.View
-              className="-mx-4 overflow-hidden"
-              onLayout={(event) => {
-                if (!categoryStripMeasured.value) {
-                  categoryStripHeight.value = event.nativeEvent.layout.height;
-                  categoryStripMeasured.value = true;
-                }
-              }}
-              style={categoryStripStyle}
-            >
+            <Animated.View className="-mx-4" style={categoryStripStyle}>
               {categoriesQuery.isLoading ? (
-                <View className="h-28 items-center justify-center">
-                  <HookLoader size="inline" />
-                </View>
+                <SkeletonCategoryCircles />
             ) : (
               <Animated.ScrollView
                 horizontal
@@ -311,31 +298,27 @@ export function MarketplaceHomeScreen() {
                 contentContainerStyle={{
                   gap: 5,
                   paddingTop: 17,
-                  paddingHorizontal: 0,
+                  paddingHorizontal: 16,
                 }}
               >
-                {displayCategories.map((category) => (
+                {displayCategories.map((category, index) => (
                   <CategoryCircle
                     key={category.publicId}
+                    index={index}
                     category={category}
-                    onPress={() => {
-                      if (category.isComingSoon) return;
-                      router.push({
-                        pathname: "/shop/[categoryId]",
-                        params: { categoryId: category.publicId },
-                      } as never);
-                    }}
+                    onPress={categoryHandlers.get(category.publicId)!}
                   />
                 ))}
               </Animated.ScrollView>
               )}
             </Animated.View>
           </View>
-          <ScallopedEdge color="#FFD93E" zIndex={20} />
+          <BannerCarousel placement="home" className="mt-3" />
         </View>
 
+
         <View
-          className="px-4 pt-8"
+          className="px-4 pt-5"
           onLayout={(event) => {
             marketSectionY.value = event.nativeEvent.layout.y;
           }}
@@ -343,49 +326,64 @@ export function MarketplaceHomeScreen() {
           <View className="mb-2 flex-row items-center">
             <View className="min-w-0 flex-1 pr-2">
               <Text
-                className="text-[30px] font-black text-black"
-                style={{ lineHeight: 36 }}
+                className="text-[28px] font-black text-black"
+                style={{ lineHeight: 34 }}
               >
                 Get into the{"\n"}market
+              </Text>
+              <Text className="mt-1.5 text-[13px] text-black/50">
+                {markets.length ? `${markets.length} market${markets.length === 1 ? "" : "s"} to explore` : "Browse trusted markets"}
               </Text>
             </View>
             <Image
               source={HOOK_APP_ICON}
               contentFit="contain"
               accessibilityLabel="Hook"
-              style={{ width: 76, height: 76, borderRadius: 18, flexShrink: 0 }}
+              style={{ width: 60, height: 60, borderRadius: 15, flexShrink: 0 }}
             />
           </View>
           <Animated.View style={originalSearchStyle}>
-            <MarketplaceSearch
-              value={search}
-              onChangeText={setSearch}
-              onClear={() => setSearch("")}
-              placeholder="What are you looking for"
-              returnKeyType="search"
-            />
+            <View className="flex-row items-center gap-3">
+              <View className="flex-1">
+                <MarketplaceSearch
+                  value={search}
+                  onChangeText={setSearch}
+                  onClear={() => setSearch("")}
+                  onFocus={() => setSearchOpen(true)}
+                  onSubmitEditing={() => void rememberSearch(search)}
+                  placeholder="What are you looking for"
+                  returnKeyType="search"
+                  autoCorrect={false}
+                />
+              </View>
+              {searchActive ? (
+                <Pressable accessibilityRole="button" accessibilityLabel="Close search" onPress={closeSearch} hitSlop={8}>
+                  <Text className="text-[14px] font-bold text-black">Cancel</Text>
+                </Pressable>
+              ) : null}
+            </View>
             <HomeSearchOverlay
               visible={searchActive}
-              query={debouncedSearch || search.trim()}
-              loading={discoverQuery.isFetching}
+              query={search}
+              loading={discoverQuery.isFetching || debouncedSearch !== search.trim()}
               markets={matchedMarkets}
               products={matchedProducts}
               categories={matchedCategories}
+              popularCategories={(categoriesQuery.data || []).slice(0, 12)}
+              recents={recents.items}
+              onPickRecent={(term) => setSearch(term)}
+              onRemoveRecent={(term) => void recents.remove(term)}
+              onClearRecents={() => void recents.clear()}
+              onOpened={(term) => void rememberSearch(term)}
             />
           </Animated.View>
-          <View className="mt-4 gap-4">
-            {marketsQuery.isLoading ? (
-              <View className="h-56 items-center justify-center">
-                <HookLoader label="Finding markets" />
-              </View>
-            ) : null}
+          <View className="mt-3 gap-3" style={{ display: searchActive ? "none" : "flex" }}>
+            {marketsQuery.isLoading ? <SkeletonMarketCards /> : null}
             {!marketsQuery.isLoading &&
               markets.map((market, index) => (
-                <MarketDiscoveryCard
-                  key={market.publicId}
-                  market={market}
-                  index={index}
-                />
+                <Reveal key={market.publicId} index={index}>
+                  <MarketDiscoveryCard market={market} index={index} />
+                </Reveal>
               ))}
             {!marketsQuery.isLoading && !markets.length ? (
               <View className="items-center rounded-2xl bg-white px-6 py-12">
@@ -400,6 +398,7 @@ export function MarketplaceHomeScreen() {
             ) : null}
           </View>
         </View>
+        {searchActive ? null : <RecentlyViewed />}
       </Animated.ScrollView>
 
       <HookRefreshIndicator

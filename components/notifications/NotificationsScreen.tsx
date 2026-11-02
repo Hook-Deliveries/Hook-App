@@ -1,6 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Reveal } from "@/components/motion/Reveal";
+import { SkeletonRows } from "@/components/motion/Skeleton";
+import { centeredHeaderTextStyle } from "@/constants/design-tokens";
 import { router } from 'expo-router';
-import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import bellIcon from '@/assets/images/notification/bell.png';
@@ -31,6 +35,17 @@ export default function NotificationsScreen() {
   const rows = ((notifications.data as any)?.data || []) as HookNotification[];
   const unread = Number((notifications.data as any)?.unread || 0);
   const busy = markAllRead.isPending || clearAll.isPending;
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await notifications.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function handleNotificationPress(item: HookNotification) {
     // The detail screen marks the notification as read on open — navigate instantly
@@ -95,15 +110,18 @@ export default function NotificationsScreen() {
             position: 'absolute',
           }}
         />
-        <Text style={{ color: '#000', fontSize: 18, fontWeight: '700' }}>Notifications</Text>
+        <Text style={centeredHeaderTextStyle}>Notifications</Text>
       </View>
 
       {notifications.isLoading ? (
-        <View style={{ alignItems: 'center', flex: 1, justifyContent: 'center' }}>
-          <HookLoader size="page" label="Loading notifications..." />
+        <View style={{ flex: 1, paddingTop: 12 }}>
+          <SkeletonRows count={7} label="Loading notifications" />
         </View>
       ) : rows.length === 0 ? (
-        <View style={{ alignItems: 'center', flex: 1, justifyContent: 'center', paddingHorizontal: 40 }}>
+        <ScrollView
+          contentContainerStyle={{ alignItems: 'center', flexGrow: 1, justifyContent: 'center', paddingHorizontal: 40 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} tintColor="#111111" />}>
           <View
             style={{
               alignItems: 'center',
@@ -126,11 +144,12 @@ export default function NotificationsScreen() {
             }}>
             All your notification will show on this page
           </Text>
-        </View>
+        </ScrollView>
       ) : (
         <ScrollView
           contentContainerStyle={{ paddingBottom: insets.bottom + 24, paddingHorizontal: 18, paddingTop: 28 }}
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} tintColor="#111111" />}>
           <View
             style={{
               alignItems: 'center',
@@ -171,9 +190,9 @@ export default function NotificationsScreen() {
           </View>
 
           <View style={{ gap: 12 }}>
-            {rows.map((item) => (
+            {rows.map((item, index) => (
+              <Reveal key={item.id} index={index}>
               <Pressable
-                key={item.id}
                 accessibilityRole="button"
                 onPress={() => handleNotificationPress(item)}
                 style={{
@@ -218,6 +237,7 @@ export default function NotificationsScreen() {
                   </Pressable>
                 </View>
               </Pressable>
+              </Reveal>
             ))}
           </View>
         </ScrollView>

@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react';
 
 import { toast } from '@/components/shared/toast';
 import { ApiError } from '@/lib/api';
+import { promptScheduledDeletion, scheduledDeletionDate } from '@/lib/account-deletion-api';
 import { useGoogleLoginMutation } from '@/lib/auth-api';
-import { registerPushToken } from '@/lib/push';
-import { saveSession } from '@/lib/session';
-import { syncAnonymousCommerce } from '@/lib/commerce-sync';
+import { completeSignIn } from '@/lib/post-sign-in';
 
 /**
  * The native SDK issues ID tokens whose audience is the Web client ID, so it is
@@ -21,11 +20,11 @@ const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 // actual sign-in attempt on an unsupported build does.
 type GoogleSigninModule = typeof import('@react-native-google-signin/google-signin');
 let googleSigninModule: GoogleSigninModule | null = null;
-let googleSigninLoadError: unknown = null;
 try {
   googleSigninModule = require('@react-native-google-signin/google-signin');
-} catch (error) {
-  googleSigninLoadError = error;
+} catch {
+  // Expo Go and older development builds do not contain this native module.
+  // Keep Google sign-in unavailable without raising a LogBox warning.
 }
 
 const isNativeModuleAvailable = Boolean(googleSigninModule);
@@ -38,12 +37,6 @@ if (isConfigured && googleSigninModule) {
     scopes: ['openid', 'profile', 'email'],
     offlineAccess: false,
   });
-} else if (googleSigninLoadError) {
-  // Expected in Expo Go and in any dev client built before this package was
-  // added — Google sign-in stays disabled until the app is rebuilt.
-  console.warn(
-    '[google-auth] Native Google Sign-In module is not available in this build — rebuild with EAS to enable it.',
-  );
 }
 
 export function useHookGoogleAuth() {
@@ -79,11 +72,15 @@ export function useHookGoogleAuth() {
       }
 
       const session = await googleLogin.mutateAsync({ idToken });
-      await saveSession(session);
-      await Promise.allSettled([syncAnonymousCommerce(), registerPushToken({ sendWelcome: true })]);
+      await completeSignIn(session);
       toast.success('Welcome to Hook', 'Google sign-in completed.');
     } catch (error) {
       if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) return;
+      const deletionDate = scheduledDeletionDate(error);
+      if (deletionDate) {
+        promptScheduledDeletion(deletionDate, {});
+        return;
+      }
       if (isErrorWithCode(error) && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         toast.error('Google Play Services unavailable', 'Update Google Play Services and try again.');
         return;

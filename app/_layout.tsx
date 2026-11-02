@@ -1,3 +1,4 @@
+import { NetworkBanner } from "@/components/shared/NetworkBanner";
 import { DefaultTheme, Stack, ThemeProvider, usePathname } from "expo-router";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
@@ -7,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import "../global.css";
 
 import { AppState, Text, TextInput, View } from "react-native";
@@ -18,7 +20,8 @@ import { HookLocationProvider } from "@/lib/location-context";
 import { AuthSheetProvider } from "@/components/auth/AuthSheetProvider";
 import { getBiometricEnabled, getSession } from "@/lib/session";
 import { checkHookHealth } from "@/lib/health";
-import { BackendUnavailableScreen } from "@/components/shared/BackendUnavailableScreen";
+import { ConnectionBanner } from "@/components/shared/ConnectionBanner";
+import { ReplacementFab } from "@/components/shared/ReplacementFab";
 
 export const unstable_settings = { anchor: "(tabs)" };
 
@@ -50,9 +53,11 @@ export default function RootLayout() {
   // The Home tab resolves to "/", so only the real splash route may bypass outage gating.
   const isLaunchSplash = pathname === "/splash";
   const isMarketHero = pathname.includes("/markets/");
-  // Splash and onboarding are full-bleed brand screens: their artwork runs to
-  // every edge and they apply their own bottom spacing. The shared bottom
-  // safe-area inset would letterbox them, so it is dropped for those routes.
+  const isMainTab = ['/', '/discover', '/messages', '/profile'].includes(pathname);
+  // Shown on every screen except Profile (its own approval banner already covers this) and an order's own detail page (where the approval card it points to is already on screen).
+  const hideReplacementFab = pathname === '/profile' || (pathname.startsWith('/orders/') && pathname !== '/orders');
+  const safeAreaBackground = isMainTab ? '#F1F1F3' : '#FFFFFF';
+  // Every route fills the window; footers reserve their own safe area instead of shrinking the navigator.
   const isFullBleedRoute = isLaunchSplash || pathname === "/onboarding";
   const [fontsLoaded] = useFonts({
     "NunitoSans-Regular": require("@expo-google-fonts/nunito-sans/400Regular/NunitoSans_400Regular.ttf"),
@@ -64,7 +69,6 @@ export default function RootLayout() {
   });
   const [launchReady, setLaunchReady] = useState(false);
   const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
-  const [healthRetrying, setHealthRetrying] = useState(false);
 
   useEffect(() => {
     if (!fontsLoaded) return;
@@ -92,8 +96,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     const subscription = Linking.addEventListener("url", ({ url }) => {
+      // Best-effort fallback only: the auth session that opened this redirect already closes
+      // itself on the matching URL, so dismissBrowser() usually has nothing left to dismiss
+      // and throws — never let that surface to the user.
       if (url.startsWith("hook://payments/return")) {
-        void WebBrowser.dismissBrowser();
+        WebBrowser.dismissBrowser().catch(() => undefined);
       }
     });
     return () => subscription.remove();
@@ -122,45 +129,22 @@ export default function RootLayout() {
 
   if (fontsLoaded) applyNunitoDefaults();
 
-  const retryHealth = async () => {
-    setHealthRetrying(true);
-    const healthy = await checkHookHealth();
-    setBackendAvailable(healthy);
-    setHealthRetrying(false);
-  };
-
-  if (backendAvailable === false && !isLaunchSplash) {
-    return (
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#FFC809" }}>
-          {/* This screen has no padded header of its own, so it insets on all edges. */}
-          <SafeAreaView style={{ flex: 1, backgroundColor: "#FFC809" }}>
-            <BackendUnavailableScreen retrying={healthRetrying} onRetry={() => void retryHealth()} />
-            <StatusBar style="dark" />
-          </SafeAreaView>
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    );
-  }
-
   return (
     <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#000" }}>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: safeAreaBackground }}>
+        <BottomSheetModalProvider>
         <KeyboardProvider>
         <SafeAreaView
-          edges={isFullBleedRoute ? [] : ["bottom"]}
-          style={{ flex: 1, backgroundColor: "#000" }}
+          edges={[]}
+          style={{ flex: 1, backgroundColor: safeAreaBackground }}
         >
           <View style={{ flex: 1, backgroundColor: isFullBleedRoute ? "transparent" : "#F1F1F3" }}>
             <AppQueryProvider>
               <HookLocationProvider>
                 <AuthSheetProvider>
-                  {/* Hook's UI is light-only (fixed #F1F1F3 surfaces, dark
-                      status bar), so the navigation theme is pinned rather
-                      than following the device — otherwise native chrome
-                      like the iOS tab bar flips appearance between screens. */}
+                  {/* Hook's UI is light-only, so the nav theme is pinned rather than following the device. */}
                   <ThemeProvider value={DefaultTheme}>
-            <Stack>
+            <Stack screenOptions={{ headerShown: false, animation: "slide_from_right", animationDuration: 260 }}>
               <Stack.Screen
                 name="splash"
                 options={{
@@ -191,6 +175,7 @@ export default function RootLayout() {
               <Stack.Screen
                 name="(app)/notifications/[id]"
                 options={{
+                  headerShown: true,
                   presentation: "modal",
                   title: "Notification",
                   headerStyle: { backgroundColor: "#f1f1f3" },
@@ -235,6 +220,7 @@ export default function RootLayout() {
               <Stack.Screen name="(app)/profile/edit" options={{ headerShown: false }} />
               <Stack.Screen name="(app)/profile/security" options={{ headerShown: false }} />
               <Stack.Screen name="(app)/profile/devices" options={{ headerShown: false }} />
+              <Stack.Screen name="(app)/profile/notifications" options={{ headerShown: false }} />
               <Stack.Screen
                 name="(app)/states"
                 options={{ headerShown: false, gestureEnabled: false }}
@@ -312,6 +298,9 @@ export default function RootLayout() {
                 }}
               />
             </Stack>
+            <NetworkBanner />
+            <ConnectionBanner visible={backendAvailable === false} />
+            <ReplacementFab hidden={hideReplacementFab} />
             <StatusBar animated style={isMarketHero ? "light" : "dark"} />
             <ToastProvider />
                   </ThemeProvider>
@@ -321,6 +310,7 @@ export default function RootLayout() {
           </View>
         </SafeAreaView>
         </KeyboardProvider>
+        </BottomSheetModalProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

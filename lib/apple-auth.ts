@@ -3,10 +3,9 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { toast } from '@/components/shared/toast';
+import { promptScheduledDeletion, scheduledDeletionDate } from '@/lib/account-deletion-api';
 import { appleLogin } from '@/lib/auth-api';
-import { syncAnonymousCommerce } from '@/lib/commerce-sync';
-import { registerPushToken } from '@/lib/push';
-import { saveSession } from '@/lib/session';
+import { completeSignIn } from '@/lib/post-sign-in';
 
 export function useHookAppleAuth() {
   const [available, setAvailable] = useState(false);
@@ -33,11 +32,15 @@ export function useHookAppleAuth() {
         firstName: credential.fullName?.givenName || undefined,
         lastName: credential.fullName?.familyName || undefined,
       });
-      await saveSession(session);
-      await Promise.allSettled([syncAnonymousCommerce(), registerPushToken({ sendWelcome: true })]);
+      await completeSignIn(session);
       toast.success('Welcome to Hook', 'Apple sign-in completed.');
       return true;
     } catch (error) {
+      const deletionDate = scheduledDeletionDate(error);
+      if (deletionDate) {
+        promptScheduledDeletion(deletionDate, {});
+        return false;
+      }
       if ((error as { code?: string }).code !== 'ERR_REQUEST_CANCELED') {
         toast.error('Apple sign-in failed', error instanceof Error ? error.message : 'Please try again.');
       }

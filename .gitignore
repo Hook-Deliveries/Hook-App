@@ -42,3 +42,16 @@ app-example
 # generated native folders
 /ios
 /android
+
+
+!/ios/
+/ios/*
+!/ios/hook/
+/ios/hook/*
+!/ios/hook/AppDelegate.swift
+!/ios/hook/Info.plist
+# Local APK artifacts
+/build/
+
+# Firebase config: supplied to EAS builds through the GOOGLE_SERVICES_JSON file variable
+google-services.json

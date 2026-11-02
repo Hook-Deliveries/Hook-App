@@ -1,6 +1,8 @@
+import type { ScrollViewRef, TextInputRef } from "@/lib/rn-refs";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
+import { ClearableInput } from "@/components/shared/ClearableInput";
 import { forwardRef, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,6 +23,7 @@ import { HookBackButton } from "@/components/shared/HookBackButton";
 import { toast } from "@/components/shared/toast";
 import { getProfile, updateProfile, uploadProfileImage } from "@/lib/auth-api";
 import { getSession, saveSession } from "@/lib/session";
+import { screenPadding } from "@/constants/design-tokens";
 
 type ProfileForm = {
   firstName: string;
@@ -32,9 +35,9 @@ type ProfileForm = {
 
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
-  const lastNameRef = useRef<TextInput>(null);
-  const phoneRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollViewRef>(null);
+  const lastNameRef = useRef<TextInputRef>(null);
+  const phoneRef = useRef<TextInputRef>(null);
   const [form, setForm] = useState<ProfileForm>({ firstName: "", lastName: "", phone: "", email: "", avatarUrl: "" });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -100,7 +103,7 @@ export default function EditProfileScreen() {
     }
   }
 
-  if (loading) return <HookPageLoading title="Edit profile" label="Loading profile" />;
+  if (loading) return <HookPageLoading variant="form" title="Edit profile" label="Loading profile" />;
 
   const name = `${form.firstName} ${form.lastName}`.trim();
   return (
@@ -127,7 +130,7 @@ export default function EditProfileScreen() {
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: insets.bottom + 40 }}
+          contentContainerStyle={{ paddingHorizontal: screenPadding, paddingTop: 20, paddingBottom: insets.bottom + 40 }}
         >
         <View className="items-center rounded-[20px] bg-[#FFF4C7] px-5 py-6">
           <View className="relative rounded-full bg-hook p-[3px]">
@@ -193,13 +196,13 @@ export default function EditProfileScreen() {
   );
 }
 
-const Field = forwardRef<TextInput, React.ComponentProps<typeof TextInput> & { label: string; helper?: string }>(
+const Field = forwardRef<TextInputRef, React.ComponentProps<typeof TextInput> & { label: string; helper?: string }>(
   function Field({ label, helper, ...input }, ref) {
     return (
       <View className="mb-4">
         <Text className="mb-2 text-[12px] font-bold text-[#5F5F64]">{label}</Text>
         <View className={`min-h-[54px] justify-center rounded-[14px] border px-4 ${input.editable === false ? "border-[#ECECEC] bg-[#F7F7F7]" : "border-[#DEDEDE] bg-white"}`}>
-          <TextInput
+          <ClearableInput
             ref={ref}
             {...input}
             className={`py-3 text-[15px] font-semibold text-black ${input.editable === false ? "text-[#8A8A8E]" : ""}`}

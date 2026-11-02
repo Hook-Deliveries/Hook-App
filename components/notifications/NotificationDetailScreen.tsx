@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { SkeletonTextPage } from "@/components/motion/Skeleton";
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef } from 'react';
-import { Image, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Image, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import bellIcon from '@/assets/images/notification/bell.png';
@@ -59,6 +60,17 @@ export default function NotificationDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const notification = useNotificationQuery(id);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await notification.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }
   const markRead = useMarkNotificationReadMutation();
   const remove = useDeleteNotificationMutation();
   const item = notification.data as HookNotification | undefined;
@@ -119,8 +131,8 @@ export default function NotificationDetailScreen() {
       />
 
       {notification.isLoading ? (
-        <View style={{ alignItems: 'center', flex: 1, justifyContent: 'center', gap: 12 }}>
-          <HookLoader size="page" label="Loading notification..." />
+        <View style={{ flex: 1, paddingTop: 12 }}>
+          <SkeletonTextPage />
         </View>
       ) : !item ? (
         <View style={{ alignItems: 'center', flex: 1, justifyContent: 'center', paddingHorizontal: 36 }}>
@@ -155,7 +167,8 @@ export default function NotificationDetailScreen() {
       ) : (
         <ScrollView
           contentContainerStyle={{ paddingBottom: insets.bottom + 28, paddingHorizontal: 18, paddingTop: 18 }}
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} tintColor="#111111" />}>
           {/* Main card */}
           <View
             style={{

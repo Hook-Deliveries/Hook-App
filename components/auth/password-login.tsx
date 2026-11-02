@@ -1,3 +1,4 @@
+import type { TextInputRef } from "@/lib/rn-refs";
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -6,11 +7,11 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { AuthPrimaryButton, AuthScreenShell } from '@/components/auth/auth-screen-shell';
 import { useAuthSheet } from '@/components/auth/AuthSheetProvider';
 import { toast } from '@/components/shared/toast';
+import { promptScheduledDeletion, restoreDeletedAccount, scheduledDeletionDate } from '@/lib/account-deletion-api';
 import { useLoginMutation } from '@/lib/auth-api';
-import { registerPushToken } from '@/lib/push';
-import { saveSession } from '@/lib/session';
+import { completeSignIn } from '@/lib/post-sign-in';
 
-const MIN_LENGTH = 9;
+import { PASSWORD_MIN_LENGTH as MIN_LENGTH } from '@/lib/password-policy';
 
 export function PasswordLogin() {
   const { email = '' } = useLocalSearchParams<{ email?: string }>();
@@ -19,7 +20,7 @@ export function PasswordLogin() {
   const [touched, setTouched] = useState(false);
   const login = useLoginMutation();
   const { hasPendingIntent } = useAuthSheet();
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputRef>(null);
 
   const isValid = password.length >= MIN_LENGTH;
   const hasError = touched && !isValid;
@@ -31,11 +32,26 @@ export function PasswordLogin() {
     try {
       const shouldResume = hasPendingIntent();
       const session = await login.mutateAsync({ email, password });
-      await saveSession(session);
-      await registerPushToken({ sendWelcome: true });
+      await completeSignIn(session);
       toast.success('Welcome back', 'You are signed in');
       if (!shouldResume) router.replace('/(tabs)');
     } catch (error) {
+      const deletionDate = scheduledDeletionDate(error);
+      if (deletionDate) {
+        // The password was correct, but the customer asked to delete this account.
+        promptScheduledDeletion(deletionDate, {
+          onRestore: async () => {
+            try {
+              await restoreDeletedAccount({ email, password });
+              toast.success('Account restored', 'Signing you in.');
+              await handleContinue();
+            } catch (restoreError) {
+              toast.error('Could not restore your account', restoreError instanceof Error ? restoreError.message : 'Please try again.');
+            }
+          },
+        });
+        return;
+      }
       toast.error('Could not sign in', error instanceof Error ? error.message : 'Please check your password.');
     }
   }

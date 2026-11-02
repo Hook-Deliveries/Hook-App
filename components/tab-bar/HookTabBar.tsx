@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "expo-router/build/react-navigation/bottom-tabs/types";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import {
   type LayoutChangeEvent,
@@ -15,7 +16,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { getCartItems, useCartQuery, useNegotiationsQuery } from "@/lib/mobile-api";
+import { getCartItems, useCartQuery, useNegotiationsQuery, usePendingApprovalsQuery } from "@/lib/mobile-api";
 import { countActiveNegotiations } from "@/lib/negotiations";
 import { useLocalSessionQuery } from "@/lib/auth-api";
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
@@ -23,6 +24,7 @@ import {
   HOOK_TAB_BAR_BOTTOM_GAP,
   HOOK_TAB_BAR_HEIGHT,
 } from "@/components/tab-bar/layout";
+import { SPRING_PANEL } from "@/constants/motion";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -35,16 +37,13 @@ type TabItemConfig = {
 const tabs: Record<string, TabItemConfig> = {
   index: { label: "Home", icon: "home-outline", active: "home" },
   discover: { label: "Discover", icon: "search-outline", active: "search" },
-  cart: { label: "Cart", icon: "cart-outline", active: "cart" },
   messages: { label: "Messages", icon: "chatbubble-ellipses-outline", active: "chatbubble-ellipses" },
   profile: { label: "Profile", icon: "person-outline", active: "person" },
 };
 
-const spring = {
-  damping: 22,
-  stiffness: 240,
-  mass: 0.7,
-};
+const mainTabNames = new Set(Object.keys(tabs));
+
+const spring = SPRING_PANEL;
 
 function AnimatedTabItem({
   selected,
@@ -106,6 +105,9 @@ function AnimatedTabItem({
         </View>
         <Text
           allowFontScaling={false}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
           style={[styles.tabLabel, { color: selected ? "#111" : "#B2B2B5" }]}
         >
           {item.label}
@@ -118,10 +120,13 @@ function AnimatedTabItem({
 export function HookTabBar({
   state,
   descriptors,
-  navigation,
+  emitter,
+  navigateToTab,
 }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
   const cart = useCartQuery();
   const negotiations = useNegotiationsQuery();
+  const pendingApprovals = usePendingApprovalsQuery();
   const session = useLocalSessionQuery();
   const { openAuth } = useAuthSheet();
   const cartCount = getCartItems(cart.data).reduce(
@@ -131,18 +136,24 @@ export function HookTabBar({
   const activeNegotiations = countActiveNegotiations(
     Array.isArray(negotiations.data) ? negotiations.data : [],
   );
+  const mainRoutes = state.routes.filter((route) => mainTabNames.has(route.name));
+  const activeRoute = state.routes[state.index];
+  const activeMainIndex = mainRoutes.findIndex(
+    (route) => route.key === activeRoute?.key,
+  );
+  const cartSelected = activeRoute?.name === "cart";
   const [width, setWidth] = useState(0);
-  const slot = width && state.routes.length ? width / state.routes.length : 0;
-  const activeWidth = Math.max(66, Math.min(slot - 5, 94));
+  const slot = width && mainRoutes.length ? width / mainRoutes.length : 0;
+  const activeWidth = Math.max(52, Math.min(slot - 5, 94));
   const activeOffset = useSharedValue(0);
 
   useEffect(() => {
-    if (!slot) return;
+    if (!slot || activeMainIndex < 0) return;
     activeOffset.value = withSpring(
-      state.index * slot + (slot - activeWidth) / 2,
+      activeMainIndex * slot + (slot - activeWidth) / 2,
       spring,
     );
-  }, [activeOffset, activeWidth, slot, state.index]);
+  }, [activeMainIndex, activeOffset, activeWidth, slot]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: activeOffset.value }],
@@ -152,10 +163,12 @@ export function HookTabBar({
     setWidth(Math.round(event.nativeEvent.layout.width));
   };
 
+  if (cartSelected) return null;
+
   return (
     <View
       pointerEvents="box-none"
-      style={styles.safeArea}
+      style={[styles.safeArea, { bottom: insets.bottom + HOOK_TAB_BAR_BOTTOM_GAP }]}
     >
       <View pointerEvents="box-none" className="flex-row items-center gap-2 px-3">
         <View
@@ -163,16 +176,16 @@ export function HookTabBar({
           className="relative flex-1 flex-row overflow-hidden rounded-[31px] bg-white px-1"
           style={[styles.navigation, styles.shadow]}
         >
-          {slot ? (
+          {slot && activeMainIndex >= 0 ? (
             <Animated.View
               pointerEvents="none"
               className="absolute bottom-1 top-1 rounded-[25px] bg-[#FFC809]"
               style={[{ width: activeWidth }, indicatorStyle]}
             />
           ) : null}
-          {state.routes.map((route) => {
-            const selected = state.routes[state.index].key === route.key;
-            const item = tabs[route.name] || tabs.index;
+          {mainRoutes.map((route) => {
+            const selected = activeRoute?.key === route.key;
+            const item = tabs[route.name];
             const options = descriptors[route.key].options;
 
             return (
@@ -180,10 +193,16 @@ export function HookTabBar({
                 key={route.key}
                 selected={selected}
                 item={item}
-                badgeCount={route.name === "messages" ? activeNegotiations : 0}
+                badgeCount={
+                  route.name === "messages"
+                    ? activeNegotiations
+                    : route.name === "profile"
+                      ? pendingApprovals.data?.count || 0
+                      : 0
+                }
                 accessibilityLabel={options.tabBarAccessibilityLabel}
                 onLongPress={() =>
-                  navigation.emit({ type: "tabLongPress", target: route.key })
+                  emitter.emit({ type: "tabLongPress", target: route.key })
                 }
                 onPress={() => {
                   if (route.name === 'profile' && !session.data?.session) {
@@ -191,14 +210,14 @@ export function HookTabBar({
                     openAuth('/(tabs)/profile');
                     return;
                   }
-                  const event = navigation.emit({
+                  const event = emitter.emit({
                     type: "tabPress",
                     target: route.key,
                     canPreventDefault: true,
                   });
                   if (!selected && !event.defaultPrevented) {
                     void Haptics.selectionAsync();
-                    navigation.navigate(route.name, route.params);
+                    navigateToTab(route.key);
                   }
                 }}
               />
@@ -208,11 +227,16 @@ export function HookTabBar({
         <Pressable
           accessibilityLabel={`Open cart${cartCount ? `, ${cartCount} items` : ""}`}
           accessibilityRole="button"
-          onPress={() => router.push("/(tabs)/cart" as never)}
-          className="items-center justify-center rounded-full bg-white"
+          accessibilityState={{ selected: cartSelected }}
+          onPress={() => router.push("/(app)/cart" as never)}
+          className={`items-center justify-center rounded-full ${cartSelected ? "bg-[#FFC809]" : "bg-white"}`}
           style={[styles.cartButton, styles.shadow]}
         >
-          <Ionicons name="bag-handle-outline" size={23} color="#111" />
+          <Ionicons
+            name={cartSelected ? "bag-handle" : "bag-handle-outline"}
+            size={23}
+            color="#111"
+          />
           {cartCount > 0 ? (
             <View className="absolute right-0.5 top-0.5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#FFC809] px-1">
               <Text className="text-[10px] font-black text-black">
@@ -237,11 +261,14 @@ const styles = StyleSheet.create({
   navigation: { height: HOOK_TAB_BAR_HEIGHT },
   tabSlot: {
     minWidth: 0,
+    overflow: "visible",
   },
   tabContent: {
     alignItems: "center",
     justifyContent: "center",
-    width: 76,
+    // Fill the slot instead of a fixed width, so a narrow Android screen shrinks the tab rather than clipping its name.
+    alignSelf: "stretch",
+    paddingHorizontal: 2,
   },
   tabLabel: {
     fontFamily: "NunitoSans-SemiBold",
@@ -250,7 +277,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: "center",
     includeFontPadding: false,
-    flexShrink: 0,
+    alignSelf: "stretch",
   },
   cartButton: {
     width: HOOK_TAB_BAR_HEIGHT,

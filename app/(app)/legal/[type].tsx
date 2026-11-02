@@ -1,5 +1,8 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { centeredHeaderTextStyle } from "@/constants/design-tokens";
 import { ScrollView, Text, View } from "react-native";
+import { HookRefreshControl } from "@/components/shared/HookRefreshControl";
+import { usePullRefresh } from "@/hooks/use-pull-refresh";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuthSheet } from "@/components/auth/AuthSheetProvider";
@@ -7,12 +10,7 @@ import { HookBackButton } from "@/components/shared/HookBackButton";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
 import { useLegalContentQuery } from "@/lib/mobile-api";
 
-/**
- * Renders the small, controlled HTML shape the backend produces for legal
- * content (only <h2>, <p>, <ul>/<ol>/<li>, and <em> — see
- * seed-legal-content.ts) as native text blocks. Pulling in a full HTML/WebView
- * renderer isn't worth it for this narrow, backend-authored content.
- */
+/** Renders the backend's narrow legal HTML shape as native text blocks, without a full HTML/WebView renderer. */
 function LegalBody({ html }: { html: string }) {
   const blocks = html
     .split(/<\/(h2|p|ul|ol)>/)
@@ -68,15 +66,17 @@ function LegalBody({ html }: { html: string }) {
 const TITLES: Record<string, string> = {
   terms: "Terms of Service",
   privacy: "Privacy Policy",
+  returns: "Returns Policy",
 };
 
 export default function LegalContentScreen() {
   const insets = useSafeAreaInsets();
   const { type, from } = useLocalSearchParams<{ type: string; from?: string }>();
   const { openAuth } = useAuthSheet();
-  const legalType = type === "privacy" ? "privacy" : "terms";
+  const legalType = type === "privacy" || type === "returns" ? type : "terms";
   const query = useLegalContentQuery(legalType);
   const title = query.data?.title || TITLES[legalType];
+  const { refreshing, onRefresh } = usePullRefresh(() => query.refetch());
 
   function goBack() {
     if (from === "auth") {
@@ -88,19 +88,20 @@ export default function LegalContentScreen() {
   }
 
   if (query.isLoading) {
-    return <HookPageLoading title={title} label={`Loading ${title.toLowerCase()}`} onBack={goBack} />;
+    return <HookPageLoading variant="text" title={title} label={`Loading ${title.toLowerCase()}`} onBack={goBack} />;
   }
 
   return (
     <View className="flex-1 bg-[#F1F1F3]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 py-3">
         <HookBackButton onPress={goBack} />
-        <Text className="text-xl font-black text-black" numberOfLines={1}>
+        <Text style={centeredHeaderTextStyle} numberOfLines={1}>
           {title}
         </Text>
         <View className="w-11" />
       </View>
       <ScrollView
+        refreshControl={<HookRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
       >

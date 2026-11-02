@@ -1,6 +1,6 @@
 import { CartScreen } from "@/components/cart/CartScreen";
 
-/** Cart tab — reached from the tab bar, so there is nothing to go back to. */
+/** The Cart tab: opens in place like Discover, Messages and Profile. Other flows push the standalone cart route instead. */
 export default function CartTabScreen() {
-  return <CartScreen showBackButton={false} />;
+  return <CartScreen inTab />;
 }

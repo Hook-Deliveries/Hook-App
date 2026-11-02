@@ -1,3 +1,4 @@
+import type { TextInputRef } from "@/lib/rn-refs";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, Text, TextInput, View } from "react-native";
@@ -35,10 +36,10 @@ export function VerifyEmail({ email }: { email: string }) {
   const verifySignup = useVerifySignupMutation();
   const resendSignupCode = useResendSignupCodeMutation();
   const refs = [
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
+    useRef<TextInputRef>(null),
+    useRef<TextInputRef>(null),
+    useRef<TextInputRef>(null),
+    useRef<TextInputRef>(null),
   ];
 
   // Countdown timer

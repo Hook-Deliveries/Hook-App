@@ -6,7 +6,7 @@ import { createContext, PropsWithChildren, useCallback, useContext, useEffect, u
 import { Keyboard, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HookLoader } from "@/components/shared/HookLoader";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/components/shared/toast";
 import { lookupEmail } from "@/lib/auth-api";
 import { useHookGoogleAuth } from "@/lib/google-auth";
@@ -39,28 +39,51 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
   const google = useHookGoogleAuth();
   const apple = useHookAppleAuth();
+  const hasSocialAuth = google.isGoogleReady || (Platform.OS === "ios" && apple.isAppleReady);
   const snapPoints = useMemo(() => ["100%"], []);
 
-  useEffect(() => onSessionChanged(() => {
-    void getSession().then((session) => {
-      if (isCustomerSession(session)) {
-        sheet.current?.close();
-        const destination = intent.current;
-        intent.current = undefined;
-        if (destination) router.replace(destination);
-      }
+  // Whether a customer is signed in; the sheet must never show when they are.
+  const signedIn = useRef(false);
+  const hardClose = useCallback(() => {
+    authOpen.current = false;
+    Keyboard.dismiss();
+    // forceClose skips an in-flight animation/keyboard transition that would leave the sheet stuck open.
+    sheet.current?.forceClose();
+  }, []);
+
+  useEffect(() => {
+    void getSession().then((session) => { signedIn.current = isCustomerSession(session); });
+    return onSessionChanged(() => {
+      void getSession().then((session) => {
+        signedIn.current = isCustomerSession(session);
+        if (isCustomerSession(session)) {
+          hardClose();
+          const destination = intent.current;
+          intent.current = undefined;
+          if (destination) router.replace(destination);
+        }
+      });
     });
-  }), []);
+  }, [hardClose]);
 
   const reset = useCallback(() => {
     Keyboard.dismiss();
   }, []);
-  const closeAuth = useCallback(() => { authOpen.current = false; sheet.current?.close(); reset(); }, [reset]);
+  const closeAuth = useCallback(() => { hardClose(); reset(); }, [hardClose, reset]);
   const hasPendingIntent = useCallback(() => Boolean(intent.current), []);
   const openAuth = useCallback((next?: Href) => {
-    authOpen.current = true;
-    intent.current = next || (pathname as Href);
-    sheet.current?.expand();
+    // Already signed in: carry on to where the customer was headed instead of showing the login sheet.
+    void getSession().then((session) => {
+      if (isCustomerSession(session)) {
+        signedIn.current = true;
+        if (next && next !== pathname) router.push(next);
+        return;
+      }
+      signedIn.current = false;
+      authOpen.current = true;
+      intent.current = next || (pathname as Href);
+      sheet.current?.expand();
+    });
   }, [pathname]);
 
   function openLegal(type: "terms" | "privacy") {
@@ -113,6 +136,7 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
         handleComponent={null}
         backdropComponent={(props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.32} pressBehavior="close" />}
         backgroundStyle={{ backgroundColor: "#F7F7F8", borderRadius: 0 }}
+        onChange={(index) => { if (index >= 0 && signedIn.current) hardClose(); }}
         onClose={() => {
           authOpen.current = false;
           reset();
@@ -160,16 +184,18 @@ export function AuthSheetProvider({ children }: PropsWithChildren) {
                 <Text className="font-bold text-black" onPress={() => openLegal("privacy")}>Privacy Policy</Text>.
               </Text>
             </Pressable>
-            <Pressable accessibilityRole="button" disabled={busy || !acceptedPolicies} onPress={submit} className="mt-4 h-[52px] items-center justify-center rounded-full bg-hook disabled:opacity-60">
-              {busy ? <HookLoader size="button" variant="dark" /> : <Text className="font-bold text-black">Continue</Text>}
-            </Pressable>
+            <Button title="Continue" disabled={!acceptedPolicies} loading={busy} onPress={submit} className="mt-4" />
           </View>
 
-            <View className="mt-6 flex-row items-center gap-4"><View className="h-px flex-1 bg-black/10" /><Text className="text-xs font-semibold text-[#858589]">OR CONTINUE WITH</Text><View className="h-px flex-1 bg-black/10" /></View>
-            <View className="mt-5 flex-row justify-center gap-3">
-              <Pressable accessibilityLabel="Continue with Google" disabled={!acceptedPolicies || !google.isGoogleReady || google.isGoogleLoading} onPress={() => void google.signInWithGoogle()} className="h-14 w-14 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm disabled:opacity-50"><AntDesign name="google" size={22} color="#4285F4" /></Pressable>
-              {Platform.OS === 'ios' && apple.isAppleReady ? <Pressable accessibilityLabel="Continue with Apple" disabled={!acceptedPolicies || apple.isAppleLoading} onPress={() => void apple.signInWithApple()} className="h-14 w-14 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm disabled:opacity-50"><Ionicons name="logo-apple" size={24} color="#111" /></Pressable> : null}
-            </View>
+            {hasSocialAuth ? (
+              <>
+                <View className="mt-6 flex-row items-center gap-4"><View className="h-px flex-1 bg-black/10" /><Text className="text-xs font-semibold text-[#858589]">OR CONTINUE WITH</Text><View className="h-px flex-1 bg-black/10" /></View>
+                <View className="mt-5 flex-row justify-center gap-3">
+                  {google.isGoogleReady ? <Pressable accessibilityLabel="Continue with Google" accessibilityState={{ disabled: google.isGoogleLoading, busy: google.isGoogleLoading }} disabled={google.isGoogleLoading} onPress={() => void google.signInWithGoogle()} className="h-14 w-14 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm disabled:opacity-50"><AntDesign name="google" size={22} color="#4285F4" /></Pressable> : null}
+                  {Platform.OS === 'ios' && apple.isAppleReady ? <Pressable accessibilityLabel="Continue with Apple" accessibilityState={{ disabled: apple.isAppleLoading, busy: apple.isAppleLoading }} disabled={apple.isAppleLoading} onPress={() => void apple.signInWithApple()} className="h-14 w-14 items-center justify-center rounded-full border border-black/10 bg-white shadow-sm disabled:opacity-50"><Ionicons name="logo-apple" size={24} color="#111" /></Pressable> : null}
+                </View>
+              </>
+            ) : null}
           </View>
           </>
         </BottomSheetScrollView>

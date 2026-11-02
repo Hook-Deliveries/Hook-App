@@ -1,3 +1,4 @@
+import type { ScrollViewRef, TextInputRef } from "@/lib/rn-refs";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
@@ -19,20 +20,22 @@ import { AuthGlowBackground } from "@/components/shared/glow-background";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { toast } from "@/components/shared/toast";
 import { useCompleteSignupMutation } from "@/lib/auth-api";
-import { registerPushToken } from "@/lib/push";
+import { useCreditConfigQuery } from "@/lib/mobile-api";
+import { completeSignIn } from "@/lib/post-sign-in";
 import {
   clearPendingSignup,
   getPendingSignup,
-  saveSession,
 } from "@/lib/session";
 
 export function EnterName({ email }: { email: string }) {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const completeSignup = useCompleteSignupMutation();
+  const creditConfig = useCreditConfigQuery().data;
   const { hasPendingIntent } = useAuthSheet();
-  const scrollRef = useRef<ScrollView>(null);
-  const inputRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollViewRef>(null);
+  const inputRef = useRef<TextInputRef>(null);
 
   const isValid = name.trim().length >= 2;
   const loading = completeSignup.isPending;
@@ -59,10 +62,11 @@ export function EnterName({ email }: { email: string }) {
         signupSessionToken: pending.signupSessionToken,
         firstName,
         lastName: rest.join(" ") || firstName,
+        // compactBody() drops this when blank, so it stays truly optional.
+        referralCode: referralCode.trim() || undefined,
       });
-      await saveSession(session);
       await clearPendingSignup();
-      await registerPushToken({ sendWelcome: true });
+      await completeSignIn(session);
       if (!shouldResume) router.replace("/auth/congratulations");
     } catch (error) {
       toast.error(
@@ -148,6 +152,34 @@ export function EnterName({ email }: { email: string }) {
                 onSubmitEditing={handleContinue}
                 returnKeyType="done"
               />
+            </View>
+
+            <View style={{ marginTop: 14 }}>
+              <TextInput
+                autoCapitalize="characters"
+                autoCorrect={false}
+                placeholder="Referral code (optional)"
+                placeholderTextColor="rgba(0,0,0,0.35)"
+                style={{
+                  backgroundColor: "#fff",
+                  borderColor: "#90a1b9",
+                  borderRadius: 6.6,
+                  borderWidth: 1.3,
+                  color: "#000",
+                  fontSize: 14,
+                  height: 50,
+                  letterSpacing: 1,
+                  paddingHorizontal: 16,
+                }}
+                value={referralCode}
+                onChangeText={(value) => setReferralCode(value.toUpperCase())}
+                onFocus={handleFocus}
+                onSubmitEditing={handleContinue}
+                returnKeyType="done"
+              />
+              <Text style={{ color: "#414040", fontSize: 12, marginTop: 6 }}>
+                Joined through a friend? Enter their code to get ₦{((creditConfig?.referralSignupBonusMinor ?? 30000) / 100).toLocaleString("en-NG")} in Hook credit.
+              </Text>
             </View>
 
             <View style={{ marginTop: 18 }}>

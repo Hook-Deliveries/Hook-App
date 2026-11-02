@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PropsWithChildren, useState } from 'react';
 import { MobileRealtimeBridge } from '@/lib/realtime';
+import { PushNotificationBridge } from '@/lib/push-bridge';
 import { ApiError } from '@/lib/api';
+import { AppReleaseGate } from '@/components/shared/AppReleaseGate';
 
 export function AppQueryProvider({ children }: PropsWithChildren) {
   const [queryClient] = useState(
@@ -20,6 +22,8 @@ export function AppQueryProvider({ children }: PropsWithChildren) {
           },
           mutations: {
             retry: 0,
+            // Never park a purchase behind the offline flag: try it, and let it fail with a clear error the customer can act on.
+            networkMode: "always",
           },
         },
       }),
@@ -28,5 +32,7 @@ export function AppQueryProvider({ children }: PropsWithChildren) {
   return <QueryClientProvider client={queryClient}>
     {children}
     <MobileRealtimeBridge />
+    <PushNotificationBridge />
+    <AppReleaseGate />
   </QueryClientProvider>;
 }
