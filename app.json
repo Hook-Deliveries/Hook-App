@@ -96,6 +96,14 @@
         "projectId": "2f9f9545-f2d2-49f9-8e88-650d9ce14df6"
       }
     },
-    "owner": "biodun42"
+    "owner": "biodun42",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2f9f9545-f2d2-49f9-8e88-650d9ce14df6",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    }
   }
 }

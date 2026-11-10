@@ -22,6 +22,7 @@ import { useCartAddAnimation } from "@/components/cart/useCartAddAnimation";
 import { CatalogProductCard } from "@/components/marketplace/CatalogProductCard";
 import { NegotiationPrompt } from "@/components/marketplace/NegotiationPrompt";
 import { NegotiationOptionsSheet } from "@/components/negotiation/NegotiationOptionsSheet";
+import { clock, useCountdown } from "@/components/negotiation/NegotiationFlowCards";
 import { ProductInformation } from "@/components/marketplace/ProductInformation";
 import { BottomActionBar, BottomActionButton } from "@/components/shared/BottomActionBar";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
@@ -39,7 +40,8 @@ import { ApiError } from "@/lib/api";
 import { designTokens } from "@/constants/design-tokens";
 import {
   useAddCartItemMutation,
-  useActiveNegotiationQuery,
+  useLockedPrice,
+  useLockedPricesQuery,
   useCustomerSessionQuery,
   useLikedProductsQuery,
   useProductQuery,
@@ -111,15 +113,17 @@ export default function ProductDetailScreen() {
   const selectedVariant = axes.length
     ? (missingAxis ? undefined : findVariant(variants, activeSelection))
     : variants.length === 1 ? variants[0] : undefined;
-  const negotiated = useActiveNegotiationQuery(
-    isCustomerSession(session.data) ? product?.publicId : undefined,
-    selectedVariant?.publicId,
-    quantity,
-  );
-  const quote = negotiated.data?.quote;
-  const negotiatedPriceMinor = Number(quote?.agreedPriceMinor || 0);
+  // A price locked by negotiating belongs to the product: it holds at any quantity and in any option until it expires.
+  const lockedPrices = useLockedPricesQuery(isCustomerSession(session.data));
+  const lock = useLockedPrice(product?.publicId);
+  const lockSeconds = useCountdown(lock?.expiresAt);
+  const negotiatedPriceMinor = lock ? Math.min(lock.unitPriceMinor, Number(product?.effectivePriceMinor || lock.unitPriceMinor)) : 0;
   const displayPriceMinor =
     negotiatedPriceMinor || Number(product?.effectivePriceMinor || 0);
+  // When the countdown reaches zero, drop the price from the screen at once and confirm with the server.
+  useEffect(() => {
+    if (lock && lockSeconds === 0) void lockedPrices.refetch();
+  }, [lock, lockSeconds, lockedPrices]);
   // "More like this": parent category first (so sibling sub-categories show), with a market-wide fallback.
   const related = useInfiniteProductsQuery(
     { categoryId: product?.category?.parent?.publicId || product?.category?.publicId, limit: 12 },
@@ -208,8 +212,8 @@ export default function ProductDetailScreen() {
       variantId: selectedVariant?.publicId,
       quantity,
       selectedVariants: selectedVariant ? variantDetails(selectedVariant) : {},
-      ...(quote?.id ? { quoteId: quote.id } : {}),
-      optimisticProduct: product,
+      // The server applies the locked price to every add, so nothing extra is sent.
+      optimisticProduct: lock ? { ...product, effectivePriceMinor: negotiatedPriceMinor } : product,
     };
     const addedImageUri = images[activeImage]?.url || images[0]?.url;
     // Acknowledge the tap immediately; this is not a saved-cart receipt.
@@ -296,7 +300,8 @@ export default function ProductDetailScreen() {
   const variantRequired = variants.length > 0 && !selectedVariant;
   // Hook sells what was confirmed on the market, so the page never shows counts: a product is available until its
   // confirmation runs out, then unavailable.
-  const maxQuantity = 20;
+  // A locked price holds at any quantity the cart allows; otherwise the usual limit applies.
+  const maxQuantity = lock ? 99 : 20;
   const unavailable = product.isPurchasable === false;
 
   return (
@@ -446,16 +451,23 @@ export default function ProductDetailScreen() {
               </View>
               <AvailabilityBadge available={!unavailable} verifiedAt={product.availability?.verifiedAt ?? product.lastAvailabilityConfirmedAt} />
             </View>
-            {negotiatedPriceMinor > 0 ? (
-              <View className="mt-2 self-start rounded-full bg-[#FFF2B8] px-3 py-1.5">
-                <Text className="text-[11px] font-black text-[#765700]">
-                  Your negotiated price applies to each item
+            {lock ? (
+              <View className="mt-2 flex-row flex-wrap items-center gap-x-2 gap-y-1 self-start rounded-2xl bg-[#FFF2B8] px-3 py-2">
+                <Ionicons name="lock-closed" size={13} color="#765700" />
+                <Text className="text-[12px] font-black text-[#765700]">
+                  Your locked price · {lock.percentOff}% off
+                </Text>
+                {lockSeconds !== undefined ? (
+                  <Text className="text-[12px] font-bold text-[#765700]">{clock(lockSeconds)} left</Text>
+                ) : null}
+                <Text className="w-full text-[11px] text-[#8A6A00]">
+                  Any quantity, any option, until the timer ends.
                 </Text>
               </View>
             ) : null}
           </View>
 
-          {product.negotiationAvailable && !unavailable ? (
+          {product.negotiationAvailable && !unavailable && !lock ? (
             <NegotiationPrompt
               onPress={() => { setNegotiationOptionsVisible(true); void query.refetch(); }}
             />
@@ -621,15 +633,15 @@ export default function ProductDetailScreen() {
             onPress={() => {
               if (cartError.uncertain) return router.push('/(app)/cart' as never);
               // An expired agreed price will keep failing if we resend it: reload the negotiation, then let them add again.
-              if (cartError.code === 'NEGOTIATION_QUOTE_EXPIRED') {
+              if (cartError.code === 'NEGOTIATION_QUOTE_EXPIRED' || cartError.code === 'NEGOTIATED_PRICE_VOIDED') {
                 setCartError(null);
-                void negotiated.refetch();
-                return toast.info('Your negotiated price expired', 'The current price is shown. Add to cart again, or negotiate a new price.');
+                void lockedPrices.refetch();
+                return toast.info(cartError.code === 'NEGOTIATED_PRICE_VOIDED' ? 'Your negotiated price changed' : 'Your negotiated price expired', 'The current price is shown. Add to cart again, or negotiate a new price.');
               }
               addToCart(cartError.buy);
             }}
           >
-            <Text className="text-[13px] font-bold text-[#7D2C20]">{cartError.uncertain ? 'Check cart' : cartError.code === 'NEGOTIATION_QUOTE_EXPIRED' ? 'Refresh price' : 'Try again'}</Text>
+            <Text className="text-[13px] font-bold text-[#7D2C20]">{cartError.uncertain ? 'Check cart' : (cartError.code === 'NEGOTIATION_QUOTE_EXPIRED' || cartError.code === 'NEGOTIATED_PRICE_VOIDED') ? 'Refresh price' : 'Try again'}</Text>
           </Pressable>
         </View>
       ) : null}

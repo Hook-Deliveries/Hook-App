@@ -10,8 +10,7 @@ import { getSession } from '@/lib/session';
  * a timeout the user taps again, the app mints a NEW key, and the server sees
  * a second order. Here the key is minted once per logical action, stored, and
  * reused for as long as the action's inputs are unchanged. It is released only
- * when the action reaches a definitive outcome. This generalises the pattern
- * in negotiation-outbox.ts.
+ * when the action reaches a definitive outcome.
  */
 const PREFIX = 'hook.idempotency.';
 const MAX_AGE_MS = 20 * 60 * 60 * 1000; // server records live for 24h

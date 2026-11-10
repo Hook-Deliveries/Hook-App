@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import * as Crypto from "expo-crypto";
 
 import { apiRequest } from "@/lib/api";
-import type { NegotiationResponse } from '@/lib/negotiation-types';
+import type { LockedPrice, NegotiationFlow, NegotiationOfferOutcome, NegotiationResponse } from '@/lib/negotiation-types';
 import { getSession, isCustomerSession, onSessionChanged } from "@/lib/session";
 import { hookRealtime } from './realtime';
 import { optimisticCartRemoval } from './cart-optimistic';
@@ -1109,7 +1109,8 @@ export type CommerceConfig = {
   orderEarnMaxMinor: number;
   /** Smallest cart subtotal (kobo) that may be checked out. 0 means no minimum. */
   minimumCheckoutMinor?: number;
-  /** VAT, set by the admin. */
+  /** VAT, set by the admin. When `vatEnabled` is false no VAT is charged or shown. */
+  vatEnabled?: boolean;
   vatRatePercent?: number;
 };
 
@@ -1277,6 +1278,10 @@ export type LogisticsProvider = {
   description?: string;
   logoUrl?: string;
   feeMinor: number;
+  /** Delivery-time messages by State, set by the admin. Resolve with `deliveryEstimateFor`. */
+  deliveryEstimates?: { id: string; message: string; stateIds: string[] }[];
+  /** Shown for any State no group covers. */
+  defaultEstimate?: string;
 };
 
 export function useLogisticsProvidersQuery(enabled = true) {
@@ -1505,14 +1510,6 @@ export function useNegotiationsQuery(params?: QueryParams) {
   });
 }
 
-export function useNegotiationQuery(id?: string) {
-  return useQuery({
-    enabled: Boolean(id),
-    queryKey: mobileQueryKeys.negotiation(id || ""),
-    queryFn: () => apiRequest<NegotiationResponse>(`/negotiations/${id}`),
-  });
-}
-
 export function useActiveNegotiationQuery(
   productId?: string,
   variantId?: string,
@@ -1532,6 +1529,65 @@ export function useActiveNegotiationQuery(
   });
 }
 
+export const lockedPricesKey = () => ["mobile", "negotiations", "locked-prices"] as const;
+
+/**
+ * Every price the customer has locked and can still use. One small request shared by every screen that shows a
+ * product price, so cards, search, the product page and the cart all agree. Refreshed whenever a negotiation, an
+ * accepted price or the cart changes (they all invalidate the "negotiations" keys), and once a minute as prices expire.
+ */
+export function useLockedPricesQuery(enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: lockedPricesKey(),
+    queryFn: async () => (await apiRequest<{ prices: LockedPrice[] }>("/negotiation-quotes/active")).prices,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}
+
+/** The customer's locked price for one product, if it is still valid. Undefined when signed out or nothing is locked. */
+export function useLockedPrice(productId?: string) {
+  const session = useCustomerSessionQuery();
+  const signedIn = isCustomerSession(session.data);
+  const query = useLockedPricesQuery(signedIn);
+  if (!productId || !signedIn) return undefined;
+  const found = query.data?.find((price) => price.productId === productId);
+  return found && new Date(found.expiresAt).getTime() > Date.now() ? found : undefined;
+}
+
+export const negotiationFlowKey = (id: string) =>
+  [...mobileQueryKeys.negotiation(id), "flow"] as const;
+
+/** Everything the guided offer screen shows, in one request. */
+export function useNegotiationFlowQuery(id?: string) {
+  return useQuery({
+    enabled: Boolean(id),
+    queryKey: negotiationFlowKey(id || ""),
+    queryFn: () => apiRequest<NegotiationFlow>(`/negotiations/${id}/offer-flow`),
+  });
+}
+
+/** Offer a total for the whole quantity. The same request id is reused when an offer is retried. */
+export function useSubmitOfferTotalMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    retry: false,
+    mutationFn: (input: { negotiationId: string; totalPriceMinor: number; requestId: string }) =>
+      post<NegotiationOfferOutcome>(
+        `/negotiations/${input.negotiationId}/offer-total`,
+        { totalPriceMinor: input.totalPriceMinor },
+        { idempotencyKey: input.requestId },
+      ),
+    onSuccess: (data, input) => {
+      queryClient.setQueryData(negotiationFlowKey(input.negotiationId), data.flow);
+      void queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] });
+      // An accepted offer is locked on the spot, and lines already in the cart move to that price.
+      if (data.flow.locked) void queryClient.invalidateQueries({ queryKey: mobileQueryKeys.cart() });
+    },
+  });
+}
+
 export function useStartNegotiationMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1543,28 +1599,6 @@ export function useStartNegotiationMutation() {
     }) => post<NegotiationResponse>("/negotiations", input),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] }),
-  });
-}
-
-export function useCounterNegotiationMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: {
-      negotiationId: string;
-      offeredPrice?: number;
-      message: string;
-      requestId?: string;
-    }) =>
-      hookRealtime.request<NegotiationResponse>('negotiation.send', {
-        negotiationId: input.negotiationId, message: input.message,
-        requestId: input.requestId || Crypto.randomUUID(),
-      }),
-    onSuccess: (_data, input) => {
-      queryClient.invalidateQueries({ queryKey: ["mobile", "negotiations"] });
-      queryClient.invalidateQueries({
-        queryKey: mobileQueryKeys.negotiation(input.negotiationId),
-      });
-    },
   });
 }
 

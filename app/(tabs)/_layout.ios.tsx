@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { countActiveNegotiations } from "@/lib/negotiations";
@@ -42,11 +43,11 @@ export default function IOSNativeTabLayout() {
         <NativeTabs.Trigger.Icon sf="magnifyingglass" />
         <NativeTabs.Trigger.Label>Discover</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="messages">
+      <NativeTabs.Trigger name="offers">
         <NativeTabs.Trigger.Icon
-          sf={{ default: "bubble.left", selected: "bubble.left.fill" }}
+          sf={{ default: "tag", selected: "tag.fill" }}
         />
-        <NativeTabs.Trigger.Label>Messages</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Offers</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Badge hidden={!activeNegotiations}>
           {activeNegotiations ? badgeText(activeNegotiations) : ""}
         </NativeTabs.Trigger.Badge>
@@ -57,7 +58,16 @@ export default function IOSNativeTabLayout() {
         />
         <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="cart" role="search">
+      {/*
+        The cart opens as its own page (back button, full-width checkout bar, no tab bar) rather than as a tab. A disabled
+        native tab never becomes selected, but still reports the tap, so the tap pushes the standalone cart route instead.
+      */}
+      <NativeTabs.Trigger
+        name="cart"
+        role="search"
+        disabled
+        listeners={{ tabPress: () => router.push("/(app)/cart" as never) }}
+      >
         <NativeTabs.Trigger.Icon
           sf={{ default: "cart", selected: "cart.fill" }}
         />

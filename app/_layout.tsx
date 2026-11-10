@@ -53,7 +53,7 @@ export default function RootLayout() {
   // The Home tab resolves to "/", so only the real splash route may bypass outage gating.
   const isLaunchSplash = pathname === "/splash";
   const isMarketHero = pathname.includes("/markets/");
-  const isMainTab = ['/', '/discover', '/messages', '/profile'].includes(pathname);
+  const isMainTab = ['/', '/discover', '/offers', '/profile'].includes(pathname);
   // Shown on every screen except Profile (its own approval banner already covers this) and an order's own detail page (where the approval card it points to is already on screen).
   const hideReplacementFab = pathname === '/profile' || (pathname.startsWith('/orders/') && pathname !== '/orders');
   const safeAreaBackground = isMainTab ? '#F1F1F3' : '#FFFFFF';

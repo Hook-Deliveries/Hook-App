@@ -5,6 +5,7 @@ import { ApiError } from '@/lib/api';
 import { promptScheduledDeletion, scheduledDeletionDate } from '@/lib/account-deletion-api';
 import { useGoogleLoginMutation } from '@/lib/auth-api';
 import { completeSignIn } from '@/lib/post-sign-in';
+import { isTemporarilyUnavailable, retryOnUnavailable } from '@/lib/sign-in-retry';
 
 /**
  * The native SDK issues ID tokens whose audience is the Web client ID, so it is
@@ -71,7 +72,7 @@ export function useHookGoogleAuth() {
         return;
       }
 
-      const session = await googleLogin.mutateAsync({ idToken });
+      const session = await retryOnUnavailable(() => googleLogin.mutateAsync({ idToken }));
       await completeSignIn(session);
       toast.success('Welcome to Hook', 'Google sign-in completed.');
     } catch (error) {
@@ -85,8 +86,13 @@ export function useHookGoogleAuth() {
         toast.error('Google Play Services unavailable', 'Update Google Play Services and try again.');
         return;
       }
-      if (error instanceof ApiError && error.status === 0) {
-        toast.error('Server unavailable', 'Please check your connection and try again.');
+      if (isTemporarilyUnavailable(error)) {
+        toast.error('Hook is busy for a moment', 'Please try again, or use email sign-in.');
+        return;
+      }
+      // Android reports a Google setup problem (wrong signing certificate or project) as DEVELOPER_ERROR / code 10.
+      if (/DEVELOPER_ERROR|\b10\b/.test(String((error as { code?: unknown; message?: unknown })?.code ?? '') + ' ' + String((error as { message?: unknown })?.message ?? ''))) {
+        toast.error('Google sign-in is not set up for this build', 'Please use email sign-in for now.');
         return;
       }
       if (error instanceof ApiError && error.status === 401) {

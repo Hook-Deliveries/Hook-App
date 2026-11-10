@@ -102,6 +102,18 @@ export function CartScreen({
     );
   }
 
+  /** Re-prices a line whose negotiated price was cancelled: same quantity, current list price. */
+  async function refreshPrice(item: any) {
+    const itemId = cartItemIdentifier(item);
+    if (!itemId) return;
+    try {
+      await update.mutateAsync({ itemId, quantity: Number(item.quantity) });
+      toast.success("Price updated", "This item is now at the current price.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update the price");
+    }
+  }
+
   function change(item: any, quantity: number) {
     const itemId = cartItemIdentifier(item);
     if (
@@ -330,6 +342,7 @@ export function CartScreen({
                     busy={Boolean(itemId && pendingIds.has(itemId))}
                     quantity={visibleQuantity(item)}
                     onChange={(quantity) => change(item, quantity)}
+                    onRefreshPrice={() => void refreshPrice(item)}
                     onRemove={(source, target) => requestRemoveItem(item, source, target)}
                   />
                 );
@@ -450,12 +463,14 @@ function CartRow({
   busy,
   quantity,
   onChange,
+  onRefreshPrice,
   onRemove,
 }: {
   item: any;
   busy: boolean;
   quantity: number;
   onChange: (quantity: number) => void;
+  onRefreshPrice: () => void;
   onRemove: (source: ViewRef | null, target: ViewRef | null) => void;
 }) {
   const reducedMotion = useReducedMotion();
@@ -550,7 +565,11 @@ function CartRow({
             {item.negotiatedQuote ? (
               <View className="mt-1 flex-row items-center gap-1.5">
                 <Text className="text-[10px] font-black text-[#8A6500]">
-                  Negotiated price
+                  {item.priceNote === "PRICE_DROPPED"
+                    ? "Price dropped, you pay the lower price"
+                    : item.negotiatedQuote.status === "cancelled"
+                      ? "Negotiated price cancelled"
+                      : "Negotiated price"}
                 </Text>
                 <Text className="text-[10px] text-[#999] line-through">
                   ₦
@@ -566,7 +585,24 @@ function CartRow({
           </Text>
         </View>
         <View className="mt-2 flex-row items-center justify-between">
-          {item.checkoutEligible === false ? (
+          {item.blockingReasons?.includes("NEGOTIATED_PRICE_VOIDED") ? (
+            <View className="flex-1 rounded-lg bg-[#FFF0ED] px-2.5 py-2">
+              <Text className="text-[11px] font-bold text-[#7D2C20]">
+                Your negotiated price is no longer valid
+              </Text>
+              <Text className="mt-0.5 text-[9px] text-[#8A4A40]">
+                This product changed. Use the current price, or negotiate again.
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy}
+                onPress={onRefreshPrice}
+                className="mt-1.5 min-h-9 items-center justify-center rounded-full bg-hook px-3 disabled:opacity-50"
+              >
+                <Text className="text-[11px] font-bold">Use current price</Text>
+              </Pressable>
+            </View>
+          ) : item.checkoutEligible === false ? (
             <View className="flex-1 rounded-lg bg-[#FFF8DB] px-2.5 py-2">
               <Text className="text-[11px] font-bold text-[#725A0A]">
                 Hook is confirming availability

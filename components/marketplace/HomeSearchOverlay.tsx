@@ -5,7 +5,8 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Reveal } from "@/components/motion/Reveal";
 import { SkeletonBlock, SkeletonGroup } from "@/components/motion/Skeleton";
 import { RemoteImage } from "@/components/shared/RemoteImage";
-import type { PublicCatalogProduct, PublicCategory, PublicMarket } from "@/lib/mobile-api";
+import { useLockedPrice, type PublicCatalogProduct, type PublicCategory, type PublicMarket } from "@/lib/mobile-api";
+import { displayPrice } from "@/lib/locked-prices";
 
 type Props = {
   visible: boolean;
@@ -153,7 +154,7 @@ export function HomeSearchOverlay({ visible, query, loading, markets, products, 
                       <Text numberOfLines={1} className="text-[14px] font-bold text-black">{product.title}</Text>
                       <Text numberOfLines={1} className="mt-0.5 text-[11px] text-black/45">{[product.category?.name, product.market?.name].filter(Boolean).join(" · ")}</Text>
                     </View>
-                    <Text className="text-[13px] font-black text-black">₦{Math.round(Number(product.effectivePriceMinor || 0) / 100).toLocaleString("en-NG")}</Text>
+                    <SearchPrice product={product} />
                   </Row>
                 ))}
               </>
@@ -191,5 +192,16 @@ export function HomeSearchOverlay({ visible, query, loading, markets, products, 
         )}
       </ScrollView>
     </Reveal>
+  );
+}
+
+/** A search result's price, led by the customer's locked price when they have one. */
+function SearchPrice({ product }: { product: PublicCatalogProduct }) {
+  const shown = displayPrice(product, useLockedPrice(product.publicId));
+  return (
+    <View className="flex-row items-center gap-1">
+      {shown.locked ? <Ionicons name="lock-closed" size={11} color="#765700" /> : null}
+      <Text className="text-[13px] font-black text-black">₦{Math.round(Number(shown.priceMinor || 0) / 100).toLocaleString("en-NG")}</Text>
+    </View>
   );
 }
