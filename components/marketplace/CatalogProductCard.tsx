@@ -7,8 +7,10 @@ import { QuickAddSheet } from "./QuickAddSheet";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
 import { ApiError } from "@/lib/api";
+import { displayPrice } from "@/lib/locked-prices";
 import {
   useCustomerSessionQuery,
+  useLockedPrice,
   usePrefetchProduct,
   useLikedProductsQuery,
   useToggleProductLikeMutation,
@@ -29,6 +31,8 @@ export function CatalogProductCard({
   const figma = variant === "figma";
   const unavailable = product.isPurchasable === false;
   const session = useCustomerSessionQuery();
+  // A price the customer locked by negotiating leads everywhere this product's price appears.
+  const shown = displayPrice(product, useLockedPrice(product.publicId));
   const likes = useLikedProductsQuery();
   const toggleLike = useToggleProductLikeMutation();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -78,12 +82,13 @@ export function CatalogProductCard({
             <Text className="mt-1 text-[10px] text-black/45" numberOfLines={1}>{product.market.name}</Text>
           ) : null}
           <View className={`mt-2 flex-row items-center gap-2 ${unavailable ? "opacity-45" : ""}`}>
+            {shown.locked ? <Ionicons name="lock-closed" size={12} color="#765700" /> : null}
             <Text className="text-[14px] font-black text-[#D9A700]">
-              ₦{Math.round(product.effectivePriceMinor / 100).toLocaleString()}
+              ₦{Math.round(shown.priceMinor / 100).toLocaleString()}
             </Text>
-            {product.discountMinor > 0 ? (
+            {shown.strikeMinor ? (
               <Text className="text-[10px] text-[#888] line-through">
-                ₦{Math.round(product.sellingPriceMinor / 100).toLocaleString()}
+                ₦{Math.round(shown.strikeMinor / 100).toLocaleString()}
               </Text>
             ) : null}
           </View>
@@ -164,12 +169,13 @@ export function CatalogProductCard({
         {product.title}
       </Text>
       <View className={`mt-1 flex-row items-center gap-2 ${unavailable ? "opacity-45" : ""}`}>
+        {shown.locked ? <Ionicons name="lock-closed" size={11} color="#765700" /> : null}
         <Text className="text-[12px] font-black text-[#E7B200]">
-          ₦{Math.round(product.effectivePriceMinor / 100).toLocaleString()}
+          ₦{Math.round(shown.priceMinor / 100).toLocaleString()}
         </Text>
-        {product.discountMinor > 0 ? (
+        {shown.strikeMinor ? (
           <Text className="text-[9px] text-[#888] line-through">
-            ₦{Math.round(product.sellingPriceMinor / 100).toLocaleString()}
+            ₦{Math.round(shown.strikeMinor / 100).toLocaleString()}
           </Text>
         ) : null}
       </View>

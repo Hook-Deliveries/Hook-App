@@ -4,6 +4,7 @@ import { MobileRealtimeBridge } from '@/lib/realtime';
 import { PushNotificationBridge } from '@/lib/push-bridge';
 import { ApiError } from '@/lib/api';
 import { AppReleaseGate } from '@/components/shared/AppReleaseGate';
+import { OtaUpdateGate } from '@/components/shared/OtaUpdateGate';
 
 export function AppQueryProvider({ children }: PropsWithChildren) {
   const [queryClient] = useState(
@@ -34,5 +35,6 @@ export function AppQueryProvider({ children }: PropsWithChildren) {
     <MobileRealtimeBridge />
     <PushNotificationBridge />
     <AppReleaseGate />
+    <OtaUpdateGate />
   </QueryClientProvider>;
 }

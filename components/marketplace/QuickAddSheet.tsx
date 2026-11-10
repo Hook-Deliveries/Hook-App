@@ -13,7 +13,8 @@ import { HookSheet } from "@/components/shared/HookSheet";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { resolveColor } from "@/components/marketplace/product-colors";
 import { ApiError } from "@/lib/api";
-import { useAddCartItemMutation, useProductQuery, type PublicCatalogProduct } from "@/lib/mobile-api";
+import { useAddCartItemMutation, useLockedPrice, useProductQuery, type PublicCatalogProduct } from "@/lib/mobile-api";
+import { displayPrice } from "@/lib/locked-prices";
 import {
   autoSelection,
   availableValues,
@@ -61,7 +62,11 @@ export function QuickAddSheet({ product: listed, visible, onClose }: { product: 
   const active = useMemo(() => autoSelection(axes, selection), [axes, selection]);
   const missing = nextMissingAxis(axes, active);
   const variant = axes.length ? (missing ? undefined : findVariant(variants, active)) : variants.length === 1 ? variants[0] : undefined;
-  const maxQuantity = 10;
+  // A locked price holds at any quantity until it expires, so the usual small limit is lifted.
+  const lock = useLockedPrice(product.publicId);
+  const price = displayPrice(product, lock);
+  const unitMinor = price.priceMinor;
+  const maxQuantity = lock ? 99 : 10;
   const summary = axes.map((axis) => `${axis.label}: ${active[axis.key] || "—"}`).join(" · ");
 
   function confirm() {
@@ -79,7 +84,7 @@ export function QuickAddSheet({ product: listed, visible, onClose }: { product: 
         variantId: variant?.publicId,
         quantity,
         selectedVariants: variant ? variantDetails(variant) : {},
-        optimisticProduct: product,
+        optimisticProduct: price.locked ? { ...product, effectivePriceMinor: unitMinor } : product,
       },
       {
         onSuccess: () => {
@@ -103,8 +108,8 @@ export function QuickAddSheet({ product: listed, visible, onClose }: { product: 
         </View>
         <View className="min-w-0 flex-1 justify-center">
           <Text numberOfLines={2} className="text-[15px] font-bold text-black">{product.title}</Text>
-          <Text className="mt-1 text-[15px] font-black text-[#D9A700]">{naira(product.effectivePriceMinor * quantity)}</Text>
-          {quantity > 1 ? <Text className="text-[11px] text-black/45">{naira(product.effectivePriceMinor)} each</Text> : null}
+          <Text className="mt-1 text-[15px] font-black text-[#D9A700]">{naira(unitMinor * quantity)}</Text>
+          {quantity > 1 || price.locked ? <Text className="text-[11px] text-black/45">{naira(unitMinor)} each{price.locked ? " · your locked price" : ""}</Text> : null}
         </View>
         <Animated.View style={cartAnimation.cartAnimatedStyle}>
           <View ref={cartAnimation.cartRef} collapsable={false} className="h-10 w-10 items-center justify-center rounded-full bg-[#F1F1F3]">
@@ -229,7 +234,7 @@ export function QuickAddSheet({ product: listed, visible, onClose }: { product: 
             style={{ display: loadingOptions || loadFailed ? "none" : "flex" }}
           >
             <Text className="text-[14px] font-bold text-black">
-              {add.isPending ? "Adding…" : `Add to cart · ${naira(product.effectivePriceMinor * quantity)}`}
+              {add.isPending ? "Adding…" : `Add to cart · ${naira(unitMinor * quantity)}`}
             </Text>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={() => { onClose(); router.push({ pathname: "/products/[id]", params: { id: product.publicId } } as never); }} className="mt-1 h-10 items-center justify-center" style={{ display: loadingOptions ? "none" : "flex" }}>

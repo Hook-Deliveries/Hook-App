@@ -3,7 +3,7 @@ import { centeredHeaderTextStyle } from "@/constants/design-tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Extrapolation,
@@ -24,7 +24,7 @@ import { SupportPushBanner } from "@/components/shared/SupportPushBanner";
 import { ReplacementApprovalBanner } from "@/components/shared/ReplacementApprovalBanner";
 import { logout, useLocalSessionQuery } from "@/lib/auth-api";
 import { useCreditsQuery } from "@/lib/mobile-api";
-import { unregisterPushToken } from "@/lib/push";
+import { runPushDiagnostics, unregisterPushToken } from "@/lib/push";
 import { clearSession } from "@/lib/session";
 import { getHookTabBarContentInset } from "@/components/tab-bar/layout";
 
@@ -182,7 +182,7 @@ export default function ProfileScreen() {
             <ProfileRow icon="cart" label="My Orders" onPress={() => router.push("/orders" as never)} />
             <ProfileRow icon="location" label="My addresses" onPress={() => router.push("/addresses" as never)} />
             <ProfileRow icon="heart" label="Saved products" onPress={() => router.push("/likes" as never)} />
-            <ProfileRow icon="chatbox" label="Messages" onPress={() => router.push("/(tabs)/messages" as never)} />
+            <ProfileRow icon="pricetag" label="Offers" onPress={() => router.push("/(tabs)/offers" as never)} />
           </ProfileSection>
 
           <ProfileSection title="Rewards">
@@ -211,7 +211,18 @@ export default function ProfileScreen() {
           </ProfileSection>
 
           <ProfileSection title="App information">
-            <ProfileRow icon="information-circle" label="App version" value={Constants.expoConfig?.version || "1.0.0"} neutral />
+            {/* Hold to test notifications: a hidden support tool that checks permission, token, registration and a real push. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityHint="Press and hold to test notifications"
+              delayLongPress={900}
+              onLongPress={() => {
+                toast.info("Testing notifications", "This takes a few seconds.");
+                void runPushDiagnostics().then((report) => Alert.alert("Notification test", report));
+              }}
+            >
+              <ProfileRow icon="information-circle" label="App version" value={Constants.expoConfig?.version || "1.0.0"} neutral />
+            </Pressable>
             <ProfileRow icon="star" label="Rate this app" onPress={() => toast.info("Thank you", "App Store ratings will be available after release.")} neutral />
           </ProfileSection>
 

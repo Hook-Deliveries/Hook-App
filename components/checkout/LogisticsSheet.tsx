@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheetScrollView as ScrollView } from "@gorhom/bottom-sheet";
 import { CheckoutSheet } from "./CheckoutSheet";
 import { HookLoader } from "@/components/shared/HookLoader";
+import { deliveryEstimateFor } from "@/lib/delivery-estimate";
 import type { LogisticsProvider } from "@/lib/mobile-api";
 
 export function LogisticsSheet({
@@ -16,6 +17,7 @@ export function LogisticsSheet({
   error = false,
   onRetry,
   selectedId,
+  deliveryState,
   onSelect,
   onClose,
 }: {
@@ -25,6 +27,8 @@ export function LogisticsSheet({
   error?: boolean;
   onRetry?: () => void;
   selectedId?: string;
+  /** The State being delivered to, so each courier can show its delivery time for that State. */
+  deliveryState?: { publicId?: string; code?: string; name?: string } | null;
   onSelect: (provider: LogisticsProvider) => void;
   onClose: () => void;
 }) {
@@ -56,6 +60,7 @@ export function LogisticsSheet({
             {providers.map((provider) => {
               const id = provider.publicId || provider.id;
               const active = id === selectedId;
+              const estimate = deliveryEstimateFor(provider, deliveryState);
               return (
                 <Pressable
                   key={id}
@@ -83,6 +88,12 @@ export function LogisticsSheet({
                   )}
                   <View style={{ flex: 1, gap: 4 }}>
                     <Text className="text-base leading-7 text-[#111]">{provider.name}</Text>
+                    {estimate ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                        <Ionicons name="time-outline" size={13} color="#1f8a4c" />
+                        <Text style={{ flexShrink: 1, fontSize: 12.5, lineHeight: 17, fontFamily: "NunitoSans-Bold", color: "#1f8a4c" }}>{estimate}</Text>
+                      </View>
+                    ) : null}
                     {provider.description ? (
                       <Text className="text-xs text-[#777]">{provider.description}</Text>
                     ) : null}

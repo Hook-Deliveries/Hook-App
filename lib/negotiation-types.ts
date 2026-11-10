@@ -33,11 +33,18 @@ export interface NegotiationResponse {
   lastCounterPriceMinor?: number;
   agreedPriceMinor?: number;
   quoteId?: string;
+  /** Why the session ended without the customer deciding, e.g. the product went off sale. */
+  endReason?: string;
+  /** Set when the product's price changed since the last offer; amounts in kobo. */
+  priceChanged?: { fromMinor: number; toMinor: number };
   quote?: {
     id: string;
     agreedPriceMinor: number;
+    originalPriceMinor?: number;
     expiresAt: string;
-    status: string;
+    /** `cancelled` means the product changed and the price can no longer be used. */
+    status: "active" | "used" | "expired" | "cancelled" | string;
+    voidReason?: "PRODUCT_UNAVAILABLE" | "NEGOTIATION_DISABLED" | "FLOOR_RAISED";
   };
   product?: {
     id: string;
@@ -50,11 +57,70 @@ export interface NegotiationResponse {
   };
 }
 
-export function negotiationMessageKey(
-  entry: NegotiationMessage,
-  index: number,
-) {
-  return (
-    entry.id || `legacy-${index}-${entry.role}-${entry.createdAt || "undated"}`
-  );
+/**
+ * The guided offer flow. Every amount is a TOTAL for the whole quantity (with the per-item price beside it), in kobo.
+ * The server decides every price; the app only shows them.
+ */
+export interface NegotiationFlow {
+  negotiationId: string;
+  status: "active" | "agreed" | "closed" | "expired" | "declined";
+  endReason?: string;
+  productId?: string;
+  variantId?: string;
+  quantity: number;
+  currency: string;
+  listUnitMinor: number;
+  listTotalMinor: number;
+  /** The round the next offer will be (1-based). */
+  round: number;
+  remainingOffers: number;
+  maximumOffers: number;
+  expiresAt?: string;
+  counter?: { unitMinor: number; totalMinor: number; percentOff: number };
+  bestOffer?: { unitMinor: number; totalMinor: number };
+  locked?: {
+    quoteId: string;
+    unitMinor: number;
+    totalMinor: number;
+    savingsTotalMinor: number;
+    percentOff: number;
+    expiresAt: string;
+  };
+  quoteCancelled?: { reason?: string };
+  /** Offers must be at least this much, and below `maxTotalMinor` (Hook's last counter, or the list price). */
+  minTotalMinor: number;
+  maxTotalMinor: number;
+  suggestions: Array<{ unitMinor: number; totalMinor: number; percentOff: number; note?: string }>;
+  history: Array<{
+    round: number;
+    offerTotalMinor: number;
+    decision?: "ACCEPT" | "COUNTER" | "DECLINE";
+    counterTotalMinor?: number;
+    acceptedTotalMinor?: number;
+  }>;
+}
+
+export interface NegotiationOfferOutcome {
+  result: {
+    decision?: "ACCEPT" | "COUNTER" | "DECLINE";
+    message?: string;
+    offerTotalMinor: number;
+    counterTotalMinor?: number;
+    acceptedTotalMinor?: number;
+    providerFallback: boolean;
+    /** The price was accepted but could not be locked, e.g. the email is not verified yet. */
+    lockError?: string;
+  };
+  flow: NegotiationFlow;
+}
+
+/** A price the customer locked for a product: it applies at any quantity and in any option until `expiresAt`. */
+export interface LockedPrice {
+  quoteId: string;
+  /** The product's public id, so any screen showing that product can look its locked price up. */
+  productId: string;
+  unitPriceMinor: number;
+  listUnitMinor: number;
+  percentOff: number;
+  expiresAt: string;
 }

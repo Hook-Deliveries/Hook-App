@@ -45,7 +45,7 @@ export function routeForPush(data: PushData): string {
       const variantId = text(params.variantId);
       return productId && variantId
         ? `/negotiations/new?productId=${encodeURIComponent(productId)}&variantId=${encodeURIComponent(variantId)}&quantity=${text(params.quantity) || 1}`
-        : "/(tabs)/messages";
+        : "/(tabs)/offers";
     }
     case "devices":
       return "/profile/devices";

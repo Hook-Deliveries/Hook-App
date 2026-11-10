@@ -1,10 +1,17 @@
+import { addressHandoff } from "@/lib/address-handoff";
 import { ClearableInput } from "@/components/shared/ClearableInput";
 import { Reveal } from "@/components/motion/Reveal";
 import { Ionicons } from "@expo/vector-icons";
 import { centeredHeaderTextStyle } from "@/constants/design-tokens";
 import { SPRING_PANEL } from "@/constants/motion";
-import { useRef, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -21,7 +28,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HookSheet } from "@/components/shared/HookSheet";
 import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
 import { HookLoader } from "@/components/shared/HookLoader";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
@@ -41,8 +47,8 @@ import {
   useUpdateAddressMutation,
 } from "@/lib/mobile-api";
 
-const inputClass =
-  "h-12 rounded-2xl border border-black/10 bg-[#fafafa] px-4 text-sm text-black";
+const inputClass = "h-[52px] rounded-full bg-[#F1F1F3] px-5 text-sm text-black";
+const textAreaClass = "min-h-[92px] rounded-[22px] bg-[#F1F1F3] px-5 py-3.5 text-sm text-black";
 
 /** Mirrors the backend's addressCreateSchema limits so the field being over-typed stops the user, not a submit error. */
 const FIELD_LIMITS = {
@@ -97,15 +103,38 @@ export default function AddressesScreen() {
   const remove = useDeleteAddressMutation();
   const makeDefault = useDefaultAddressMutation();
 
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const params = useLocalSearchParams<{ new?: string; from?: string }>();
+  // Opened from checkout's "Add new address": the wizard starts at once and leaving it returns to checkout.
+  const cameFromCheckout = useRef(params.from === "checkout");
+  const [wizardOpen, setWizardOpen] = useState(params.new === "1");
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<AddressDraft>(emptyDraft());
+  // What the wizard opened with, so closing can tell "nothing entered yet" from "would lose work".
+  const openedWith = useRef(JSON.stringify(emptyDraft()));
+  const [keyboardUp, setKeyboardUp] = useState(false);
   const [editingId, setEditingId] = useState<string | undefined>();
   const [addressError, setAddressError] = useState<string | null>(null);
   const [addressToRemove, setAddressToRemove] = useState<{ id: string; label: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const openRowId = useRef<string | null>(null);
   const closeRow = useRef<(() => void) | null>(null);
+
+  /** Closes the wizard; when it was opened from checkout there is nothing to stay on this page for, so go back there. */
+  function closeWizard() {
+    setWizardOpen(false);
+    if (cameFromCheckout.current) {
+      cameFromCheckout.current = false;
+      router.back();
+    }
+  }
+
+  // Each step starts at the top, and a keyboard left open by the last step never carries over.
+  useEffect(() => { Keyboard.dismiss(); }, [step]);
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => setKeyboardUp(true));
+    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setKeyboardUp(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   function registerRowOpen(id: string, close: () => void) {
     if (openRowId.current && openRowId.current !== id) closeRow.current?.();
@@ -147,19 +176,23 @@ export default function AddressesScreen() {
   }
 
   function openNewWizard() {
+    const fresh = emptyDraft();
+    openedWith.current = JSON.stringify(fresh);
     setEditingId(undefined);
-    setDraft(emptyDraft());
+    setDraft(fresh);
     setAddressError(null);
     setStep(0);
     setWizardOpen(true);
   }
 
   function openEditWizard(address: AddressRecord) {
-    setEditingId(address.publicId);
-    setDraft({
+    const existing = {
       ...address,
       localGovernmentAreaId: (address as unknown as { localGovernmentAreaId?: string }).localGovernmentAreaId || "",
-    });
+    };
+    openedWith.current = JSON.stringify(existing);
+    setEditingId(address.publicId);
+    setDraft(existing);
     setAddressError(null);
     setStep(2);
     setWizardOpen(true);
@@ -189,6 +222,24 @@ export default function AddressesScreen() {
       formattedAddress: "",
     }));
     setStep(2);
+  }
+
+  /** A stray tap, swipe or the Android back button must never throw away what the customer has typed, so closing asks first. */
+  function requestCloseWizard() {
+    if (saving) return;
+    const changed = step > 0 && !editingId ? true : JSON.stringify(draft) !== openedWith.current;
+    if (!changed) {
+      closeWizard();
+      return;
+    }
+    Alert.alert(
+      editingId ? "Discard your changes?" : "Discard this address?",
+      editingId ? "Your edits to this address will be lost." : "What you've entered so far will be lost.",
+      [
+        { text: "Keep editing", style: "cancel" },
+        { text: "Discard", style: "destructive", onPress: closeWizard },
+      ],
+    );
   }
 
   async function saveAddress() {
@@ -234,10 +285,15 @@ export default function AddressesScreen() {
       isDefault: draft.isDefault || addressRows.length === 0,
     };
     try {
+      let savedId: string | undefined;
       if (editingId) await update.mutateAsync({ id: editingId, ...payload });
-      else await create.mutateAsync(payload);
+      else {
+        const created = (await create.mutateAsync(payload)) as { publicId?: string; data?: { publicId?: string } } | undefined;
+        savedId = created?.publicId || created?.data?.publicId;
+      }
       setAddressError(null);
-      setWizardOpen(false);
+      if (cameFromCheckout.current && savedId) addressHandoff.set(savedId);
+      closeWizard();
       toast.success(editingId ? "Address updated" : "Address saved");
     } catch (error) {
       const message = getApiErrorMessage(error, "Could not save address");
@@ -257,7 +313,7 @@ export default function AddressesScreen() {
     }
   }
 
-  if (addresses.isLoading) {
+  if (addresses.isLoading && !wizardOpen) {
     return <HookPageLoading variant="list" title="Delivery addresses" label="Loading addresses" />;
   }
 
@@ -328,32 +384,89 @@ export default function AddressesScreen() {
         {addresses.isError ? <View className="mt-10 items-center rounded-[22px] bg-white p-6"><Ionicons name="cloud-offline-outline" size={30} color="#777" /><Text className="mt-3 font-bold text-black">Addresses could not be refreshed</Text><Pressable onPress={() => void addresses.refetch()} className="mt-4 rounded-full bg-hook px-5 py-2.5"><Text className="font-bold text-black">Try again</Text></Pressable></View> : null}
       </ScrollView>
 
-      <HookSheet visible={wizardOpen} onClose={() => setWizardOpen(false)} title={editingId ? "Edit delivery address" : "Add delivery address"} height="78%" maxHeight="78%" accessibilityLabel="Delivery address wizard" contentClassName="mt-2 flex-1">
-        <View className="flex-1">
-          <View className="mb-4">
-            <View className="mb-2 flex-row items-center justify-between"><Text className="text-xs font-bold uppercase tracking-wider text-black/45">Step {step + 1} of 3</Text><Text className="text-xs font-semibold text-black/45">{step === 0 ? "State & capital" : step === 1 ? "Local government" : "Delivery details"}</Text></View>
-            <View className="h-1.5 overflow-hidden rounded-full bg-black/10"><View className="h-full rounded-full bg-hook" style={{ width: `${((step + 1) / 3) * 100}%` }} /></View>
+      {/*
+        A full-screen page rather than a sheet: nothing behind it can be tapped, so there is no tap-outside or swipe-down that
+        could wipe a half-filled address, and the keyboard has the whole screen to work with.
+      */}
+      <Modal
+        visible={wizardOpen}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        statusBarTranslucent
+        onRequestClose={requestCloseWizard}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: "#F1F1F3" }}>
+          <View style={{ flex: 1, paddingTop: insets.top }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 6, paddingBottom: 14 }}>
+              {step > 0 ? (
+                <Pressable
+                  accessibilityLabel="Previous address step"
+                  accessibilityRole="button"
+                  onPress={() => setStep(step - 1)}
+                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "white", alignItems: "center", justifyContent: "center" }}
+                >
+                  <Ionicons name="arrow-back" size={20} color="#111" />
+                </Pressable>
+              ) : <View style={{ width: 44 }} />}
+              <Text accessibilityRole="header" numberOfLines={1} style={[{ flex: 1, textAlign: "center", fontSize: 18, fontFamily: "NunitoSans-Black", color: "#111" }, centeredHeaderTextStyle]}>
+                {editingId ? "Edit delivery address" : "Add delivery address"}
+              </Text>
+              <Pressable
+                accessibilityLabel="Close"
+                accessibilityRole="button"
+                onPress={requestCloseWizard}
+                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "white", alignItems: "center", justifyContent: "center" }}
+              >
+                <Ionicons name="close" size={22} color="#111" />
+              </Pressable>
+            </View>
+
+            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+              <View className="mb-2 flex-row items-center justify-between">
+                <Text className="text-xs font-bold uppercase tracking-wider text-black/45">Step {step + 1} of 3</Text>
+                <Text className="text-xs font-semibold text-black/45">{step === 0 ? "State & capital" : step === 1 ? "Local government" : "Delivery details"}</Text>
+              </View>
+              <View className="h-1.5 overflow-hidden rounded-full bg-black/10"><View className="h-full rounded-full bg-hook" style={{ width: `${((step + 1) / 3) * 100}%` }} /></View>
+            </View>
+
+            {/* Keyed by step so every step opens at its top instead of wherever the last one was scrolled to. */}
+            <ScrollView
+              key={step}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28 }}
+              automaticallyAdjustKeyboardInsets
+              keyboardDismissMode="interactive"
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Reveal from="bottom">
+                {step === 0 ? <StateStep rows={stateRows} selectedId={draft.stateId} loading={states.isLoading} error={states.isError} onRetry={() => void states.refetch()} onSelect={selectState} /> : null}
+                {step === 1 ? <LocalGovernmentStep state={selectedState} rows={localGovernmentRows} selectedId={draft.localGovernmentAreaId} loading={localGovernments.isLoading} error={localGovernments.isError} onRetry={() => void localGovernments.refetch()} onSelect={selectLocalGovernment} /> : null}
+                {step === 2 ? <AddressStep draft={draft} error={addressError} onChange={setDraftValue} /> : null}
+              </Reveal>
+            </ScrollView>
+
+            {step === 2 ? (
+              <View style={{ borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.06)", backgroundColor: "#F1F1F3", paddingHorizontal: 20, paddingTop: 12, paddingBottom: keyboardUp ? 12 : Math.max(insets.bottom, 12) }}>
+                <Pressable
+                  accessibilityLabel="Save delivery address"
+                  accessibilityRole="button"
+                  accessibilityState={{ busy: saving, disabled: saving }}
+                  disabled={saving}
+                  onPress={() => void saveAddress()}
+                  style={{ height: 56, borderRadius: 28, backgroundColor: "#FFC809", alignItems: "center", justifyContent: "center", opacity: saving ? 0.65 : 1 }}
+                >
+                  {saving ? (
+                    <View className="flex-row items-center gap-2"><HookLoader size="button" variant="dark" /><Text className="font-black text-black">Saving address</Text></View>
+                  ) : (
+                    <Text className="text-base font-black text-black">Save address</Text>
+                  )}
+                </Pressable>
+              </View>
+            ) : null}
           </View>
-          <ScrollView
-            className="flex-1"
-            automaticallyAdjustKeyboardInsets
-            contentContainerStyle={{
-              paddingBottom: Math.max(insets.bottom, 8) + 120,
-            }}
-            keyboardDismissMode="interactive"
-            keyboardShouldPersistTaps="handled"
-            scrollIndicatorInsets={{ bottom: Math.max(insets.bottom, 8) + 120 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <Reveal key={step} from="bottom">
-              {step === 0 ? <StateStep rows={stateRows} selectedId={draft.stateId} loading={states.isLoading} error={states.isError} onRetry={() => void states.refetch()} onSelect={selectState} /> : null}
-              {step === 1 ? <LocalGovernmentStep state={selectedState} rows={localGovernmentRows} selectedId={draft.localGovernmentAreaId} loading={localGovernments.isLoading} error={localGovernments.isError} onRetry={() => void localGovernments.refetch()} onSelect={selectLocalGovernment} /> : null}
-              {step === 2 ? <AddressStep draft={draft} error={addressError} onChange={setDraftValue} /> : null}
-            </Reveal>
-          </ScrollView>
-          {step === 2 ? <View className="border-t border-black/5 pt-3" style={{ paddingBottom: 8 }}><View className="flex-row items-center gap-3"><Pressable accessibilityLabel="Previous address step" accessibilityRole="button" onPress={() => setStep(1)} className="h-14 w-14 items-center justify-center rounded-2xl border border-black/10 bg-white"><Ionicons name="arrow-back" size={20} color="#111" /></Pressable><Pressable accessibilityLabel="Save delivery address" accessibilityRole="button" accessibilityState={{ busy: saving, disabled: saving }} disabled={saving} onPress={() => void saveAddress()} className="h-14 flex-1 items-center justify-center rounded-2xl bg-hook" style={{ opacity: saving ? 0.65 : 1 }}>{saving ? <View className="flex-row items-center gap-2"><HookLoader size="button" variant="dark" /><Text className="font-black text-black">Saving address</Text></View> : <Text className="font-black text-black">Save address</Text>}</Pressable></View></View> : step === 1 ? <View className="border-t border-black/5 pt-3" style={{ paddingBottom: 8 }}><Pressable accessibilityLabel="Previous address step" accessibilityRole="button" onPress={() => setStep(0)} className="h-14 items-center justify-center rounded-2xl border border-black/10 bg-white"><View className="flex-row items-center"><Ionicons name="arrow-back" size={20} color="#111" /><Text className="ml-2 font-black text-black">Back to states</Text></View></Pressable></View> : null}
-        </View>
-      </HookSheet>
+        </KeyboardAvoidingView>
+      </Modal>
       <HookConfirmSheet
         visible={Boolean(addressToRemove)}
         title="Remove address?"
@@ -612,7 +725,7 @@ function LabeledField({
   return (
     <View>
       <View className="mb-1.5 flex-row items-center justify-between">
-        <Text className="text-xs font-bold text-black/60">
+        <Text className="ml-1 text-[13px] font-bold text-[#46464A]">
           {label}
           {optional ? <Text className="font-medium text-black/35"> · optional</Text> : null}
         </Text>
@@ -660,14 +773,15 @@ function AddressStep({
         </View>
       ) : null}
 
-      <View className="mt-5 rounded-2xl border border-black/10 bg-[#fff9df] p-4">
-        <Text className="text-xs font-bold uppercase tracking-wider text-black/45">
-          Delivery area
-        </Text>
-        <Text className="mt-2 font-black text-black">
-          {draft.localGovernmentArea}, {draft.cityName}
-        </Text>
-        <Text className="mt-1 text-sm text-black/55">{draft.stateName}</Text>
+      <View className="mt-5 flex-row items-center rounded-[22px] bg-[#FFF4C7] p-4">
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-white">
+          <Ionicons name="location" size={18} color="#8A6900" />
+        </View>
+        <View className="ml-3 flex-1">
+          <Text className="text-[11px] font-bold uppercase tracking-wider text-[#6F5600]">Delivery area</Text>
+          <Text className="mt-0.5 font-black text-black">{draft.localGovernmentArea}, {draft.cityName}</Text>
+          <Text className="text-sm text-black/55">{draft.stateName}</Text>
+        </View>
       </View>
 
       <FormSection icon="person-outline" title="Who's receiving this">
@@ -710,7 +824,7 @@ function AddressStep({
 
         <LabeledField label="House number and street" limit={FIELD_LIMITS.line1} value={draft.line1}>
           <TextInput
-            className="min-h-[72px] rounded-2xl border border-black/10 bg-[#fafafa] px-4 py-3 text-sm text-black"
+            className={textAreaClass}
             placeholder="e.g. 14 Adeola Odeku Street"
             placeholderTextColor="#999"
             value={draft.line1}
@@ -762,7 +876,7 @@ function AddressStep({
 /** One clearly labeled group of fields, so a long form reads as a couple of scannable sections instead of one list. */
 function FormSection({ icon, title, children }: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; children: React.ReactNode }) {
   return (
-    <View className="mt-6 rounded-2xl border border-black/8 bg-white p-4">
+    <View className="mt-4 rounded-[22px] bg-white p-4">
       <View className="mb-4 flex-row items-center gap-2">
         <View className="h-7 w-7 items-center justify-center rounded-full bg-[#FFF4C7]">
           <Ionicons name={icon} size={14} color="#8A6900" />

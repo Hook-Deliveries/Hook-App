@@ -37,7 +37,7 @@ type TabItemConfig = {
 const tabs: Record<string, TabItemConfig> = {
   index: { label: "Home", icon: "home-outline", active: "home" },
   discover: { label: "Discover", icon: "search-outline", active: "search" },
-  messages: { label: "Messages", icon: "chatbubble-ellipses-outline", active: "chatbubble-ellipses" },
+  offers: { label: "Offers", icon: "pricetag-outline", active: "pricetag" },
   profile: { label: "Profile", icon: "person-outline", active: "person" },
 };
 
@@ -194,7 +194,7 @@ export function HookTabBar({
                 selected={selected}
                 item={item}
                 badgeCount={
-                  route.name === "messages"
+                  route.name === "offers"
                     ? activeNegotiations
                     : route.name === "profile"
                       ? pendingApprovals.data?.count || 0

@@ -1,7 +1,7 @@
 /**
  * A negotiation counts as active when the backend still has it open *and* its
  * countdown has not elapsed — an "active" row whose expiresAt has passed is
- * effectively over, so it must not be counted. Shared by the Messages screen
+ * effectively over, so it must not be counted. Shared by the Offers screen
  * and the tab badge so the two can never disagree.
  */
 export type ActiveNegotiationRow = {

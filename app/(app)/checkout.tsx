@@ -1,9 +1,11 @@
+import { addressHandoff } from "@/lib/address-handoff";
+import { deliveryEstimateFor } from "@/lib/delivery-estimate";
 import { ClearableInput } from "@/components/shared/ClearableInput";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { setPaymentFlowActive } from "@/lib/payment-flow";
-import { router } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -85,6 +87,12 @@ export default function CheckoutScreen() {
   // Set once checkout is submitted; survives the cart being emptied by confirm.
   const [paymentStage, setPaymentStage] = useState<PaymentStage | null>(null);
 
+  // An address saved from the wizard opened here becomes the one used for this order.
+  useFocusEffect(useCallback(() => {
+    const saved = addressHandoff.take();
+    if (saved) setAddressId(saved);
+  }, []));
+
   const addressRows = (Array.isArray(addresses.data) ? addresses.data : []) as AddressRow[];
   const selectedAddress =
     addressRows.find((item) => item.publicId === addressId)
@@ -109,8 +117,8 @@ export default function CheckoutScreen() {
   const stateDeliveryFeeMinor = Number(addressState?.deliveryFeeMinor ?? DEFAULT_DELIVERY_FEE_MINOR);
   const cartItems = getCartItems(cart.data);
   const providers = logistics.data || [];
-  // The VAT rate is an admin setting.
-  const vatRate = Number(config.data?.vatRatePercent ?? 7.5) / 100;
+  // VAT is an admin setting and can be switched off entirely.
+  const vatRate = config.data?.vatEnabled === false ? 0 : Number(config.data?.vatRatePercent ?? 7.5) / 100;
 
   // Hook credit is applied by default once the wallet loads; an explicit customer choice then persists for checkout.
   useEffect(() => {
@@ -321,7 +329,7 @@ export default function CheckoutScreen() {
       } else if (code === "EMAIL_VERIFICATION_REQUIRED") {
         toast.info("Verify your email to check out");
         router.push("/auth/verify-email" as never);
-      } else if (code === "CHECKOUT_REVALIDATION_REQUIRED" || code === "CART_VERSION_CHANGED" || code === "NEGOTIATION_QUOTE_EXPIRED" || code === "CREDIT_BALANCE_CHANGED") {
+      } else if (code === "CHECKOUT_REVALIDATION_REQUIRED" || code === "CART_VERSION_CHANGED" || code === "NEGOTIATION_QUOTE_EXPIRED" || code === "NEGOTIATED_PRICE_VOIDED" || code === "CREDIT_BALANCE_CHANGED") {
         // Something changed since the customer last looked. Refresh what they see, then let them review.
         refreshCommerce();
         toast.info("Your order changed", error instanceof Error ? error.message : "Review your cart and try again.");
@@ -386,6 +394,7 @@ export default function CheckoutScreen() {
           <CheckoutRow
             placeholder={logistics.isError ? "Couldn’t load logistics · Tap to retry" : "Choose logistics"}
             value={provider?.name}
+            detail={deliveryEstimateFor(provider, addressState)}
             loading={logistics.isFetching}
             onPress={() => { setSheet("logistics"); if (logistics.isError) void logistics.refetch(); }}
           />
@@ -528,7 +537,8 @@ export default function CheckoutScreen() {
         onNoteChange={setDeliveryNote}
         onAddAddress={() => {
           setSheet(null);
-          router.push("/addresses" as never);
+          // Straight into the new-address wizard; saving or cancelling returns here.
+          router.push({ pathname: "/addresses", params: { new: "1", from: "checkout" } } as never);
         }}
         onClose={() => setSheet(null)}
       />
@@ -540,6 +550,7 @@ export default function CheckoutScreen() {
         error={logistics.isError}
         onRetry={() => void logistics.refetch()}
         selectedId={provider?.publicId || provider?.id}
+        deliveryState={addressState}
         onSelect={(next) => {
           setProvider(next);
           // Re-check a free-delivery coupon since it's priced against the courier's fee.

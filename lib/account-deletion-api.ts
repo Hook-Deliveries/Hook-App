@@ -1,5 +1,6 @@
 import { Alert, Linking } from 'react-native';
 import { ApiError, apiRequest } from '@/lib/api';
+import { DELETE_ACCOUNT_URL } from '@/lib/web-links';
 
 export type DeletionView = {
   state: 'none' | 'scheduled' | 'erasing';
@@ -9,7 +10,7 @@ export type DeletionView = {
 };
 
 /** The public page where deletion can be requested or cancelled without the app. */
-export const DELETE_ACCOUNT_PAGE_URL = process.env.EXPO_PUBLIC_DELETE_ACCOUNT_URL || 'https://hook-africa.vercel.app/delete-account';
+export const DELETE_ACCOUNT_PAGE_URL = DELETE_ACCOUNT_URL;
 
 /** Deleting an account happens on the web page, not inside the app. */
 export function openDeleteAccountPage() {

@@ -85,17 +85,6 @@ export class HookRealtimeClient {
     this.socket?.disconnect();
   }
   get connected() { return Boolean(this.socket?.connected); }
-  async request<T>(event: 'negotiation.subscribe' | 'negotiation.send', payload: unknown): Promise<T> {
-    await this.connect();
-    if (!this.socket?.connected) throw new ApiError('Chat is reconnecting. Please retry when connected.', 503, undefined, 'CHAT_DISCONNECTED');
-    let result: { ok: boolean; data?: T; error?: { code?: string; message?: string } };
-    try { result = await this.socket.timeout(50_000).emitWithAck(event, payload); }
-    catch { throw new ApiError('Message confirmation was interrupted. Retry safely to check its result.', 503, undefined, 'CHAT_ACK_TIMEOUT'); }
-    if (!result.ok) throw new ApiError(result.error?.message || 'Could not send message', 503, undefined, result.error?.code);
-    return result.data as T;
-  }
-  unsubscribeNegotiation() { this.socket?.emit('negotiation.unsubscribe'); }
-
   on(listener: (event: string, payload: RealtimePayload) => void) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
