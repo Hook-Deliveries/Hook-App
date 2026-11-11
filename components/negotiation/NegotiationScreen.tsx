@@ -31,13 +31,14 @@ import type { NegotiationOfferOutcome, NegotiationResponse } from "@/lib/negotia
 import { NegotiationOptionsSheet } from "./NegotiationOptionsSheet";
 import { NegotiationProductSummary, negotiationMoney } from "./NegotiationComponents";
 import {
+  AcceptedCard,
+  ConsideringCard,
   CounterCard,
-  CustomOfferField,
   EndedCard,
   FlowSummaryStrip,
   LockedCard,
-  OfferHistory,
-  SuggestionCard,
+  OfferAmountField,
+  OfferLadder,
   itemsLabel,
   offerProblem,
   parseNairaToMinor,
@@ -46,7 +47,11 @@ import {
 /** Errors that mean "this will fail the same way if you try again": say so, then refresh what the screen shows. */
 const STALE_CODES = ["NEGOTIATION_PRODUCT_UNAVAILABLE", "INVALID_STATE_TRANSITION", "OFFER_LIMIT_REACHED", "NEGOTIATION_QUOTE_EXPIRED"];
 
-type Mode = "intro" | "loading" | "pick" | "counter" | "accepted" | "locked" | "ended";
+type Mode = "intro" | "loading" | "pick" | "considering" | "counter" | "accepted" | "locked" | "ended";
+
+/** How long Hook "considers" an offer at least, so the answer reads as an answer and not a page refresh. */
+const CONSIDER_MS = 1100;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Negotiation as a short task, not a chat: pick or enter a price, see Hook's answer on a card, then add the locked
@@ -77,8 +82,10 @@ export default function NegotiationScreen() {
   const { refreshing, onRefresh } = usePullRefresh(() => flowQuery.refetch());
 
   const [picking, setPicking] = useState(false);
-  const [selected, setSelected] = useState<number>();
-  const [custom, setCustom] = useState("");
+  // The customer's price, typed in by them (digits only).
+  const [amount, setAmount] = useState("");
+  // The total Hook is "considering" right now.
+  const [considering, setConsidering] = useState<number>();
   const [outcome, setOutcome] = useState<NegotiationOfferOutcome["result"]>();
   const [added, setAdded] = useState(false);
   // Once a price is locked it holds at any quantity, so the customer picks how many to add.
@@ -102,27 +109,27 @@ export default function NegotiationScreen() {
     ? "intro"
     : !flow
       ? "loading"
-      : flow.status === "active"
-        ? outcome?.decision === "ACCEPT"
-          ? "accepted"
-          : flow.counter && !picking
-            ? "counter"
-            : "pick"
+      : considering !== undefined && flow.status === "active"
+        ? "considering"
+        : flow.status === "active"
+          ? flow.priceAccepted && !picking
+            ? "accepted"
+            : flow.counter && !flow.priceAccepted && !picking
+              ? "counter"
+              : "pick"
         : flow.status === "agreed" && flow.locked
           ? "locked"
           : "ended";
 
-  const customTotal = parseNairaToMinor(custom);
-  const selectedTotal = flow && selected !== undefined ? flow.suggestions[selected]?.totalMinor : customTotal;
-  const problem = flow && selected === undefined ? offerProblem(customTotal, flow) : undefined;
-  const canOffer = Boolean(selectedTotal) && !problem && !submit.isPending;
+  const typedTotal = parseNairaToMinor(amount);
+  const problem = flow ? offerProblem(typedTotal, flow) : undefined;
+  const canOffer = Boolean(typedTotal) && !problem && !submit.isPending && considering === undefined;
   const quantityShown = mode === "locked" ? cartQuantity ?? flow?.quantity ?? quantity : flow?.quantity || quantity;
   const busy = start.isPending || submit.isPending || accept.isPending || close.isPending || addCart.isPending;
 
   function resetPick() {
     setPicking(false);
-    setSelected(undefined);
-    setCustom("");
+    setAmount("");
   }
 
   /** Opens a session in place. The new session's prices load into the area below; nothing else on screen reloads. */
@@ -147,15 +154,21 @@ export default function NegotiationScreen() {
     }
   }
 
-  async function submitOffer() {
-    if (!flow || !selectedTotal || !canOffer) return;
+  /** Sends an offer: the typed price, or a ready-made one such as "meet in the middle". */
+  async function submitOffer(total: number | undefined = typedTotal) {
+    if (!flow || !total || submit.isPending || considering !== undefined) return;
     // The same offer keeps the same request id, so a retry after a dropped connection never spends a second round.
-    const key = `${flow.negotiationId}:${flow.round}:${selectedTotal}`;
+    const key = `${flow.negotiationId}:${flow.round}:${total}`;
     const requestId = requestIds.current.get(key) ?? Crypto.randomUUID();
     requestIds.current.set(key, requestId);
     Keyboard.dismiss();
+    setConsidering(total);
     try {
-      const result = await submit.mutateAsync({ negotiationId: flow.negotiationId, totalPriceMinor: selectedTotal, requestId });
+      // The answer is held back a moment so it feels considered. Errors skip the wait.
+      const [result] = await Promise.all([
+        submit.mutateAsync({ negotiationId: flow.negotiationId, totalPriceMinor: total, requestId }),
+        sleep(CONSIDER_MS),
+      ]);
       setOutcome(result.result);
       resetPick();
       haptics.success();
@@ -163,6 +176,8 @@ export default function NegotiationScreen() {
       const code = error instanceof ApiError ? error.code : undefined;
       toast.error(error instanceof Error ? error.message : "Could not send your offer");
       if (code && STALE_CODES.includes(code)) void flowQuery.refetch();
+    } finally {
+      setConsidering(undefined);
     }
   }
 
@@ -259,61 +274,36 @@ export default function NegotiationScreen() {
           ) : null}
 
           {mode === "pick" && flow ? (
-            <View className="mx-4 gap-3">
-              <Text className="text-[15px] font-bold">
-                {flow.history.length ? "Make another offer" : `Pick a price for ${itemsLabel(flow.quantity)}`}
-              </Text>
-              {flow.counter ? (
-                <Text className="-mt-1 text-[12px] text-[#666]">
-                  Hook's price is {negotiationMoney(flow.counter.totalMinor)}. Offer less to keep negotiating.
+            <View className="mx-4 gap-4">
+              <View>
+                <Text className="text-[15px] font-bold">
+                  {flow.history.length ? "Make another offer" : "What would you like to pay?"}
                 </Text>
-              ) : null}
-              {flow.suggestions.map((suggestion, index) => (
-                <SuggestionCard
-                  key={suggestion.totalMinor}
-                  suggestion={suggestion}
-                  quantity={flow.quantity}
-                  selected={selected === index}
-                  onPress={() => {
-                    haptics.select();
-                    Keyboard.dismiss();
-                    setSelected(index);
-                    setCustom("");
-                  }}
-                />
-              ))}
-              <CustomOfferField
-                value={custom}
-                onChange={(text) => {
-                  setCustom(text);
-                  setSelected(undefined);
-                }}
-                onFocus={() => setSelected(undefined)}
-                flow={flow}
-                problem={problem}
-              />
+                {flow.counter ? (
+                  <Text className="mt-0.5 text-[12px] text-[#666]">
+                    {flow.priceAccepted
+                      ? `Hook accepted ${negotiationMoney(flow.counter.totalMinor)}. Offer less to try for a better price.`
+                      : `Hook's price is ${negotiationMoney(flow.counter.totalMinor)}. Offer less to keep negotiating.`}
+                  </Text>
+                ) : null}
+              </View>
+              <OfferAmountField value={amount} onChange={setAmount} flow={flow} problem={problem} autoFocus={flow.history.length === 0} />
             </View>
           ) : null}
+
+          {mode === "considering" && considering !== undefined ? <ConsideringCard offerTotalMinor={considering} /> : null}
 
           {mode === "counter" && flow ? (
             <CounterCard flow={flow} offerTotalMinor={flow.history[flow.history.length - 1]?.offerTotalMinor} note={outcome?.message} />
           ) : null}
 
-          {mode === "accepted" && flow ? (
-            <View className="mx-4 rounded-[20px] bg-white p-4">
-              <Text className="text-[12px] text-[#777]">Hook accepted</Text>
-              <Text className="text-[30px] font-black">{negotiationMoney(outcome?.acceptedTotalMinor || 0)}</Text>
-              <Text className="mt-2 text-[13px] leading-5 text-[#555]">
-                {outcome?.lockError || "Lock this price to add it to your cart."}
-              </Text>
-            </View>
-          ) : null}
+          {mode === "accepted" && flow ? <AcceptedCard flow={flow} note={outcome?.message} /> : null}
 
           {mode === "locked" && flow ? <LockedCard flow={flow} quantity={quantityShown} note={outcome?.message} /> : null}
 
           {mode === "ended" && flow ? <EndedCard flow={flow} /> : null}
 
-          {flow && mode !== "pick" ? <OfferHistory flow={flow} /> : null}
+          {flow && mode !== "considering" ? <OfferLadder flow={flow} /> : null}
         </Animated.View>
       </ScrollView>
 
@@ -333,14 +323,24 @@ export default function NegotiationScreen() {
           />
         ) : mode === "pick" ? (
           <Action
-            label={selectedTotal && canOffer ? `Offer ${negotiationMoney(selectedTotal)} for ${itemsLabel(quantityShown)}` : "Pick a price to offer"}
+            label={typedTotal && canOffer ? `Offer ${negotiationMoney(typedTotal)} for ${itemsLabel(quantityShown)}` : "Enter your price"}
             busy={submit.isPending}
             disabled={!canOffer}
             onPress={() => void submitOffer()}
           />
+        ) : mode === "considering" ? (
+          <Action label="Hook is considering…" busy onPress={() => undefined} />
         ) : mode === "counter" && flow?.counter ? (
           <>
-            <Action label={`Accept ${negotiationMoney(flow.counter.totalMinor)}`} busy={accept.isPending} onPress={() => void acceptPrice()} />
+            <Action label={`Accept ${negotiationMoney(flow.counter.totalMinor)} and lock it`} busy={accept.isPending} onPress={() => void acceptPrice()} />
+            {flow.midpoint ? (
+              <Action
+                label={`Meet in the middle · ${negotiationMoney(flow.midpoint.totalMinor)}`}
+                tone="secondary"
+                disabled={busy}
+                onPress={() => void submitOffer(flow.midpoint!.totalMinor)}
+              />
+            ) : null}
             {flow.remainingOffers > 0 ? (
               <Action label={`Try another price · ${flow.remainingOffers} left`} tone="secondary" disabled={busy} onPress={() => setPicking(true)} />
             ) : null}
@@ -348,8 +348,11 @@ export default function NegotiationScreen() {
               <Text className="text-[12px] font-semibold text-[#666]">Keep list price {negotiationMoney(flow.listTotalMinor)}</Text>
             </Pressable>
           </>
-        ) : mode === "accepted" ? (
-          <Action label="Lock this price" busy={accept.isPending} onPress={() => void acceptPrice()} />
+        ) : mode === "accepted" && flow?.counter ? (
+          <>
+            <Action label={`Lock ${negotiationMoney(flow.counter.totalMinor)}`} icon="lock-closed" busy={accept.isPending} onPress={() => void acceptPrice()} />
+            <Action label={`Try for less · ${flow.remainingOffers} left`} tone="secondary" disabled={busy} onPress={() => setPicking(true)} />
+          </>
         ) : mode === "locked" ? (
           <>
             <Action

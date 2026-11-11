@@ -51,6 +51,7 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-sharing",
       "expo-apple-authentication",
       [
         "expo-local-authentication",
@@ -92,6 +93,7 @@
     },
     "extra": {
       "router": {},
+      "appStoreId": "6829305858",
       "eas": {
         "projectId": "2f9f9545-f2d2-49f9-8e88-650d9ce14df6"
       }

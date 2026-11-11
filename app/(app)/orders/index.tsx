@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Reveal } from "@/components/motion/Reveal";
 import { centeredHeaderTextStyle, screenPadding } from "@/constants/design-tokens";
 import { router } from "expo-router";
-import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { FlatList, RefreshControl, Text, View } from "react-native";
 import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HookPageLoading } from "@/components/shared/HookPageLoading";
@@ -47,7 +47,7 @@ export default function OrdersScreen() {
           <Text style={centeredHeaderTextStyle}>Orders</Text>
           <View className="h-11 w-11" />
         </View>
-        <Text className="mt-4 text-sm text-[#777]">Payments, approval and delivery readiness</Text>
+        <Text className="mt-4 text-sm text-[#777]">Track, pay and review all your purchases</Text>
       </View>
       <FlatList
         data={orders}

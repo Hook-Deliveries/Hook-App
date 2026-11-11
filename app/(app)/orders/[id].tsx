@@ -1,12 +1,11 @@
-import { colorName, friendlyVariantValue } from "@/lib/color-name";
-import { SkeletonListPage } from "@/components/motion/Skeleton";
+import { friendlyVariantValue } from "@/lib/color-name";
+import { OrderDetailSkeleton } from "@/components/orders/OrderDetailSkeleton";
 import { Ionicons } from "@expo/vector-icons";
 import { centeredHeaderTextStyle, screenPadding } from "@/constants/design-tokens";
-import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import * as Crypto from "expo-crypto";
 import { setPaymentFlowActive } from '@/lib/payment-flow';
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import { Pressable, RefreshControl, ScrollView, Share, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +14,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { HookBackButton } from "@/components/shared/HookBackButton";
 import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
 import { HookLoader } from "@/components/shared/HookLoader";
+import { TrackingJourney } from "@/components/orders/TrackingJourney";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { toast } from "@/components/shared/toast";
 import { openOrderSupport } from "@/lib/support-api";
@@ -33,25 +33,6 @@ const date = (value?: string) => value ? new Date(value).toLocaleString("en-NG",
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return <View className="rounded-[22px] bg-white p-4"><Text className="mb-4 text-[17px] font-black text-[#171717]">{title}</Text>{children}</View>;
-}
-
-function Timeline({ events = [] }: { events?: any[] }) {
-  return <View>{events.map((event, index) => {
-    const completed = event.status === "completed";
-    const current = event.status === "current";
-    return <View key={event.key || `${event.label}-${index}`} className="flex-row gap-3">
-      <View className="items-center">
-        <View className={`h-6 w-6 items-center justify-center rounded-full ${completed || current ? "bg-hook" : "bg-[#ececee]"}`}>
-          <Ionicons name={completed ? "checkmark" : current ? "ellipse" : "ellipse-outline"} size={completed ? 14 : 9} color={completed || current ? "#111" : "#aaa"} />
-        </View>
-        {index < events.length - 1 ? <View className={`min-h-8 w-0.5 flex-1 ${completed ? "bg-hook" : "bg-[#ececee]"}`} /> : null}
-      </View>
-      <View className="min-h-14 flex-1 pb-3">
-        <Text className={`text-sm ${current ? "font-black text-black" : completed ? "font-bold text-[#333]" : "font-semibold text-[#aaa]"}`}>{event.label}</Text>
-        {event.occurredAt ? <Text className="mt-1 text-[11px] text-[#888]">{date(event.occurredAt)}</Text> : current ? <Text className="mt-1 text-[11px] font-bold text-[#947000]">In progress</Text> : null}
-      </View>
-    </View>;
-  })}</View>;
 }
 
 export default function OrderDetailScreen() {
@@ -169,7 +150,7 @@ export default function OrderDetailScreen() {
       <View className="h-11 w-11" />
     </View>
 
-    {query.isLoading ? <View className="flex-1 pt-4"><SkeletonListPage rows={3} /></View> : query.isError || !order ? <View className="flex-1 items-center justify-center px-8"><View className="h-16 w-16 items-center justify-center rounded-full bg-white"><Ionicons name="receipt-outline" size={28} color="#777" /></View><Text className="mt-5 text-center text-xl font-black">Order unavailable</Text><Text className="mt-2 text-center text-sm leading-6 text-[#777]">We could not load this order right now.</Text><Pressable onPress={() => query.refetch()} className="mt-5 rounded-full bg-hook px-6 py-3"><Text className="font-black">Try again</Text></Pressable></View> : <ScrollView contentContainerStyle={{ paddingHorizontal: screenPadding, paddingTop: screenPadding, paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} tintColor="#111111" />}>
+    {query.isLoading ? <ScrollView scrollEnabled={false} showsVerticalScrollIndicator={false}><OrderDetailSkeleton /></ScrollView> : query.isError || !order ? <View className="flex-1 items-center justify-center px-8"><View className="h-16 w-16 items-center justify-center rounded-full bg-white"><Ionicons name="receipt-outline" size={28} color="#777" /></View><Text className="mt-5 text-center text-xl font-black">Order unavailable</Text><Text className="mt-2 text-center text-sm leading-6 text-[#777]">We could not load this order right now.</Text><Pressable onPress={() => query.refetch()} className="mt-5 rounded-full bg-hook px-6 py-3"><Text className="font-black">Try again</Text></Pressable></View> : <ScrollView contentContainerStyle={{ paddingHorizontal: screenPadding, paddingTop: screenPadding, paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} tintColor="#111111" />}>
       <Reveal index={0}><View className="rounded-[24px] bg-black p-5">
         <View><Text className="text-[22px] font-black text-white">{order.displayNumber}</Text><Text className="mt-1 text-xs text-white/60">{date(order.createdAt)}</Text><View className="mt-3 flex-row"><View className="max-w-full shrink rounded-full bg-hook px-3 py-2"><Text className="text-xs font-black text-black">{order.statusLabel}</Text></View></View></View>
         <View className="mt-6 flex-row border-t border-white/15 pt-4"><View className="flex-1"><Text className="text-[11px] font-bold uppercase text-white/50">Items</Text><Text className="mt-1 text-lg font-black text-white">{order.itemCount}</Text></View><View className="flex-1"><Text className="text-[11px] font-bold uppercase text-white/50">Total</Text><Text className="mt-1 text-lg font-black text-white">{money(order.totalMinor)}</Text></View><View className="flex-1"><Text className="text-[11px] font-bold uppercase text-white/50">Payment</Text><Text className="mt-1 text-sm font-black text-white">{String(order.paymentMethod || "").replaceAll("_", " ")}</Text></View></View>
@@ -179,17 +160,11 @@ export default function OrderDetailScreen() {
 
       {receipt ? (
         <Reveal index={2} className="mt-4">
-          <Section title="Your Hook receipt">
-            <Text className="text-xs font-bold uppercase text-[#888]">Receipt number</Text>
-            <Text className="mt-1 text-lg font-black">{receipt.receiptNumber}</Text>
-            <Text className="mt-2 text-sm leading-6 text-[#666]">Packed {date(receipt.packedAt)}{receipt.courier?.name ? ` · ${receipt.courier.name}` : ""}{receipt.courier?.trackingNumber ? ` · ${receipt.courier.trackingNumber}` : ""}</Text>
-            <Pressable
-              onPress={() => void Share.share({ message: `Hook receipt ${receipt.receiptNumber}\n${receipt.items.map((item) => `${item.quantity}× ${item.title}`).join("\n")}${receipt.courier?.trackingNumber ? `\nTracking: ${receipt.courier.trackingNumber}` : ""}` })}
-              className="mt-3 h-12 items-center justify-center rounded-2xl bg-hook"
-            >
-              <Text className="font-black">Share receipt</Text>
-            </Pressable>
-          </Section>
+          <Pressable onPress={() => router.push({ pathname: "/orders/receipt/[id]", params: { id } } as never)} className="flex-row items-center gap-3 rounded-[22px] bg-white p-4">
+            <View className="h-11 w-11 items-center justify-center rounded-full bg-[#fff4c7]"><Ionicons name="receipt-outline" size={22} color="#b78200" /></View>
+            <View className="flex-1"><Text className="text-[11px] font-bold uppercase text-[#888]">Hook receipt</Text><Text className="mt-0.5 text-[15px] font-black">{receipt.receiptNumber}</Text></View>
+            <View className="flex-row items-center gap-1 rounded-full bg-hook px-3.5 py-2"><Text className="text-xs font-black">View receipt</Text><Ionicons name="chevron-forward" size={14} color="#111" /></View>
+          </Pressable>
         </Reveal>
       ) : null}
 
@@ -209,12 +184,11 @@ export default function OrderDetailScreen() {
 
       <Reveal index={4} className="mt-4"><Section title="Order summary"><View className="gap-3"><View className="flex-row justify-between"><Text className="text-sm text-[#666]">Products</Text><Text className="text-sm font-bold">{money(order.subtotalMinor)}</Text></View>{Number(order.vatMinor) > 0 ? <View className="flex-row justify-between"><Text className="text-sm text-[#666]">VAT {order.vatRate ? `(${Number((Number(order.vatRate) * 100).toFixed(2))}%)` : ""}</Text><Text className="text-sm font-bold">{money(order.vatMinor)}</Text></View> : null}<View className="flex-row justify-between"><Text className="text-sm text-[#666]">Delivery</Text><Text className="text-sm font-bold">{money(order.deliveryFeeMinor)}</Text></View>{Number(order.couponDiscountMinor || 0) > 0 ? <View className="flex-row justify-between"><Text className="text-sm text-[#666]">{order.couponCode ? `Coupon (${order.couponCode})` : "Coupon"}</Text><Text className="text-sm font-bold text-emerald-600">−{money(order.couponDiscountMinor)}</Text></View> : null}{Number(order.creditsAppliedMinor || 0) > 0 ? <View className="flex-row justify-between"><Text className="text-sm text-[#666]">Hook credit</Text><Text className="text-sm font-bold text-emerald-600">−{money(order.creditsAppliedMinor)}</Text></View> : null}{!Number(order.couponDiscountMinor || 0) && !Number(order.creditsAppliedMinor || 0) && Number(order.discountMinor || 0) > 0 ? <View className="flex-row justify-between"><Text className="text-sm text-[#666]">Discount</Text><Text className="text-sm font-bold text-emerald-600">−{money(order.discountMinor)}</Text></View> : null}<View className="mt-1 flex-row justify-between border-t border-black/10 pt-4"><Text className="text-base font-black">Total</Text><Text className="text-xl font-black">{money(order.totalMinor)}</Text></View></View></Section></Reveal>
 
-      <Reveal index={5} className="mt-4"><Section title="Order progress"><Timeline events={order.timeline} /></Section></Reveal>
 
-      <Reveal index={6}><Text className="mb-3 mt-6 text-[17px] font-black">Your deliveries</Text>
+      <Reveal index={6}><Text className="mb-3 mt-6 text-[17px] font-black">Track your order</Text>
       <View className="gap-3">{order.deliveries?.map((delivery: any) => {
         const open = expanded[delivery.id] ?? order.deliveries.length === 1;
-        return <View key={delivery.id} className="overflow-hidden rounded-[22px] bg-white"><Pressable onPress={() => setExpanded((state) => ({ ...state, [delivery.id]: !open }))} className="flex-row items-center gap-3 p-4"><View className="h-11 w-11 items-center justify-center rounded-full bg-[#fff4c7]"><Ionicons name="cube-outline" size={22} color="#b78200" /></View><View className="flex-1"><Text className="font-black">{delivery.label}</Text><Text className="mt-1 text-xs text-[#777]">{delivery.statusLabel} · {delivery.items?.length || 0} product{delivery.items?.length === 1 ? "" : "s"}</Text></View><Ionicons name={open ? "chevron-up" : "chevron-down"} size={20} color="#555" /></Pressable>{open ? <View className="border-t border-black/5 px-4 pb-4 pt-4">{order.deliveries.length > 1 ? <Timeline events={delivery.timeline} /> : null}{(delivery.shipment?.courierName || order.logisticsProvider?.name) ? <View className="mt-2 rounded-2xl bg-[#f4f4f5] p-3"><Text className="text-[11px] font-bold uppercase text-[#777]">Delivered by</Text><Text className="mt-1 font-black">{delivery.shipment?.courierName || order.logisticsProvider?.name}</Text>{delivery.shipment?.substitutedFrom ? <Text className="mt-1 text-xs leading-5 text-[#8A6D00]">Changed from {delivery.shipment.substitutedFrom}{delivery.shipment.substitutionReason ? ` — ${delivery.shipment.substitutionReason}` : ""}</Text> : null}</View> : null}{delivery.shipment?.trackingReference ? <Pressable onPress={async () => { await Clipboard.setStringAsync(delivery.shipment.trackingReference); toast.success("Tracking reference copied"); }} className="mt-2 flex-row items-center justify-between rounded-2xl bg-[#f4f4f5] p-3"><View><Text className="text-[11px] font-bold uppercase text-[#777]">Tracking reference</Text><Text className="mt-1 font-black">{delivery.shipment.trackingReference}</Text></View><Ionicons name="copy-outline" size={20} color="#111" /></Pressable> : <View className="mt-2 rounded-2xl bg-[#f4f4f5] p-3"><Text className="text-xs font-semibold text-[#666]">Tracking will appear here after this delivery leaves Hook Hub.</Text></View>}</View> : null}</View>;
+        return <View key={delivery.id} className="overflow-hidden rounded-[22px] bg-white"><Pressable onPress={() => setExpanded((state) => ({ ...state, [delivery.id]: !open }))} className="flex-row items-center gap-3 p-4"><View className="h-11 w-11 items-center justify-center rounded-full bg-[#fff4c7]"><Ionicons name="cube-outline" size={22} color="#b78200" /></View><View className="flex-1"><Text className="font-black">{delivery.label}</Text><Text className="mt-1 text-xs text-[#777]">{delivery.statusLabel} · {delivery.items?.length || 0} product{delivery.items?.length === 1 ? "" : "s"}</Text></View><Ionicons name={open ? "chevron-up" : "chevron-down"} size={20} color="#555" /></Pressable>{open ? <View className="border-t border-black/5 px-4 pb-2 pt-4">{delivery.shipment?.substitutedFrom ? <Text className="mb-3 text-xs leading-5 text-[#8A6D00]">Courier changed from {delivery.shipment.substitutedFrom}{delivery.shipment.substitutionReason ? ` — ${delivery.shipment.substitutionReason}` : ""}</Text> : null}<TrackingJourney order={order} delivery={delivery} receipt={receipt} /></View> : null}</View>;
       })}</View></Reveal>
 
       {order.paymentMethod === "PREPAID" && !["CONFIRMED", "PAID"].includes(String(order.paymentStatus || "").toUpperCase()) ? <View className="mt-4 flex-row gap-2"><Pressable disabled={paymentBusy} onPress={() => sharePayment()} className="h-[52px] flex-1 items-center justify-center rounded-2xl border border-black/10 bg-white"><Text className="font-black">Share payment</Text></Pressable><Pressable disabled={paymentBusy} onPress={() => resumePayment()} className="h-[52px] flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-hook">{paymentBusy ? <HookLoader size="button" /> : <Ionicons name="card-outline" size={19} color="#111" />}<Text className="font-black">Pay securely</Text></Pressable></View> : null}

@@ -76,7 +76,14 @@ export interface NegotiationFlow {
   remainingOffers: number;
   maximumOffers: number;
   expiresAt?: string;
+  /** Hook's best price so far: its latest counter, or the price it accepted, whichever is lower. */
   counter?: { unitMinor: number; totalMinor: number; percentOff: number };
+  /** Hook has accepted this price but it is not locked, because offers remain: lock it, or try for less. */
+  priceAccepted: boolean;
+  /** This is the customer's final offer. */
+  lastRound: boolean;
+  /** Halfway between the customer's best offer and Hook's price, when the gap is wide enough to be worth a step. */
+  midpoint?: { unitMinor: number; totalMinor: number; percentOff: number };
   bestOffer?: { unitMinor: number; totalMinor: number };
   locked?: {
     quoteId: string;
@@ -108,8 +115,6 @@ export interface NegotiationOfferOutcome {
     counterTotalMinor?: number;
     acceptedTotalMinor?: number;
     providerFallback: boolean;
-    /** The price was accepted but could not be locked, e.g. the email is not verified yet. */
-    lockError?: string;
   };
   flow: NegotiationFlow;
 }
