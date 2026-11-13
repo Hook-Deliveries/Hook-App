@@ -310,9 +310,7 @@ export function OfferLadder({ flow }: { flow: NegotiationFlow }) {
                     ? `Accepted ${negotiationMoney(entry.acceptedTotalMinor || entry.offerTotalMinor)}`
                     : entry.counterTotalMinor
                       ? negotiationMoney(entry.counterTotalMinor)
-                      : entry.decision === "DECLINE"
-                        ? "Too low"
-                        : "—"}
+                      : "—"}
                 </Text>
               </View>
             </View>
