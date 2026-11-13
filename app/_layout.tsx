@@ -206,6 +206,10 @@ export default function RootLayout() {
                 options={{ headerShown: false }}
               />
               <Stack.Screen
+                name="(app)/orders/receipt/[id]"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
                 name="(app)/payments/[id]"
                 options={{ headerShown: false }}
               />

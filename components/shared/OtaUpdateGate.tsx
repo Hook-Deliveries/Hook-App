@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { AppState, Pressable, Text, View } from "react-native";
-import * as Updates from "expo-updates";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { isPaymentFlowActive, onPaymentFlowChanged } from "@/lib/payment-flow";
+
+// A development build made before expo-updates was linked has no ExpoUpdates native module, and
+// importing the package then throws at startup. Load it guarded so such builds still run.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const Updates: typeof import("expo-updates") | null = (() => { try { return require("expo-updates"); } catch { return null; } })();
 
 /** Look for an update at most this often when the app comes back to the foreground. */
 const CHECK_EVERY_MS = 10 * 60_000;
@@ -14,6 +18,10 @@ const CHECK_EVERY_MS = 10 * 60_000;
  * the app is never restarted without the customer's tap. Does nothing in development, where updates are off.
  */
 export function OtaUpdateGate() {
+  return Updates ? <OtaUpdateGateInner Updates={Updates} /> : null;
+}
+
+function OtaUpdateGateInner({ Updates }: { Updates: typeof import("expo-updates") }) {
   const insets = useSafeAreaInsets();
   const { isUpdatePending } = Updates.useUpdates();
   const [dismissed, setDismissed] = useState(false);

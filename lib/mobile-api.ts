@@ -1411,7 +1411,7 @@ export function useOrderQuery(id?: string) {
 }
 
 export function useOrderReceiptQuery(id?: string) {
-  // Only exists once the order is packed; a 409 before then is expected, so no retries.
+  // Only exists once the hub has received the order; a 409 before then is expected, so no retries.
   return useQuery({
     enabled: Boolean(id),
     retry: false,
@@ -1419,6 +1419,8 @@ export function useOrderReceiptQuery(id?: string) {
     queryFn: () =>
       apiRequest<{
         receiptNumber: string;
+        order?: { publicId?: string; placedAt?: string };
+        receivedAt?: string;
         packedAt?: string;
         items: Array<{ title?: string; quantity?: number; color?: string; size?: string }>;
         courier?: { name?: string; trackingNumber?: string };

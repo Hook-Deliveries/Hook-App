@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>ITSAppUsesNonExemptEncryption</key>
-    <false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleAllowMixedLocalizations</key>
@@ -32,13 +30,20 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>hook</string>
-				<string>com.googleusercontent.apps.52666172853-jhreg8eibkeqe8sn4i9ea7qiv5jt56uc</string>
 				<string>com.biodun42.hook</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.52666172853-jhreg8eibkeqe8sn4i9ea7qiv5jt56uc</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
 	<key>LSRequiresIPhoneOS</key>
@@ -106,8 +111,8 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
+	<string>Automatic</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<false/>
+	<true/>
 </dict>
 </plist>

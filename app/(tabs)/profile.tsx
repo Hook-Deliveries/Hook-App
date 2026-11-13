@@ -3,7 +3,7 @@ import { centeredHeaderTextStyle } from "@/constants/design-tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Alert, Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Extrapolation,
@@ -20,6 +20,7 @@ import { HookConfirmSheet } from "@/components/shared/HookConfirmSheet";
 import { toast } from "@/components/shared/toast";
 import { openDeleteAccountPage } from "@/lib/account-deletion-api";
 import { openSupport } from "@/lib/support-api";
+import { rateApp } from "@/lib/rate-app";
 import { SupportPushBanner } from "@/components/shared/SupportPushBanner";
 import { ReplacementApprovalBanner } from "@/components/shared/ReplacementApprovalBanner";
 import { logout, useLocalSessionQuery } from "@/lib/auth-api";
@@ -223,7 +224,7 @@ export default function ProfileScreen() {
             >
               <ProfileRow icon="information-circle" label="App version" value={Constants.expoConfig?.version || "1.0.0"} neutral />
             </Pressable>
-            <ProfileRow icon="star" label="Rate this app" onPress={() => toast.info("Thank you", "App Store ratings will be available after release.")} neutral />
+            <ProfileRow icon="star" label={Platform.OS === "ios" ? "Rate Hook on the App Store" : "Rate Hook on Google Play"} onPress={() => void rateApp()} neutral />
           </ProfileSection>
 
           <Pressable accessibilityRole="button" onPress={() => setLogoutOpen(true)} className="mt-8 min-h-[56px] flex-row items-center justify-center rounded-[12px] border border-red-200 bg-white px-4">
