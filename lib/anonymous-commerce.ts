@@ -3,6 +3,7 @@ import * as Crypto from "expo-crypto";
 
 import type { PublicCatalogProduct } from "@/lib/mobile-api";
 import { variantSignature, type SelectedVariants } from "@/lib/variant-axes";
+import { primaryImageUrl } from "@/lib/product-media";
 
 const KEY = "hook.anonymous-commerce.v1";
 
@@ -93,7 +94,7 @@ export function addAnonymousCartItem(input: {
         quantity: Math.min(99, Math.max(1, input.quantity)),
         productSnapshot: {
           title: input.product.title,
-          imageUrl: input.product.media?.[0]?.url,
+          imageUrl: primaryImageUrl(input.product),
           effectivePriceMinor: input.product.effectivePriceMinor,
           currency: input.product.currency,
           sourceStateId: input.product.sourceState?.publicId,
@@ -133,7 +134,7 @@ export function toggleAnonymousLike(product: PublicCatalogProduct) {
         : [{
             productId: product.publicId,
             title: product.title,
-            imageUrl: product.media?.[0]?.url,
+            imageUrl: primaryImageUrl(product),
             effectivePriceMinor: product.effectivePriceMinor,
             currency: product.currency,
             updatedAt: new Date().toISOString(),
@@ -169,7 +170,7 @@ export function anonymousCartResponse(value: AnonymousCommerce, products?: Publi
         blockingReasons: checkoutEligible ? [] : ["RUNNER_CONFIRMATION_REQUIRED"],
         market: product?.market || (item.productSnapshot.marketName ? { publicId: item.productSnapshot.marketId, name: item.productSnapshot.marketName } : undefined),
         product: product
-          ? { ...product, id: product.publicId, imageUrl: product.media?.[0]?.url }
+          ? { ...product, id: product.publicId, imageUrl: primaryImageUrl(product) }
           : { id: item.productId, title: item.productSnapshot.title, imageUrl: item.productSnapshot.imageUrl },
       };
     })(),

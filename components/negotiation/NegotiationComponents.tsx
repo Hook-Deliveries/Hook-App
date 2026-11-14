@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import type { PublicCatalogProduct } from "@/lib/mobile-api";
+import { primaryImageUrl } from "@/lib/product-media";
 
 export const negotiationMoney = (minor = 0) =>
   `₦${(minor / 100).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`;
@@ -59,7 +60,7 @@ export function NegotiationProductSummary({
           className="overflow-hidden rounded-xl bg-white"
           style={{ width: 64, height: 64, flexShrink: 0 }}
         >
-          <RemoteImage uri={product?.media.find((item) => item.type === 'image' && item.url)?.url || imageUrl} contentFit="cover" />
+          <RemoteImage uri={primaryImageUrl(product) || imageUrl} contentFit="cover" />
         </Pressable>
         <View className="min-w-0 flex-1 gap-2">
           <Text numberOfLines={2} className="text-sm font-bold">

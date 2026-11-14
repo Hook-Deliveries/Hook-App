@@ -40,6 +40,7 @@ import { isCustomerSession } from "@/lib/session";
 import { designTokens, centeredHeaderTextStyle } from "@/constants/design-tokens";
 import { useCartAddAnimation } from './useCartAddAnimation';
 import { HOOK_TAB_BAR_BOTTOM_GAP, HOOK_TAB_BAR_HEIGHT } from "@/components/tab-bar/layout";
+import { primaryImageUrl } from "@/lib/product-media";
 
 const cartMoney = (minor: number) =>
   `₦${(minor / 100).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`;
@@ -171,7 +172,7 @@ export function CartScreen({
     removalLock.current = true;
     const animationSource = pendingRemoval;
     setPendingRemoval(null);
-    const flight = removalAnimation.playBetween(item.product?.imageUrl || item.product?.media?.[0]?.url || item.product?.images?.[0], animationSource?.source || null, animationSource?.target || null);
+    const flight = removalAnimation.playBetween(item.product?.imageUrl || primaryImageUrl(item.product) || item.product?.images?.[0], animationSource?.source || null, animationSource?.target || null);
     quantityQueue.current.delete(itemId);
     setPendingQuantities((current) => {
       const next = { ...current };
@@ -517,7 +518,7 @@ function CartRow({
         <RemoteImage
           uri={
             product?.imageUrl ||
-            product?.media?.[0]?.url ||
+            primaryImageUrl(product) ||
             product?.images?.[0]
           }
         />
