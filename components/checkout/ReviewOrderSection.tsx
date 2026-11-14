@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { useCartMarketProductsQuery } from "@/lib/mobile-api";
+import { primaryImageUrl } from "@/lib/product-media";
 
 function naira(minor: number) {
   return `₦${Math.round(Number(minor || 0) / 100).toLocaleString("en-NG")}`;
@@ -16,7 +17,7 @@ function lineTotalMinor(item: any) {
 function productImage(item: any) {
   return (
     item.product?.imageUrl
-    || item.product?.media?.[0]?.url
+    || primaryImageUrl(item.product)
     || item.product?.images?.[0]
     || item.productSnapshot?.image
   );

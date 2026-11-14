@@ -5,6 +5,7 @@ import { RemoteImage } from "@/components/shared/RemoteImage";
 import { resolveColor } from "@/components/marketplace/product-colors";
 import type { PublicCatalogProduct } from "@/lib/mobile-api";
 import { autoSelection, availableValues, buildAxes, choose, findVariant, nextMissingAxis, valueOf, type Selection } from "@/lib/variant-axes";
+import { primaryImageUrl } from "@/lib/product-media";
 
 type Variant = PublicCatalogProduct["variants"][number];
 
@@ -47,7 +48,7 @@ export function NegotiationOptionsSheet({
       >
         <View className="mb-5 flex-row items-center gap-3">
           <View className="h-16 w-16 overflow-hidden rounded-xl">
-            <RemoteImage uri={product.media[0]?.url} />
+            <RemoteImage uri={primaryImageUrl(product)} />
           </View>
           <View className="flex-1">
             <Text className="text-base font-bold">{product.title}</Text>

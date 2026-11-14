@@ -26,6 +26,7 @@ import {
   variantDetails,
   type Selection,
 } from "@/lib/variant-axes";
+import { primaryImageUrl } from "@/lib/product-media";
 
 const naira = (minor: number) => `₦${Math.round(minor / 100).toLocaleString("en-NG")}`;
 
@@ -77,7 +78,7 @@ export function QuickAddSheet({ product: listed, visible, onClose }: { product: 
     }
     setError(null);
     // Acknowledge the tap at once; it is reversed if the save fails.
-    void cartAnimation.playBetween(product.media?.[0]?.url, thumbRef.current, cartAnimation.cartRef.current);
+    void cartAnimation.playBetween(primaryImageUrl(product), thumbRef.current, cartAnimation.cartRef.current);
     add.mutate(
       {
         productId: product.publicId,
@@ -104,7 +105,7 @@ export function QuickAddSheet({ product: listed, visible, onClose }: { product: 
       <View ref={cartAnimation.containerRef} collapsable={false}>
       <View className="flex-row gap-3">
         <View ref={thumbRef} collapsable={false} className="h-20 w-20 overflow-hidden rounded-xl bg-[#F1F1F3]">
-          <RemoteImage uri={product.media?.[0]?.url} />
+          <RemoteImage uri={primaryImageUrl(product)} />
         </View>
         <View className="min-w-0 flex-1 justify-center">
           <Text numberOfLines={2} className="text-[15px] font-bold text-black">{product.title}</Text>

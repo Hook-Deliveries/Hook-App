@@ -7,6 +7,7 @@ import { SkeletonBlock, SkeletonGroup } from "@/components/motion/Skeleton";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { useLockedPrice, type PublicCatalogProduct, type PublicCategory, type PublicMarket } from "@/lib/mobile-api";
 import { displayPrice } from "@/lib/locked-prices";
+import { primaryImageUrl } from "@/lib/product-media";
 
 type Props = {
   visible: boolean;
@@ -149,7 +150,7 @@ export function HomeSearchOverlay({ visible, query, loading, markets, products, 
                 <Heading>Products</Heading>
                 {products.map((product) => (
                   <Row key={product.publicId} onPress={() => openProduct(product)}>
-                    <View className="h-10 w-10 overflow-hidden rounded-[10px] bg-[#F1F1F3]"><RemoteImage uri={product.media?.[0]?.url} /></View>
+                    <View className="h-10 w-10 overflow-hidden rounded-[10px] bg-[#F1F1F3]"><RemoteImage uri={primaryImageUrl(product)} /></View>
                     <View className="min-w-0 flex-1">
                       <Text numberOfLines={1} className="text-[14px] font-bold text-black">{product.title}</Text>
                       <Text numberOfLines={1} className="mt-0.5 text-[11px] text-black/45">{[product.category?.name, product.market?.name].filter(Boolean).join(" · ")}</Text>

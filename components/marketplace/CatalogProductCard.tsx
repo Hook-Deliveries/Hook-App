@@ -16,6 +16,7 @@ import {
   useToggleProductLikeMutation,
   type PublicCatalogProduct,
 } from "@/lib/mobile-api";
+import { primaryImageUrl } from "@/lib/product-media";
 
 export function CatalogProductCard({
   product,
@@ -73,7 +74,7 @@ export function CatalogProductCard({
       >
         <View className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[11px] bg-[#FAFAFA]">
           <View className={unavailable ? "flex-1 opacity-50" : "flex-1"}>
-            <RemoteImage uri={product.media?.[0]?.url} />
+            <RemoteImage uri={primaryImageUrl(product)} />
           </View>
         </View>
         <View className="min-w-0 flex-1 justify-center px-3">
@@ -117,7 +118,7 @@ export function CatalogProductCard({
         }`}
       >
         <View className={unavailable ? "flex-1 opacity-50" : "flex-1"}>
-          <RemoteImage uri={product.media?.[0]?.url} />
+          <RemoteImage uri={primaryImageUrl(product)} />
         </View>
         {unavailable ? (
           <View className="absolute bottom-2 left-2 rounded-full bg-black px-2.5 py-1.5">

@@ -20,6 +20,7 @@ import {
   setAnonymousCartQuantity,
   toggleAnonymousLike,
 } from "@/lib/anonymous-commerce";
+import { orderedMedia } from "@/lib/product-media";
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
@@ -29,6 +30,8 @@ export interface PublicCatalogMedia {
   width: number;
   height: number;
   alt: string;
+  /** Place in the product's gallery, 0 = primary. Sort by this rather than relying on array order. */
+  position?: number;
 }
 
 export type SizingGuide = {
@@ -785,7 +788,7 @@ function provisionalCartItem(input: AddCartItemInput) {
   const unitPriceMinor = Number(product.effectivePriceMinor || 0);
   const optimisticId = `optimistic-${product.publicId}-${variantKey}`;
   const quantity = Math.max(Number(input.quantity) || 1, 1);
-  const images = (product.media || [])
+  const images = orderedMedia(product.media)
     .map((asset) => asset.url)
     .filter(Boolean);
 

@@ -50,6 +50,7 @@ import {
   type PublicCatalogProduct,
 } from "@/lib/mobile-api";
 import { autoSelection, availableValues, buildAxes, choose, findVariant, nextMissingAxis, valueOf, variantDetails, type Selection } from "@/lib/variant-axes";
+import { orderedMedia } from "@/lib/product-media";
 
 export default function ProductDetailScreen() {
   const { id, returnTo } = useLocalSearchParams<{
@@ -153,7 +154,8 @@ export default function ProductDetailScreen() {
   const loadMoreSuggestions = () => {
     if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage();
   };
-  const images = product?.media?.length ? product.media : [{ url: "" }];
+  const photos = orderedMedia(product?.media);
+  const images = photos.length ? photos : [{ url: "" }];
   const heroHeight = Math.min(Math.max(width * 1.1, 380), 460);
   const isLiked = Boolean(
     product && likes.data?.productIds.includes(product.publicId),

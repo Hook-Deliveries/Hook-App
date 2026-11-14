@@ -13,6 +13,7 @@ import { getHookTabBarContentInset } from "@/components/tab-bar/layout";
 import { useLockedPricesQuery, useNegotiationsQuery, useProductQuery } from "@/lib/mobile-api";
 import type { LockedPrice } from "@/lib/negotiation-types";
 import { isNegotiationActive } from "@/lib/negotiations";
+import { primaryImageUrl } from "@/lib/product-media";
 
 type OfferRow = {
   negotiationId: string;
@@ -78,7 +79,7 @@ function LockedPriceCard({ price, now }: { price: LockedPrice; now: number }) {
       className="mx-4 mb-3 rounded-[22px] bg-white p-4 active:opacity-90"
     >
       <View className="flex-row items-center gap-3">
-        <Thumb uri={product?.media?.find((item) => item.type === "image" && item.url)?.url} />
+        <Thumb uri={primaryImageUrl(product)} />
         <View className="min-w-0 flex-1">
           <View className="flex-row items-center gap-1.5">
             <Ionicons name="lock-closed" size={12} color="#287B35" />
