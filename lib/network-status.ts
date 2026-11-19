@@ -33,6 +33,7 @@ type NetInfoState = import("@react-native-community/netinfo").NetInfoState;
 // the request-based checks below keep working on their own.
 let netInfo: NetInfoModule["default"] | null = null;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded lazily so a missing native module never crashes the app
   netInfo = require("@react-native-community/netinfo").default;
 } catch {
   netInfo = null;
