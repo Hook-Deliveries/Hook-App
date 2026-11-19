@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import * as Crypto from "expo-crypto";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, Text, View } from "react-native";
+import { Keyboard, Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { FadeIn, useReducedMotion } from "react-native-reanimated";
 import { KeyboardStickyView, useKeyboardState } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -447,7 +447,7 @@ function Action({
         tone === "primary" ? "bg-hook" : "border border-black/15 bg-white"
       } ${off && !busy ? "opacity-40" : ""}`}
     >
-      {busy ? <ActivityIndicator color="#111" /> : icon ? <Ionicons name={icon} size={18} color="#111" /> : null}
+      {busy ? <HookLoader size="button" variant="dark" /> : icon ? <Ionicons name={icon} size={18} color="#111" /> : null}
       <Text className="text-[15px] font-bold">{label}</Text>
     </Pressable>
   );

@@ -251,8 +251,11 @@ export default function ProfileScreen() {
       <HookConfirmSheet
         visible={logoutOpen}
         title="Log out of Hook?"
-        message="You can sign back in anytime. This ends the current session on this device."
+        message="You can sign back in anytime. This only ends your session on this device."
         confirmLabel="Log out"
+        cancelLabel="Stay signed in"
+        icon="log-out-outline"
+        detail={session?.user.email}
         destructive
         busy={logoutBusy}
         onClose={() => { if (!logoutBusy) setLogoutOpen(false); }}

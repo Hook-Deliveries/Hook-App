@@ -6,6 +6,8 @@ import { colorName } from "@/lib/color-name";
 export type ParcelReceiptInput = {
   receiptNumber: string;
   orderId: string;
+  /** What the QR code opens (the public tracking page). Falls back to a plain reference for older receipts. */
+  scanUrl?: string;
   receivedAt?: string;
   placedAt?: string;
   recipient: { name?: string; phone?: string; address?: string };
@@ -117,7 +119,7 @@ export function parcelReceiptHtml(data: ParcelReceiptInput) {
   </style></head><body>
     <div class="hd"><div><div class="logo">hook<i>.</i></div><p class="sub">Parcel receipt</p></div><div class="rn"><p>Receipt no.</p><p class="mono">${esc(data.receiptNumber)}</p></div></div>
     <div class="bd">
-      <div class="top"><div><p class="k">Order</p><p class="oid mono">${esc(data.orderId)}</p></div><div class="qr">${qrSvg(["HOOK", data.receiptNumber, data.orderId].join("|"), 84)}<p>Scan to verify</p></div></div>
+      <div class="top"><div><p class="k">Order</p><p class="oid mono">${esc(data.orderId)}</p></div><div class="qr">${qrSvg(data.scanUrl || ["HOOK", data.receiptNumber, data.orderId].join("|"), 84)}<p>Scan to track</p></div></div>
       <div class="to"><p class="k">Deliver to</p><p class="n">${esc(data.recipient.name || "Customer")}</p>${data.recipient.phone ? `<p class="p">${esc(data.recipient.phone)}</p>` : ""}<p class="a">${esc(data.recipient.address || "Address on file")}</p></div>
       <div class="grid">${field("Courier", data.courier?.name)}${field("Tracking", tracking)}${field("Received at hub", fmt(data.receivedAt))}${field("Payment", data.paymentLabel || "Prepaid")}${field("Order placed", fmt(data.placedAt))}${field("Items", `${units} unit${units === 1 ? "" : "s"}`)}</div>
       <div><div class="ch"><p class="k">Contents</p><span>${units} unit${units === 1 ? "" : "s"}</span></div><ul>${items}</ul></div>

@@ -5,7 +5,6 @@ import { router } from "expo-router";
 import { ClearableInput } from "@/components/shared/ClearableInput";
 import { forwardRef, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -136,7 +135,7 @@ export default function EditProfileScreen() {
           <View className="relative rounded-full bg-hook p-[3px]">
             <ProfileAvatar name={name} uri={form.avatarUrl} size={88} />
             <Pressable accessibilityLabel="Choose profile photo" accessibilityRole="button" disabled={photoBusy} onPress={() => void choosePhoto()} className="absolute -bottom-1 -right-1 h-9 w-9 items-center justify-center rounded-full border-[3px] border-[#FFF4C7] bg-black">
-              {photoBusy ? <ActivityIndicator size="small" color="#FFC809" /> : <Ionicons name="camera" size={16} color="#FFC809" />}
+              {photoBusy ? <HookLoader size="button" variant="yellow" /> : <Ionicons name="camera" size={16} color="#FFC809" />}
             </Pressable>
           </View>
           <Text className="mt-4 text-[17px] font-black text-black">Your profile photo</Text>

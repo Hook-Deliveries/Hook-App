@@ -1,4 +1,6 @@
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
+
+import { HookLoader } from "@/components/shared/HookLoader";
 
 type HookRefreshIndicatorProps = {
   visible: boolean;
@@ -25,11 +27,11 @@ export function HookRefreshIndicator({
     >
       <View
         style={{
-          width: 34,
-          height: 34,
+          width: 40,
+          height: 40,
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: 17,
+          borderRadius: 20,
           backgroundColor: "#FFFFFF",
           shadowColor: "#111111",
           shadowOffset: { width: 0, height: 3 },
@@ -37,7 +39,7 @@ export function HookRefreshIndicator({
           shadowRadius: 8,
         }}
       >
-        <ActivityIndicator size="small" color="#FFC809" />
+        <HookLoader size="inline" variant="dark" />
       </View>
     </View>
   );

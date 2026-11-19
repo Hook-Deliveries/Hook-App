@@ -16,3 +16,10 @@ export const HELP_URL = webUrl("/help");
 
 /** Where a customer can request or cancel account deletion without the app. */
 export const DELETE_ACCOUNT_URL = webUrl("/delete-account");
+
+/** The shop website (orders, payments and public parcel tracking live here, not on the help/legal site). */
+export const SHOP_URL = (process.env.EXPO_PUBLIC_SHOP_URL || "https://shop.hook.africa").trim().replace(/\/+$/, "");
+
+/** What a receipt's QR code opens: the parcel's public tracking page. Signed, so it cannot be guessed. */
+export const parcelTrackingUrl = (receiptNumber: string, signature?: string) =>
+  `${SHOP_URL}/track/${encodeURIComponent(receiptNumber)}${signature ? `?s=${encodeURIComponent(signature)}` : ""}`;

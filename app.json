@@ -84,6 +84,14 @@
           "iosUrlScheme": "com.googleusercontent.apps.52666172853-jhreg8eibkeqe8sn4i9ea7qiv5jt56uc"
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Hook needs access to your photo library so you can choose a picture to use as your profile photo. For example, when you tap Edit Profile and select Change Photo, you can pick an image from your library to upload as your avatar. Hook only accesses the photo you select.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-image",
       "expo-web-browser"
     ],

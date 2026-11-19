@@ -1,5 +1,5 @@
 import { addressHandoff } from "@/lib/address-handoff";
-import { deliveryEstimateFor } from "@/lib/delivery-estimate";
+import { deliveryEstimateFor, deliveryPhrase, firstDeliveryEstimate } from "@/lib/delivery-estimate";
 import { ClearableInput } from "@/components/shared/ClearableInput";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
@@ -117,6 +117,9 @@ export default function CheckoutScreen() {
   const stateDeliveryFeeMinor = Number(addressState?.deliveryFeeMinor ?? DEFAULT_DELIVERY_FEE_MINOR);
   const cartItems = getCartItems(cart.data);
   const providers = logistics.data || [];
+  // Before a courier is chosen, tell the customer how long delivery to the address they picked usually takes.
+  // Once one is chosen, its own message shows on the courier row.
+  const deliveryHint = selectedAddress && !provider ? firstDeliveryEstimate(providers, addressState) : undefined;
   // VAT is an admin setting and can be switched off entirely.
   const vatRate = config.data?.vatEnabled === false ? 0 : Number(config.data?.vatRatePercent ?? 7.5) / 100;
 
@@ -391,6 +394,14 @@ export default function CheckoutScreen() {
             value={addressLabel}
             onPress={() => setSheet("address")}
           />
+          {deliveryHint ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 4 }}>
+              <Ionicons name="time-outline" size={14} color="#1f8a4c" />
+              <Text style={{ flex: 1, fontSize: 12.5, fontFamily: "NunitoSans-Bold", color: "#1f8a4c" }}>
+                {deliveryPhrase(deliveryHint)}{addressState?.name ? ` · ${addressState.name}` : ""}
+              </Text>
+            </View>
+          ) : null}
           <CheckoutRow
             placeholder={logistics.isError ? "Couldn’t load logistics · Tap to retry" : "Choose logistics"}
             value={provider?.name}

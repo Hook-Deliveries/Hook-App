@@ -1422,6 +1422,7 @@ export function useOrderReceiptQuery(id?: string) {
     queryFn: () =>
       apiRequest<{
         receiptNumber: string;
+        trackingSig?: string;
         order?: { publicId?: string; placedAt?: string };
         receivedAt?: string;
         packedAt?: string;

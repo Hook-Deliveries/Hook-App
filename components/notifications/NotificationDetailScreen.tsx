@@ -8,6 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import bellIcon from '@/assets/images/notification/bell.png';
 import { toast } from '@/components/shared/toast';
 import { HookLoader } from '@/components/shared/HookLoader';
+import { Button } from '@/components/ui/button';
+import { apiRequest } from '@/lib/api';
+import { routeForPush, type PushData } from '@/lib/push-routes';
 import {
   useDeleteNotificationMutation,
   useMarkNotificationReadMutation,
@@ -48,12 +51,71 @@ function relativeWhen(iso?: string) {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
-function prettyKey(key: string) {
-  return key
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/[_-]/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
-    .trim();
+/**
+ * Only facts a customer cares about are ever shown, picked from the push payload by name. Everything
+ * else in it (ids, urls, screen and routing fields, tokens) is for the app, never for the screen, so a
+ * new field the backend adds stays hidden until it is deliberately listed here.
+ */
+const HIGHLIGHTS: { label: string; keys: string[] }[] = [
+  { label: 'Product', keys: ['productName', 'productTitle', 'title'] },
+  { label: 'Order', keys: ['orderNumber', 'orderCode', 'receiptCode', 'receipt', 'reference'] },
+  { label: 'Price', keys: ['price', 'amount', 'total'] },
+  { label: 'Market', keys: ['marketName'] },
+  { label: 'State', keys: ['stateName'] },
+  { label: 'Status', keys: ['status'] },
+  { label: 'Delivery', keys: ['deliveryDate', 'eta'] },
+];
+
+const MAX_VALUE_LENGTH = 48;
+
+function highlightsFrom(data: Record<string, unknown> | undefined, notificationTitle: string) {
+  if (!data) return [];
+  const rows: { label: string; value: string }[] = [];
+  for (const { label, keys } of HIGHLIGHTS) {
+    const raw = keys.map((key) => data[key]).find((value) => value !== undefined && value !== null && value !== '');
+    if (raw === undefined) continue;
+    let value: string | undefined;
+    if (typeof raw === 'number' && label === 'Price') value = `₦${raw.toLocaleString('en-NG')}`;
+    else if (typeof raw === 'string' || typeof raw === 'number') value = String(raw).trim();
+    // A product name that only repeats the notification's own headline adds nothing.
+    if (!value || value.length > MAX_VALUE_LENGTH || (label === 'Product' && value === notificationTitle)) continue;
+    rows.push({ label, value });
+  }
+  return rows;
+}
+
+/** A product photo to show on the card, when the push carried one. */
+function imageFrom(data: Record<string, unknown> | undefined) {
+  const url = data?.imageUrl ?? data?.image;
+  return typeof url === 'string' && /^https:\/\//i.test(url) ? url : undefined;
+}
+
+const ACTION_LABEL: Record<string, string> = {
+  product: 'View product',
+  order: 'View order',
+  orders: 'View orders',
+  cart: 'Go to cart',
+  checkout: 'Continue to checkout',
+  shop: 'Browse shop',
+  market: 'Visit market',
+  states: 'Choose a state',
+  credits: 'View credits',
+  referrals: 'Invite friends',
+  negotiation: 'Make an offer',
+  addresses: 'Manage addresses',
+  devices: 'Manage devices',
+  security: 'Review security',
+  home: 'Open Hook',
+};
+
+/** Where this notification leads, resolved the same way a tap on the push itself would. Null when it leads nowhere new. */
+function actionFor(item: HookNotification) {
+  const data = { ...(item.data ?? {}), type: item.type } as PushData;
+  const route = routeForPush(data);
+  if (route === '/notifications') return null;
+  const screen = typeof data.screen === 'string' ? data.screen : undefined;
+  const label = (screen && ACTION_LABEL[screen]) || (data.orderId ? 'View order' : 'Open Hook');
+  return { route, label };
 }
 
 export default function NotificationDetailScreen() {
@@ -97,10 +159,17 @@ export default function NotificationDetailScreen() {
     }
   }
 
-  // Extra payload entries worth showing (order codes, refs — primitives only)
-  const dataEntries = Object.entries(item?.data ?? {}).filter(
-    ([, value]) => ['string', 'number', 'boolean'].includes(typeof value),
-  );
+  const highlights = highlightsFrom(item?.data, item?.title ?? '');
+  const heroImage = imageFrom(item?.data);
+  const action = item ? actionFor(item) : null;
+
+  function handleOpenAction() {
+    if (!action) return;
+    // Tell Hook this one was acted on (best effort), close the sheet, then open its screen.
+    if (id) void apiRequest(`/notifications/${id}/opened`, { method: 'POST' }).catch(() => undefined);
+    router.dismiss();
+    router.push(action.route as never);
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f1f1f3' }}>
@@ -210,6 +279,15 @@ export default function NotificationDetailScreen() {
               </View>
             </View>
 
+            {heroImage ? (
+              <Image
+                accessibilityIgnoresInvertColors
+                source={{ uri: heroImage }}
+                resizeMode="cover"
+                style={{ backgroundColor: '#f1f1f3', borderRadius: 16, height: 190, marginTop: 18, width: '100%' }}
+              />
+            ) : null}
+
             {/* Title + body */}
             <Text style={{ color: '#000', fontSize: 22, fontWeight: '900', lineHeight: 28, marginTop: 20 }}>
               {item.title}
@@ -234,8 +312,20 @@ export default function NotificationDetailScreen() {
             </View>
           </View>
 
-          {/* Extra details from the payload, when present */}
-          {dataEntries.length > 0 ? (
+          {/* The one thing to do next, straight under the message */}
+          {action ? (
+            <Button
+              accessibilityLabel={action.label}
+              variant="primary"
+              onPress={handleOpenAction}
+              className="mt-4 h-[54px] flex-row gap-2">
+              <Text style={{ color: '#111', fontSize: 15, fontWeight: '900' }}>{action.label}</Text>
+              <Ionicons name="arrow-forward" size={18} color="#111" />
+            </Button>
+          ) : null}
+
+          {/* The facts that matter to the customer, when the notification carries any */}
+          {highlights.length > 0 ? (
             <View
               style={{
                 backgroundColor: '#fff',
@@ -247,13 +337,23 @@ export default function NotificationDetailScreen() {
                 shadowOpacity: 0.04,
                 shadowRadius: 12,
               }}>
-              <Text style={{ color: '#000', fontSize: 14, fontWeight: '800', marginBottom: 10 }}>Details</Text>
-              <View style={{ gap: 10 }}>
-                {dataEntries.map(([key, value]) => (
-                  <View key={key} style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-                    <Text style={{ color: '#8a8a8a', fontSize: 13 }}>{prettyKey(key)}</Text>
-                    <Text numberOfLines={1} style={{ color: '#111', flexShrink: 1, fontSize: 13, fontWeight: '700' }}>
-                      {String(value)}
+              <Text style={{ color: '#000', fontSize: 14, fontWeight: '800', marginBottom: 12 }}>Details</Text>
+              <View>
+                {highlights.map(({ label, value }, index) => (
+                  <View
+                    key={label}
+                    style={{
+                      alignItems: 'center',
+                      borderTopColor: '#f1f1f3',
+                      borderTopWidth: index === 0 ? 0 : 1,
+                      flexDirection: 'row',
+                      gap: 12,
+                      justifyContent: 'space-between',
+                      paddingVertical: 11,
+                    }}>
+                    <Text style={{ color: '#8a8a8a', fontSize: 13 }}>{label}</Text>
+                    <Text numberOfLines={1} style={{ color: '#111', flexShrink: 1, fontSize: 14, fontWeight: '700' }}>
+                      {value}
                     </Text>
                   </View>
                 ))}

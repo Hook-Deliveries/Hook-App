@@ -16,3 +16,18 @@ export function deliveryEstimateFor(provider: Pick<LogisticsProvider, "deliveryE
   }
   return provider.defaultEstimate?.trim() || undefined;
 }
+
+/** The first courier message that applies to this State, for when the customer has not picked a courier yet. */
+export function firstDeliveryEstimate(providers: Array<Pick<LogisticsProvider, "deliveryEstimates" | "defaultEstimate">>, state: StateRef): string | undefined {
+  return providers.map((provider) => deliveryEstimateFor(provider, state)).find(Boolean);
+}
+
+/**
+ * Admins write the message as they like: a full sentence ("Delivers in 2 to 5 days") or just the time ("24 to 48 hours").
+ * A full sentence is shown as written; a bare time gets a lead-in so it never reads as a fragment, and the two are
+ * never stacked into "Arrives in Delivers in 2 to 5 days".
+ */
+export function deliveryPhrase(message: string): string {
+  const text = message.trim();
+  return /^(usually|typically|delivers?|delivered|arrives?|arriving|expect|within|ready|same|next)\b/i.test(text) ? text : `Usually arrives in ${text}`;
+}

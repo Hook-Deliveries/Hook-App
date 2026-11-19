@@ -71,8 +71,8 @@ export function ParcelReceiptCard(data: ParcelReceiptInput) {
             <Text style={{ marginTop: 2, fontSize: 19, fontWeight: "900", fontFamily: MONO, color: INK }} numberOfLines={1} adjustsFontSizeToFit>{data.orderId || "—"}</Text>
           </View>
           <View style={{ alignItems: "center" }}>
-            <Qr value={["HOOK", data.receiptNumber, data.orderId].join("|")} size={84} />
-            <Text style={{ marginTop: 4, fontSize: 8, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: MUTED }}>Scan to verify</Text>
+            <Qr value={data.scanUrl || ["HOOK", data.receiptNumber, data.orderId].join("|")} size={84} />
+            <Text style={{ marginTop: 4, fontSize: 8, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: MUTED }}>Scan to track</Text>
           </View>
         </View>
 

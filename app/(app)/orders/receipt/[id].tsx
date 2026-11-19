@@ -13,6 +13,7 @@ import { ParcelReceiptCard } from "@/components/orders/ParcelReceiptCard";
 import { openFezTracking } from "@/lib/fez-tracking";
 import { parcelReceiptHtml } from "@/lib/receipt-html";
 import { useOrderQuery, useOrderReceiptQuery } from "@/lib/mobile-api";
+import { parcelTrackingUrl } from "@/lib/web-links";
 
 const money = (minor?: number) => `₦${(Number(minor || 0) / 100).toLocaleString("en-NG")}`;
 const date = (value?: string) => (value ? new Date(value).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : "—");
@@ -43,6 +44,7 @@ export default function OrderReceiptScreen() {
     return parcelReceiptHtml({
       receiptNumber: receipt!.receiptNumber,
       orderId: receipt!.order?.publicId || order?.displayNumber || "",
+      scanUrl: parcelTrackingUrl(receipt!.receiptNumber, receipt!.trackingSig),
       receivedAt: receipt!.receivedAt || receipt!.packedAt,
       placedAt: order?.createdAt,
       recipient: { name: order?.address?.recipientName, phone: order?.address?.phone, address: order?.address?.formattedAddress },
@@ -117,6 +119,7 @@ export default function OrderReceiptScreen() {
             <ParcelReceiptCard
               receiptNumber={receipt.receiptNumber}
               orderId={receipt.order?.publicId || ""}
+              scanUrl={parcelTrackingUrl(receipt.receiptNumber, receipt.trackingSig)}
               receivedAt={receipt.receivedAt || receipt.packedAt}
               placedAt={order?.createdAt}
               recipient={{ name: order?.address?.recipientName, phone: order?.address?.phone, address: order?.address?.formattedAddress }}
